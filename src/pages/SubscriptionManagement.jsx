@@ -41,7 +41,7 @@ export default function SubscriptionManagement() {
 
   // توليد رمز دفع
   const [codeModal, setCodeModal]         = useState(false);
-  const [codeForm, setCodeForm]           = useState({ plan: 'pro', months: 1, amount: 199 });
+  const [codeForm, setCodeForm]           = useState({ plan: 'premium', months: 1, amount: 99 });
   const [generatingCode, setGeneratingCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
 
@@ -447,9 +447,10 @@ export default function SubscriptionManagement() {
                 <label className="text-sm font-medium block mb-1.5">الخطة</label>
                 <select value={codeForm.plan} onChange={e => setCodeForm(f => ({ ...f, plan: e.target.value }))}
                   className="w-full h-10 bg-muted/50 border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
-                  <option value="starter">المبتدئ (99 ر.س/شهر)</option>
-                  <option value="pro">الاحترافي (199 ر.س/شهر)</option>
-                  <option value="enterprise">المؤسسي (499 ر.س/شهر)</option>
+                  <option value="basic">العادية (45 ر.س/شهر)</option>
+                  <option value="premium">المميزة (99 ر.س/شهر)</option>
+                  <option value="business">الأعمال (145 ر.س/شهر)</option>
+                  <option value="custom">مخصصة (سعر متفق عليه)</option>
                 </select>
               </div>
               <div>
