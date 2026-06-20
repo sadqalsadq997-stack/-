@@ -23,8 +23,27 @@ const PLANS = [
     period: 'شهر',
     icon: '🚀',
     popular: true,
-    features: ['فروع متعددة (غير محدود)', 'كاشير متعدد (غير محدود)', 'مساعد الذكاء الاصطناعي', 'شاشة الطلب الذاتي (Kiosk)', 'جهاز الباجر (Pager)', 'طلبات الدليفري', 'تحليلات متقدمة', 'دعم ذهبي مميز'],
+    features: ['فروع متعددة', 'كاشير متعدد (غير محدود)', 'مساعد الذكاء الاصطناعي', 'شاشة الطلب الذاتي (Kiosk)', 'جهاز الباجر (Pager)', 'طلبات الدليفري', 'تحليلات متقدمة', 'دعم ذهبي'],
     color: 'from-violet-500 to-purple-700',
+  },
+  {
+    id: 'business',
+    name: 'باقة الأعمال',
+    price: 145,
+    period: 'شهر',
+    icon: '🏢',
+    features: ['كل مميزات الباقة المميزة', 'عدد فروع أعلى', 'دعم أولوية على مدار الساعة (24/7)', 'تقارير وتحليلات متقدمة أكثر'],
+    color: 'from-amber-500 to-orange-600',
+  },
+  {
+    id: 'custom',
+    name: 'باقة مخصصة',
+    price: null,
+    period: null,
+    icon: '✨',
+    features: ['فروع غير محدودة', 'تخصيص كامل حسب احتياجك', 'مدير حساب مخصص', 'تواصل معنا للتسعير'],
+    color: 'from-slate-600 to-slate-800',
+    contactOnly: true,
   },
 ];
 
@@ -200,7 +219,7 @@ export default function PaymentGate({ children, onPaymentVerified }) {
         </div>
 
         {/* خطط الاشتراك */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {PLANS.map(plan => (
             <button
               key={plan.id}
@@ -221,8 +240,14 @@ export default function PaymentGate({ children, onPaymentVerified }) {
               <div className="text-3xl mb-3">{plan.icon}</div>
               <h3 className="text-white font-bold text-lg mb-1">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-4">
-                <span className="text-3xl font-black text-white">{plan.price}</span>
-                <span className="text-slate-400 text-sm">ر.س / {plan.period}</span>
+                {plan.price !== null ? (
+                  <>
+                    <span className="text-3xl font-black text-white">{plan.price}</span>
+                    <span className="text-slate-400 text-sm">ر.س / {plan.period}</span>
+                  </>
+                ) : (
+                  <span className="text-xl font-bold text-white">تواصل معنا</span>
+                )}
               </div>
               <ul className="space-y-1.5">
                 {plan.features.map((f, i) => (
@@ -237,6 +262,24 @@ export default function PaymentGate({ children, onPaymentVerified }) {
         </div>
 
         {/* بوابة إدخال رمز الدفع */}
+        {PLANS.find(p => p.id === selectedPlan)?.contactOnly ? (
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 max-w-lg mx-auto text-center">
+            <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Star className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-white font-bold text-xl mb-2">الباقة المخصصة</h2>
+            <p className="text-slate-400 text-sm mb-5">
+              تواصل معنا مباشرة لتحديد المميزات والسعر المناسب لحجم أعمالك
+            </p>
+            <a
+              href="https://wa.me/966500000000"
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 w-full h-12 bg-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-all"
+            >
+              تواصل معنا على واتساب
+            </a>
+          </div>
+        ) : (
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 max-w-lg mx-auto">
           <div className="text-center mb-6">
             <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -306,6 +349,7 @@ export default function PaymentGate({ children, onPaymentVerified }) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
