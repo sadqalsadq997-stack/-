@@ -1,0 +1,370 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&family=Noto+Sans+Arabic:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-tajawal: 'Tajawal', sans-serif;
+    --background: 0 0% 97%;
+    --foreground: 220 15% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 10%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 10% 94%;
+    --secondary-foreground: 220 10% 25%;
+    --muted: 220 8% 93%;
+    --muted-foreground: 220 8% 50%;
+    --accent: 0 72% 51%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 0 72% 51%;
+    --radius: 1rem;
+    --gold: 38 95% 52%;
+    --gold-light: 42 100% 65%;
+    --gold-dark: 34 90% 38%;
+    --emerald: 158 60% 38%;
+    --ruby: 0 72% 51%;
+    --chart-1: 0 72% 51%;
+    --chart-2: 158 60% 38%;
+    --chart-3: 38 95% 52%;
+    --chart-4: 220 70% 55%;
+    --chart-5: 280 55% 55%;
+    --sidebar-background: 222 47% 10%;
+    --sidebar-ring: 0 72% 51%;
+    --sidebar-foreground: 210 20% 88%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 25% 15%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 20% 16%;
+  }
+
+  .dark {
+    --background: 222 25% 8%;
+    --foreground: 210 20% 92%;
+    --card: 222 25% 11%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 25% 11%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 0 72% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 20% 16%;
+    --secondary-foreground: 210 15% 85%;
+    --muted: 222 20% 16%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 0 72% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 18% 20%;
+    --input: 222 18% 20%;
+    --ring: 0 72% 55%;
+    --sidebar-background: 222 30% 6%;
+    --sidebar-ring: 0 72% 55%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 0 72% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 25% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 222 20% 14%;
+    --gold: 38 95% 55%;
+    --gold-light: 42 100% 68%;
+    --gold-dark: 34 90% 42%;
+    --emerald: 158 65% 45%;
+    --ruby: 0 72% 58%;
+    --chart-1: 0 72% 55%;
+    --chart-2: 158 65% 45%;
+    --chart-3: 38 95% 55%;
+    --chart-4: 220 70% 60%;
+    --chart-5: 280 55% 60%;
+  }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  *, *::before, *::after { font-family: 'Tajawal', sans-serif !important; }
+  body {
+    @apply bg-background text-foreground;
+    direction: rtl;
+    font-family: 'Tajawal', sans-serif !important;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* iOS-style smooth scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  input, button, select, textarea {
+    font-family: 'Tajawal', sans-serif !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   iPhone-style Glass Cards
+═══════════════════════════════════════ */
+.glass-card {
+  background: hsl(var(--card) / 0.85);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid hsl(var(--border) / 0.6);
+  box-shadow:
+    0 1px 3px hsl(0 0% 0% / 0.06),
+    0 4px 16px hsl(0 0% 0% / 0.06),
+    inset 0 1px 0 hsl(0 0% 100% / 0.5);
+}
+.dark .glass-card {
+  background: hsl(var(--card) / 0.75);
+  box-shadow:
+    0 1px 3px hsl(0 0% 0% / 0.3),
+    0 4px 24px hsl(0 0% 0% / 0.25),
+    inset 0 1px 0 hsl(0 0% 100% / 0.06);
+}
+
+/* ═══════════════════════════════════════
+   3D Press Effect — iOS tap feel
+═══════════════════════════════════════ */
+.press-3d {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  will-change: transform;
+}
+.press-3d:active {
+  transform: scale(0.96) translateY(1px);
+  box-shadow: 0 1px 4px hsl(0 0% 0% / 0.15) !important;
+}
+
+/* ═══════════════════════════════════════
+   Product Cards — 3D hover lift
+═══════════════════════════════════════ */
+.product-card {
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+  will-change: transform;
+}
+.product-card:hover {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: 0 8px 24px hsl(var(--primary) / 0.18);
+}
+.product-card:active {
+  transform: scale(0.96) translateY(1px);
+}
+
+/* ═══════════════════════════════════════
+   Sidebar Glass
+═══════════════════════════════════════ */
+.sidebar-glass {
+  background: hsl(var(--sidebar-background) / 0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ═══════════════════════════════════════
+   Scrollbar
+═══════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+
+/* ═══════════════════════════════════════
+   Animations
+═══════════════════════════════════════ */
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: fadeSlide 0.22s ease forwards; }
+
+@keyframes pinBounce {
+  0%,100% { transform: scale(1); }
+  50%      { transform: scale(0.90); }
+}
+.pin-key:active { animation: pinBounce 0.13s ease; }
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--primary)/0.4); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 10px hsl(var(--primary)/0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--primary)/0); }
+}
+.pulse-ring { animation: pulse-ring 2s infinite; }
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground)/0.1) 50%,
+    hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+}
+
+/* ═══════════════════════════════════════
+   SAR Symbol
+═══════════════════════════════════════ */
+/* رمز الريال U+FDFC — Noto Sans Arabic fallback لضمان العرض الصحيح */
+.sar-symbol::after { content: '\FDFC'; font-family: 'Tajawal', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
+.sar { font-family: 'Tajawal', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
+
+/* إصلاح عرض رمز ﷼ في كل مكان */
+:root { --font-sar: 'Tajawal', 'Noto Sans Arabic', 'Arial Unicode MS', sans-serif; }
+
+/* ═══════════════════════════════════════
+   Touch-friendly tap highlight
+═══════════════════════════════════════ */
+* { -webkit-tap-highlight-color: transparent; }
+button, [role="button"] { touch-action: manipulation; }
+
+/* ═══════════════════════════════════════
+   Unicode U+FDFC ﷼ — Force Noto Arabic
+═══════════════════════════════════════ */
+@font-face {
+  font-family: 'SARSymbol';
+  src: url('https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfly_ufnI.woff2') format('woff2');
+  unicode-range: U+FDFC, U+FDF0-FDFF;
+  font-display: swap;
+}
+
+/* تطبيق الفونت على كل عناصر تحتوي ﷼ */
+body {
+  font-family: 'SARSymbol', 'Tajawal', 'Noto Sans Arabic', sans-serif !important;
+}
+
+/* ═══════════════════════════════════════
+   انيميشنات إضافية v6
+═══════════════════════════════════════ */
+
+/* دخول الصفحة */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* انيميشن البطاقات */
+.card-enter {
+  animation: scaleIn 0.2s ease forwards;
+}
+.slide-up {
+  animation: slideInUp 0.25s ease forwards;
+}
+.slide-right {
+  animation: slideInRight 0.25s ease forwards;
+}
+
+/* تأخير الانيميشن للعناصر المتسلسلة */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+
+/* hover effects */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px hsl(var(--foreground)/0.08);
+}
+
+/* انيميشن الضغط */
+.press-3d:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* تموج عند الضغط */
+@keyframes ripple {
+  from { transform: scale(0); opacity: 0.4; }
+  to   { transform: scale(2); opacity: 0; }
+}
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-effect::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  background: hsl(var(--primary)/0.3);
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+}
+.ripple-effect:active::after {
+  animation: ripple 0.4s ease;
+}
+
+/* مؤشر تحميل نبض */
+@keyframes loadPulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.95); }
+  50%       { opacity: 1; transform: scale(1.05); }
+}
+.loading-pulse {
+  animation: loadPulse 1.5s ease-in-out infinite;
+}
+
+/* انيميشن شاشة الدفع */
+@keyframes floatUp {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+.float-anim {
+  animation: floatUp 3s ease-in-out infinite;
+}
+
+/* انيميشن الرسائل في الشات */
+@keyframes msgIn {
+  from { opacity: 0; transform: scale(0.9) translateY(5px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.msg-enter {
+  animation: msgIn 0.15s ease forwards;
+}
+
+/* شريط تقدم */
+@keyframes progressFill {
+  from { width: 0%; }
+  to   { width: var(--progress); }
+}
+.progress-bar {
+  animation: progressFill 0.8s ease forwards;
+}
+
+/* تأثير الإشعارات */
+@keyframes notifSlide {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.notif-enter {
+  animation: notifSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* scrollbar مخصص */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }

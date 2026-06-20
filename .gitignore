@@ -1,0 +1,38 @@
+# ══ بيئة وأسرار ══
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# ══ تبعيات ══
+node_modules/
+.pnp
+.pnp.js
+
+# ══ مخرجات البناء ══
+dist/
+dist-ssr/
+build/
+
+# ══ Supabase ══
+supabase/.branches
+supabase/.temp
+supabase/functions/verify-owner-pin/.env
+
+# ══ نظام ══
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# ══ IDE ══
+.vscode/settings.json
+.idea/
+
+# ══ أمان ══
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/

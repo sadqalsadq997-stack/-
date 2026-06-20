@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#dc2626" />
+
+    <!-- ═══════════ SEO ═══════════ -->
+    <title>فلسي | نظام نقطة البيع الذكي للمطاعم والمتاجر في السعودية</title>
+    <meta name="description" content="فلسي — نظام POS سحابي متكامل للمطاعم، المتاجر، المقاهي، وغسيل السيارات في المملكة العربية السعودية. متوافق مع هيئة الزكاة والضريبة، فواتير إلكترونية ZATCA، إدارة طاولات ومخزون وموظفين. ابدأ مجاناً." />
+    <meta name="keywords" content="نظام نقطة بيع, POS سعودية, فواتير إلكترونية, ZATCA, نظام مطعم, نظام كافيه, إدارة مخزون, فلسي, felsy, نظام محاسبة, فاتورة ضريبية" />
+    <meta name="author" content="فلسي - Felsy" />
+    <link rel="canonical" href="https://felsy.org" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://felsy.org" />
+    <meta property="og:title" content="فلسي | نظام نقطة البيع الذكي للمطاعم والمتاجر" />
+    <meta property="og:description" content="نظام POS سحابي متكامل متوافق مع هيئة الزكاة والضريبة. إدارة طاولات، مخزون، فواتير إلكترونية، ومتجر إلكتروني. ابدأ تجربتك المجانية اليوم." />
+    <meta property="og:image" content="https://felsy.org/og-image.png" />
+    <meta property="og:locale" content="ar_SA" />
+    <meta property="og:site_name" content="فلسي Felsy" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="فلسي | نظام نقطة البيع الذكي" />
+    <meta name="twitter:description" content="نظام POS سحابي متكامل للأعمال السعودية. متوافق مع ZATCA." />
+    <meta name="twitter:image" content="https://felsy.org/og-image.png" />
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "فلسي - Felsy POS",
+      "description": "نظام نقطة بيع سحابي متكامل للمطاعم والمتاجر في المملكة العربية السعودية",
+      "url": "https://felsy.org",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "offers": [
+        { "@type": "Offer", "price": "90", "priceCurrency": "SAR", "name": "الباقة الأساسية" },
+        { "@type": "Offer", "price": "150", "priceCurrency": "SAR", "name": "الباقة الاحترافية" },
+        { "@type": "Offer", "price": "350", "priceCurrency": "SAR", "name": "الباقة المؤسسية" }
+      ],
+      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.9", "reviewCount": "1000" },
+      "inLanguage": "ar",
+      "availableLanguage": ["ar", "en"],
+      "featureList": ["ZATCA E-Invoice", "POS Terminal", "Inventory Management", "Kitchen Display", "Loyalty Program"]
+    }
+    </script>
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="فلسي" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+
+    <script>
+      const dark = localStorage.getItem('felsy_dark_mode');
+      if (dark === '1' || (!dark && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+      const lang = localStorage.getItem('felsy_lang') || 'ar';
+      document.documentElement.setAttribute('lang', lang);
+      document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
