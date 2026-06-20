@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /menu
+Allow: /store
+Disallow: /admin
+Disallow: /super-admin
+Disallow: /pos
+Disallow: /settings
+Disallow: /api/
+
+Sitemap: https://felsy.org/sitemap.xml
