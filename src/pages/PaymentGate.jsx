@@ -8,39 +8,30 @@ import { CheckCircle2, Clock, CreditCard, AlertTriangle, Loader2, Shield, Star, 
 
 const PLANS = [
   {
-    id: 'starter',
-    name: 'المبتدئ',
-    price: 99,
+    id: 'basic',
+    name: 'الباقة العادية',
+    price: 45,
     period: 'شهر',
     icon: '🌱',
-    features: ['نقطة بيع واحدة', 'حتى 500 منتج', 'تقارير أساسية', 'دعم فني'],
+    features: ['فرع واحد', 'كاشير متعدد (غير محدود)', 'منتجات غير محدودة', 'تقارير أساسية', 'برنامج ولاء العملاء', 'فاتورة ضريبية ZATCA', 'دعم فني'],
     color: 'from-emerald-500 to-teal-600',
   },
   {
-    id: 'pro',
-    name: 'الاحترافي',
-    price: 199,
+    id: 'premium',
+    name: 'الباقة المميزة',
+    price: 99,
     period: 'شهر',
     icon: '🚀',
     popular: true,
-    features: ['3 نقاط بيع', 'منتجات غير محدودة', 'تحليلات متقدمة', 'ذكاء اصطناعي', 'دعم ذهبي'],
+    features: ['فروع متعددة (غير محدود)', 'كاشير متعدد (غير محدود)', 'مساعد الذكاء الاصطناعي', 'شاشة الطلب الذاتي (Kiosk)', 'جهاز الباجر (Pager)', 'طلبات الدليفري', 'تحليلات متقدمة', 'دعم ذهبي مميز'],
     color: 'from-violet-500 to-purple-700',
-  },
-  {
-    id: 'enterprise',
-    name: 'المؤسسي',
-    price: 499,
-    period: 'شهر',
-    icon: '🏢',
-    features: ['فروع غير محدودة', 'API كامل', 'تكامل ZATCA', 'مدير حساب مخصص', 'SLA 99.9%'],
-    color: 'from-amber-500 to-orange-600',
   },
 ];
 
 export default function PaymentGate({ children, onPaymentVerified }) {
   const [status, setStatus]           = useState('checking'); // checking | unpaid | pending | paid | error
   const [subscription, setSubscription] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState('pro');
+  const [selectedPlan, setSelectedPlan] = useState('premium');
   const [paymentCode, setPaymentCode]   = useState('');
   const [verifying, setVerifying]       = useState(false);
   const [error, setError]               = useState('');
