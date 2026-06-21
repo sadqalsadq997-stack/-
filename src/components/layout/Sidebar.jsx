@@ -11,7 +11,7 @@ import { Moon, Sun, Car, Palette,
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { canAccess, ROLE_LABELS } from '@/lib/permissions';
-import felsynLogo from '@/assets/felsy-logo.jpg';
+import felsynLogo from '@/assets/felsy-logo.png';
 
 const ALL_ITEMS = [
   { path: '/',                icon: LayoutDashboard, label: 'لوحة التحكم'           },

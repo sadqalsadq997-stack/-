@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, isMissingEnv } from '@/integrations/supabase/client';
+import felsynLogo from '@/assets/felsy-logo.png';
 import { Loader2, UserPlus } from 'lucide-react';
 
 export default function OwnerSignup() {
@@ -33,8 +34,8 @@ export default function OwnerSignup() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-            <span className="text-3xl font-black text-primary">ف</span>
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-3 p-3">
+            <img src={felsynLogo} alt="فلسي Felsy" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-black text-foreground">إنشاء حساب</h1>
           <p className="text-muted-foreground text-sm mt-1">ابدأ تجربتك المجانية</p>

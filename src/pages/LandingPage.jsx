@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import felsynLogo from '@/assets/felsy-logo.png';
 import {
   Check, Star, ChevronDown, ArrowLeft, Shield, Zap, BarChart3,
   Printer, Users, Globe, Receipt, Package, Layers, Warehouse,
@@ -184,10 +185,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 right-0 left-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
-              <span className="text-white font-black text-lg">ف</span>
-            </div>
-            <span className="font-black text-xl text-gray-900">فلسي</span>
+            <img src={felsynLogo} alt="فلسي Felsy" className="h-9 w-auto object-contain" />
             <span className="text-xs text-gray-400 font-medium">felsy.org</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
@@ -489,12 +487,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-black text-lg">ف</span>
+              <div className="bg-white rounded-xl p-1.5">
+                <img src={felsynLogo} alt="فلسي Felsy" className="h-7 w-auto object-contain" />
               </div>
               <div>
-                <p className="font-black text-white text-lg">فلسي</p>
-                <p className="text-xs">نظام نقاط البيع الذكي</p>
+                <p className="text-xs text-gray-400">نظام نقاط البيع الذكي</p>
               </div>
             </div>
             <div className="flex gap-6 text-sm">
