@@ -6,7 +6,7 @@ import {
   Check, Star, ChevronDown, ArrowLeft, Shield, Zap, BarChart3,
   Printer, Users, Globe, Receipt, Package, Layers, Warehouse,
   Headphones, Smartphone, Cloud, Lock, ChefHat, Car, Gift,
-  TrendingUp, CreditCard, Bell, CheckCircle2, Building2, Store
+  TrendingUp, CreditCard, Bell, CheckCircle2, Building2, Store, Truck
 } from 'lucide-react';
 
 // ── شعارات الشركاء ────────────────────────────────────────────────
