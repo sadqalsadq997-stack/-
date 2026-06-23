@@ -188,6 +188,17 @@ export default function AppPINGate({ children }) {
         setSettings(s => ({ ...s, admin_pin: hashed }));
         await saveSession('admin');
         setPhase('unlocked');
+      } else if (!settings) {
+        // لا يوجد صف app_settings بعد لهذا الحساب — أنشئه الآن بدل تحديث صف غير موجود
+        const { data: inserted, error: e } = await supabase
+          .from('app_settings')
+          .insert({ admin_pin: hashed, onboarded: true })
+          .select()
+          .single();
+        if (e) throw e;
+        setSettings(inserted);
+        await saveSession('admin');
+        setPhase('unlocked');
       } else {
         const { error: e } = await supabase
           .from('app_settings')
