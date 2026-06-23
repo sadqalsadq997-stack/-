@@ -1,51 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, Clock, CreditCard, AlertTriangle, Loader2, Shield, Star, Zap } from 'lucide-react';
+import { PLANS } from '@/lib/pricingPlans';
 
 // ══════════════════════════════════════════════════════
 // بوابة الدفع — يُمنع الوصول حتى يتم الدفع والتحقق
+// الباقات تُستورد من src/lib/pricingPlans.js (مصدر وحيد للتسعير
+// في كل التطبيق — أي تعديل سعر يكون هناك فقط ويظهر هنا تلقائياً)
 // ══════════════════════════════════════════════════════
-
-const PLANS = [
-  {
-    id: 'basic',
-    name: 'الباقة العادية',
-    price: 45,
-    period: 'شهر',
-    icon: '🌱',
-    features: ['فرع واحد', 'كاشير متعدد (غير محدود)', 'منتجات غير محدودة', 'تقارير أساسية', 'برنامج ولاء العملاء', 'فاتورة ضريبية ZATCA', 'دعم فني'],
-    color: 'from-emerald-500 to-teal-600',
-  },
-  {
-    id: 'premium',
-    name: 'الباقة المميزة',
-    price: 99,
-    period: 'شهر',
-    icon: '🚀',
-    popular: true,
-    features: ['فروع متعددة', 'كاشير متعدد (غير محدود)', 'مساعد الذكاء الاصطناعي', 'شاشة الطلب الذاتي (Kiosk)', 'جهاز الباجر (Pager)', 'طلبات الدليفري', 'تحليلات متقدمة', 'دعم ذهبي'],
-    color: 'from-violet-500 to-purple-700',
-  },
-  {
-    id: 'business',
-    name: 'باقة الأعمال',
-    price: 145,
-    period: 'شهر',
-    icon: '🏢',
-    features: ['كل مميزات الباقة المميزة', 'عدد فروع أعلى', 'دعم أولوية على مدار الساعة (24/7)', 'تقارير وتحليلات متقدمة أكثر'],
-    color: 'from-amber-500 to-orange-600',
-  },
-  {
-    id: 'custom',
-    name: 'باقة مخصصة',
-    price: null,
-    period: null,
-    icon: '✨',
-    features: ['فروع غير محدودة', 'تخصيص كامل حسب احتياجك', 'مدير حساب مخصص', 'تواصل معنا للتسعير'],
-    color: 'from-slate-600 to-slate-800',
-    contactOnly: true,
-  },
-];
 
 export default function PaymentGate({ children, onPaymentVerified }) {
   const [status, setStatus]           = useState('checking'); // checking | unpaid | pending | paid | error

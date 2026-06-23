@@ -23,75 +23,7 @@ const PARTNERS = [
   { name: 'بوتيك لمسة', icon: '👗' },
 ];
 
-// ── خطط الأسعار ──────────────────────────────────────────────────
-const PLANS = [
-  {
-    name: 'أساسي',
-    price: 90,
-    period: 'شهرياً',
-    color: 'border-gray-200',
-    badge: null,
-    features: [
-      'فرع واحد',
-      'نقطة بيع كاملة',
-      'إدارة المنتجات والمخزون',
-      'الفواتير والتقارير الأساسية',
-      'دعم فني عبر الواتساب',
-      'متوافق مع هيئة الزكاة والضريبة',
-    ],
-    cta: 'ابدأ الآن',
-  },
-  {
-    name: 'احترافي',
-    price: 150,
-    period: 'شهرياً',
-    color: 'border-red-500',
-    badge: 'الأكثر شيوعاً',
-    features: [
-      'حتى 3 فروع',
-      'جميع مزايا الأساسي',
-      'إدارة الطاولات مع طلبات المطبخ',
-      'متجر إلكتروني مخصص',
-      'برنامج ولاء العملاء',
-      'تقارير تحليلية متقدمة',
-      'مساعد ذكاء اصطناعي',
-      'دومين مخصص مجاناً',
-    ],
-    cta: 'ابدأ تجربة مجانية',
-  },
-  {
-    name: 'مؤسسي',
-    price: 350,
-    period: 'شهرياً',
-    color: 'border-gray-800',
-    badge: 'للمؤسسات الكبيرة',
-    features: [
-      'فروع غير محدودة',
-      'جميع مزايا الاحترافي',
-      'إدارة متعددة المستخدمين',
-      'تقارير مالية ZATCA متكاملة',
-      'API للتكامل مع أنظمة خارجية',
-      'مدير حساب مخصص',
-      'اتفاقية مستوى الخدمة SLA',
-      'تدريب وتأهيل الفريق',
-    ],
-    cta: 'تواصل معنا',
-  },
-  {
-    name: 'مخصص',
-    price: null,
-    period: null,
-    color: 'border-gray-300 bg-gray-50',
-    badge: 'حسب الطلب',
-    features: [
-      'سعر يناسب احتياجاتك',
-      'خصائص مبرمجة حسب الطلب',
-      'تكامل مع أنظمتك الحالية',
-      'دعم فني مخصص 24/7',
-    ],
-    cta: 'احصل على عرض سعر',
-  },
-];
+import { PLANS, PLAN_SELECT_OPTIONS } from '@/lib/pricingPlans';
 
 // ── ميزات النظام ──────────────────────────────────────────────────
 const FEATURES = [
@@ -152,7 +84,7 @@ export default function LandingPage() {
   const [email, setEmail]     = useState('');
   const [phone, setPhone]     = useState('');
   const [name, setName]       = useState('');
-  const [plan, setPlan]       = useState('احترافي');
+  const [plan, setPlan]       = useState('الباقة المميزة');
   const [signupStep, setSignupStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [faq, setFaq]         = useState(null);
@@ -433,10 +365,9 @@ export default function LandingPage() {
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">الباقة المختارة</label>
                 <select value={plan} onChange={e => setPlan(e.target.value)}
                   className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm focus:outline-none focus:border-red-500 transition-colors">
-                  <option>أساسي — 90 ر.س/شهر</option>
-                  <option>احترافي — 150 ر.س/شهر</option>
-                  <option>مؤسسي — 350 ر.س/شهر</option>
-                  <option>مخصص — حسب الطلب</option>
+                  {PLAN_SELECT_OPTIONS.map((label, i) => (
+                    <option key={i}>{label}</option>
+                  ))}
                 </select>
               </div>
               <button type="submit" disabled={loading}

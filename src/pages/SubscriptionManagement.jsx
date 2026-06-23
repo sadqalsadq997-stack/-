@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PLANS } from '@/lib/pricingPlans';
 import {
   Crown, Plus, Edit3, Clock, Gift, Percent, Calendar,
   Users, CheckCircle2, AlertTriangle, Loader2, Trash2,
@@ -447,9 +448,9 @@ export default function SubscriptionManagement() {
                 <label className="text-sm font-medium block mb-1.5">الخطة</label>
                 <select value={codeForm.plan} onChange={e => setCodeForm(f => ({ ...f, plan: e.target.value }))}
                   className="w-full h-10 bg-muted/50 border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
-                  <option value="basic">العادية (45 ر.س/شهر)</option>
-                  <option value="premium">المميزة (99 ر.س/شهر)</option>
-                  <option value="business">الأعمال (145 ر.س/شهر)</option>
+                  {PLANS.filter(p => p.price !== null).map(p => (
+                    <option key={p.code} value={p.code}>{p.name} ({p.price} ر.س/شهر)</option>
+                  ))}
                   <option value="custom">مخصصة (سعر متفق عليه)</option>
                 </select>
               </div>
