@@ -48,6 +48,9 @@ import DomainManagement      from "@/pages/DomainManagement";
 import SubscriptionManagement from "@/pages/SubscriptionManagement";
 import BillingSubscribe       from "@/pages/BillingSubscribe";
 import LandingPage           from "@/pages/LandingPage";
+import PrivacyPolicy         from "@/pages/PrivacyPolicy";
+import TermsConditions       from "@/pages/TermsConditions";
+import AboutUs                from "@/pages/AboutUs";
 import ThemeEditor           from "@/pages/ThemeEditor";
 import SuperAdmin            from "@/pages/SuperAdmin";
 import ZATCADashboard        from "@/pages/ZATCADashboard";
@@ -92,6 +95,9 @@ function AppRoutes() {
       <Route path="/home"          element={<LandingPage />} />
       <Route path="/owner"         element={<SuperAdmin />} />
       <Route path="/super-admin"    element={<SuperAdmin />} />
+      <Route path="/privacy"       element={<PrivacyPolicy />} />
+      <Route path="/terms"         element={<TermsConditions />} />
+      <Route path="/about"         element={<AboutUs />} />
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
       <Route path="/kitchen-display" element={<KitchenDisplay />} />

@@ -8,7 +8,7 @@ import {
   LogOut, FileText, Activity, Server, Database, Pencil, Trash2,
   Send, Plus, Settings, Tag, BadgeDollarSign, Megaphone,
   Wifi, WifiOff, AlertCircle, Newspaper, Bot, Check, X,
-  CreditCard, Sparkles, TrendingUp, Copy
+  CreditCard, Sparkles, TrendingUp, Copy, UserCog
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,6 +23,22 @@ const SESSION_KEY  = '_sa_tok';
 const SESSION_MAX  = 4 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS   = 15 * 60 * 1000;
+
+// ── استدعاء دالة owner-admin-api — تتجاوز RLS بأمان فقط لجلسة صاحب
+// النظام الموثَّقة (لا تتأثر بعزل tenant_id الخاص بالعملاء العاديين) ──
+async function callOwnerApi(action, payload) {
+  let ownerToken = '';
+  try {
+    const raw = JSON.parse(atob(sessionStorage.getItem(SESSION_KEY) || ''));
+    ownerToken = raw?.token || '';
+  } catch { /* لا توجد جلسة صالحة */ }
+  const { data, error } = await supabase.functions.invoke('owner-admin-api', {
+    body: { ownerToken, action, payload },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data?.data;
+}
 
 function StatCard({ icon: Icon, label, value, sub, color }) {
   return (
@@ -146,8 +162,8 @@ function OverviewTab({ stats, clients }) {
   const [loadingB, setLoadingB] = useState(true);
 
   useEffect(() => {
-    supabase.from('branches').select('id,name,is_active,created_at').order('name')
-      .then(({ data }) => { setBranches(data||[]); setLoadingB(false); });
+    callOwnerApi('list_branches').then(data => { setBranches(data||[]); setLoadingB(false); })
+      .catch(() => setLoadingB(false));
   }, []);
 
   return (
@@ -861,11 +877,11 @@ function BillingTab() {
 
   async function loadAll() {
     setLoading(true);
-    const [{ data: plans }, { data: promos }, { data: subs }, { data: invs }] = await Promise.all([
+    const [{ data: plans }, { data: promos }, subs, invs] = await Promise.all([
       supabase.from('billing_plans').select('*').order('plan_code').order('version', { ascending: false }),
       supabase.from('billing_promotions').select('*').order('created_at', { ascending: false }),
-      supabase.from('tenant_subscriptions').select('*, billing_plans(name_ar, plan_code, price_monthly)').order('updated_at', { ascending: false }).limit(100),
-      supabase.from('billing_invoices').select('*').order('created_at', { ascending: false }).limit(50),
+      callOwnerApi('list_tenant_subscriptions').catch(() => []),
+      callOwnerApi('list_billing_invoices').catch(() => []),
     ]);
     setBillingPlans(plans || []);
     setPromotions(promos || []);
@@ -1039,10 +1055,10 @@ export default function SuperAdmin() {
 
   async function loadAll() {
     setLoading(true);
-    const [{ data: subs }, { data: tix }, { data: pays }] = await Promise.all([
-      supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
-      supabase.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(50),
-      supabase.from('payment_codes').select('id,code,plan,amount,used,created_at').order('created_at', { ascending: false }).limit(100),
+    const [subs, tix, pays] = await Promise.all([
+      callOwnerApi('list_subscriptions').catch(() => []),
+      callOwnerApi('list_support_tickets').catch(() => []),
+      callOwnerApi('list_payment_codes').catch(() => []),
     ]);
     setClients(subs||[]);
     setTickets(tix||[]);
@@ -1076,6 +1092,7 @@ export default function SuperAdmin() {
     { id: 'broadcast', label: 'رسائل جماعية',  icon: Megaphone    },
     { id: 'blog',      label: 'المدونة',        icon: Newspaper    },
     { id: 'ai',        label: 'مساعد الذكاء',  icon: Bot          },
+    { id: 'team',      label: 'الفريق والمحتوى', icon: UserCog     },
   ];
 
   const filtered = clients.filter(c =>
@@ -1193,23 +1210,269 @@ export default function SuperAdmin() {
               </div>
             )}
 
-            {tab === 'tickets' && (
-              <div className="space-y-3">
-                {tickets.map(t => (
-                  <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start gap-4">
-                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${t.status==='open'?'bg-red-500 animate-pulse':'bg-gray-600'}`} />
-                    <div className="flex-1">
-                      <p className="font-medium text-white text-sm">{t.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">{fmtDate(t.created_at)}</p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-lg ${t.priority==='high'?'bg-red-900/50 text-red-300':'bg-gray-800 text-gray-400'}`}>
-                      {t.priority==='high'?'عاجل':'عادي'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
+            {tab === 'team' && <TeamAndContentTab />}
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── تبويب الدعم الفني — شات كامل بين صاحب النظام والعملاء ──────
+function TicketsTab({ tickets, onRefresh }) {
+  const [selected, setSelected] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [reply, setReply]       = useState('');
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [sending, setSending]   = useState(false);
+
+  async function openTicket(t) {
+    setSelected(t);
+    setLoadingMsgs(true);
+    try {
+      const msgs = await callOwnerApi('list_support_messages', { ticket_id: t.id });
+      setMessages(msgs || []);
+    } catch { setMessages([]); }
+    setLoadingMsgs(false);
+  }
+
+  async function sendReply() {
+    if (!reply.trim() || !selected) return;
+    setSending(true);
+    try {
+      await callOwnerApi('reply_support_ticket', {
+        ticket_id: selected.id, content: reply.trim(), status: 'answered',
+      });
+      setReply('');
+      const msgs = await callOwnerApi('list_support_messages', { ticket_id: selected.id });
+      setMessages(msgs || []);
+      onRefresh?.();
+    } catch (e) { alert('فشل إرسال الرد: ' + (e?.message || '')); }
+    setSending(false);
+  }
+
+  async function closeTicket() {
+    if (!selected) return;
+    try {
+      await callOwnerApi('update_ticket_status', { ticket_id: selected.id, status: 'closed' });
+      setSelected(s => ({ ...s, status: 'closed' }));
+      onRefresh?.();
+    } catch { /* تجاهل */ }
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[600px]">
+      {/* قائمة التذاكر */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-y-auto">
+        {tickets.length === 0 && <p className="text-gray-500 text-sm p-4 text-center">لا توجد تذاكر دعم حالياً</p>}
+        {tickets.map(t => (
+          <button key={t.id} onClick={() => openTicket(t)}
+            className={`w-full text-right p-4 border-b border-gray-800 hover:bg-gray-800/50 transition-colors ${selected?.id === t.id ? 'bg-gray-800' : ''}`}>
+            <div className="flex items-start gap-2">
+              <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${t.status==='open'?'bg-red-500 animate-pulse':t.status==='answered'?'bg-amber-500':'bg-gray-600'}`} />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-white text-sm truncate">{t.subject || 'بدون عنوان'}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t.user_name || t.user_id} • {fmtDate(t.created_at)}</p>
+              </div>
+              {t.priority === 'high' && <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-300 flex-shrink-0">عاجل</span>}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* محادثة التذكرة */}
+      <div className="md:col-span-2 bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
+        {!selected ? (
+          <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">اختر تذكرة من القائمة لعرض المحادثة</div>
+        ) : (
+          <>
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-white text-sm">{selected.subject || 'بدون عنوان'}</p>
+                <p className="text-xs text-gray-500">{selected.user_name || selected.user_id}</p>
+              </div>
+              {selected.status !== 'closed' && (
+                <button onClick={closeTicket} className="text-xs px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700">إغلاق التذكرة</button>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {loadingMsgs ? (
+                <p className="text-gray-500 text-sm text-center">جارٍ التحميل...</p>
+              ) : messages.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center">لا توجد رسائل بعد</p>
+              ) : messages.map(m => (
+                <div key={m.id} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.role === 'agent' ? 'bg-primary text-white rounded-tl-none' : 'bg-gray-800 text-gray-200 rounded-tr-none'}`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t border-gray-800 flex gap-2">
+              <input value={reply} onChange={e => setReply(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendReply()}
+                placeholder="اكتب ردك هنا..."
+                className="flex-1 h-10 bg-gray-800 border border-gray-700 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-primary" />
+              <button onClick={sendReply} disabled={sending || !reply.trim()}
+                className="px-4 h-10 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50">
+                إرسال
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── تبويب الفريق والمحتوى — تعديل "من نحن" + إدارة حسابات فريق المنصة ──
+function TeamAndContentTab() {
+  const [aboutContent, setAboutContent] = useState('');
+  const [savingAbout, setSavingAbout]   = useState(false);
+  const [loadingAbout, setLoadingAbout] = useState(true);
+
+  const [team, setTeam]           = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+  const [showForm, setShowForm]   = useState(false);
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from('system_settings').select('value').eq('key', 'about_us_content').maybeSingle()
+      .then(({ data }) => { setAboutContent(data?.value || ''); setLoadingAbout(false); })
+      .catch(() => setLoadingAbout(false));
+    loadTeam();
+  }, []);
+
+  async function loadTeam() {
+    setLoadingTeam(true);
+    try { setTeam(await callOwnerApi('list_team_members') || []); }
+    catch { setTeam([]); }
+    setLoadingTeam(false);
+  }
+
+  async function saveAbout() {
+    setSavingAbout(true);
+    try {
+      await callOwnerApi('update_about_content', { content: aboutContent });
+      toast.success('تم حفظ محتوى صفحة "من نحن" بنجاح');
+    } catch (e) { toast.error('فشل الحفظ: ' + (e?.message || '')); }
+    setSavingAbout(false);
+  }
+
+  async function addMember() {
+    if (!form.full_name.trim()) return;
+    setSaving(true);
+    try {
+      await callOwnerApi('add_team_member', form);
+      setForm({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+      setShowForm(false);
+      await loadTeam();
+      toast.success('تمت إضافة العضو بنجاح');
+    } catch (e) { toast.error('فشل الإضافة: ' + (e?.message || '')); }
+    setSaving(false);
+  }
+
+  async function toggleActive(m) {
+    try {
+      await callOwnerApi('update_team_member', { id: m.id, updates: { is_active: !m.is_active } });
+      await loadTeam();
+    } catch { /* تجاهل */ }
+  }
+
+  async function removeMember(id) {
+    if (!confirm('تأكيد حذف هذا العضو؟')) return;
+    try { await callOwnerApi('delete_team_member', { id }); await loadTeam(); }
+    catch { /* تجاهل */ }
+  }
+
+  const ROLE_LABELS = { support: 'دعم فني', admin: 'إدارة', finance: 'مالية', developer: 'مطوّر' };
+
+  return (
+    <div className="space-y-8">
+      {/* ── تعديل صفحة "من نحن" ── */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 className="text-white font-bold mb-1">محتوى صفحة "من نحن"</h3>
+        <p className="text-gray-500 text-xs mb-4">هذا النص يظهر مباشرة في صفحة /about العامة للزوار</p>
+        {loadingAbout ? (
+          <p className="text-gray-500 text-sm">جارٍ التحميل...</p>
+        ) : (
+          <>
+            <textarea value={aboutContent} onChange={e => setAboutContent(e.target.value)}
+              rows={8}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary resize-none" />
+            <button onClick={saveAbout} disabled={savingAbout}
+              className="mt-3 px-5 h-10 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center gap-2">
+              {savingAbout && <Loader2 className="w-4 h-4 animate-spin" />} حفظ المحتوى
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* ── إدارة فريق المنصة (إضافة/تعديل/حذف حسابات) ── */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-white font-bold">فريق المنصة</h3>
+            <p className="text-gray-500 text-xs mt-0.5">حسابات الأشخاص العاملين على منصة فلسي (دعم، إدارة، مطوّرين)</p>
+          </div>
+          <button onClick={() => setShowForm(s => !s)}
+            className="px-4 h-9 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-1.5">
+            <Plus className="w-4 h-4" /> إضافة عضو
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-gray-800 rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input placeholder="الاسم الكامل" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+              className="h-10 bg-gray-900 border border-gray-700 rounded-lg px-3 text-sm text-white" />
+            <input placeholder="البريد الإلكتروني" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="h-10 bg-gray-900 border border-gray-700 rounded-lg px-3 text-sm text-white" />
+            <input placeholder="رقم الجوال" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              className="h-10 bg-gray-900 border border-gray-700 rounded-lg px-3 text-sm text-white" />
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+              className="h-10 bg-gray-900 border border-gray-700 rounded-lg px-3 text-sm text-white">
+              <option value="support">دعم فني</option>
+              <option value="admin">إدارة</option>
+              <option value="finance">مالية</option>
+              <option value="developer">مطوّر</option>
+            </select>
+            <input placeholder="ملاحظات (اختياري)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              className="h-10 bg-gray-900 border border-gray-700 rounded-lg px-3 text-sm text-white md:col-span-2" />
+            <button onClick={addMember} disabled={saving || !form.full_name.trim()}
+              className="h-10 bg-emerald-600 text-white rounded-lg text-sm font-bold md:col-span-2 disabled:opacity-50">
+              {saving ? 'جارٍ الحفظ...' : 'حفظ العضو'}
+            </button>
+          </div>
+        )}
+
+        {loadingTeam ? (
+          <p className="text-gray-500 text-sm">جارٍ التحميل...</p>
+        ) : team.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-6">لا يوجد أعضاء فريق مُضافين بعد</p>
+        ) : (
+          <div className="space-y-2">
+            {team.map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${m.is_active ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                  <div>
+                    <p className="text-white text-sm font-medium">{m.full_name}</p>
+                    <p className="text-gray-500 text-xs">{ROLE_LABELS[m.role] || m.role} {m.email ? `• ${m.email}` : ''} {m.phone ? `• ${m.phone}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleActive(m)} className="text-xs px-3 py-1.5 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600">
+                    {m.is_active ? 'إيقاف' : 'تفعيل'}
+                  </button>
+                  <button onClick={() => removeMember(m.id)} className="text-xs px-3 py-1.5 bg-red-900/40 text-red-300 rounded-lg hover:bg-red-900/60">
+                    حذف
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

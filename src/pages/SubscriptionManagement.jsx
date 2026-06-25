@@ -42,7 +42,7 @@ export default function SubscriptionManagement() {
 
   // توليد رمز دفع
   const [codeModal, setCodeModal]         = useState(false);
-  const [codeForm, setCodeForm]           = useState({ plan: 'premium', months: 1, amount: 99 });
+  const [codeForm, setCodeForm]           = useState({ plan: 'pro', months: 1, amount: 150 });
   const [generatingCode, setGeneratingCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
 
@@ -451,7 +451,6 @@ export default function SubscriptionManagement() {
                   {PLANS.filter(p => p.price !== null).map(p => (
                     <option key={p.code} value={p.code}>{p.name} ({p.price} ر.س/شهر)</option>
                   ))}
-                  <option value="custom">مخصصة (سعر متفق عليه)</option>
                 </select>
               </div>
               <div>

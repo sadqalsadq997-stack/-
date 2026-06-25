@@ -12,7 +12,7 @@ import { PLANS } from '@/lib/pricingPlans';
 export default function PaymentGate({ children, onPaymentVerified }) {
   const [status, setStatus]           = useState('checking'); // checking | unpaid | pending | paid | error
   const [subscription, setSubscription] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState('premium');
+  const [selectedPlan, setSelectedPlan] = useState('pro');
   const [paymentCode, setPaymentCode]   = useState('');
   const [verifying, setVerifying]       = useState(false);
   const [error, setError]               = useState('');
@@ -181,7 +181,7 @@ export default function PaymentGate({ children, onPaymentVerified }) {
         </div>
 
         {/* خطط الاشتراك */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {PLANS.map(plan => (
             <button
               key={plan.id}
