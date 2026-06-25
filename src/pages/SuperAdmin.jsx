@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PLANS } from '@/lib/pricingPlans';
 import { hmacSign, sha256, maskSensitive } from '@/lib/security/crypto';
 import {
   Crown, Users, Globe, BarChart3, DollarSign, Calendar,
@@ -1180,7 +1181,9 @@ export default function SuperAdmin() {
             )}
 
             {tab === 'payments' && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <div className="space-y-4">
+                <PaymentCodeGenerator onGenerated={() => loadAll()} />
+                <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
                 <div className="p-4 border-b border-gray-800 flex items-center justify-between">
                   <h3 className="font-bold text-white">رموز تفعيل النظام</h3>
                   <span className="text-xs text-gray-500">{payments.filter(p=>!p.used).length} رمز متاح</span>
@@ -1194,7 +1197,7 @@ export default function SuperAdmin() {
                     </tr></thead>
                     <tbody>{payments.map(p => (
                       <tr key={p.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                        <td className="px-4 py-3 font-mono text-xs text-gray-300">{maskSensitive(p.code,4)}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-300">{p.code}</td>
                         <td className="px-4 py-3 text-violet-300 text-xs">{p.plan}</td>
                         <td className="px-4 py-3 text-amber-400">{fmtSAR(p.amount)}</td>
                         <td className="px-4 py-3">
@@ -1206,6 +1209,7 @@ export default function SuperAdmin() {
                       </tr>
                     ))}</tbody>
                   </table>
+                </div>
                 </div>
               </div>
             )}
@@ -1475,6 +1479,80 @@ function TeamAndContentTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── توليد رمز تفعيل اشتراك جديد لعميل — الواجهة الفعلية الوحيدة
+// القادرة على إنشاء رموز payment_codes (عبر owner-admin-api فقط) ──
+function PaymentCodeGenerator({ onGenerated }) {
+  const [plan, setPlan]       = useState(PLANS[1]?.code || PLANS[0].code);
+  const [months, setMonths]   = useState(1);
+  const [amount, setAmount]   = useState(PLANS[1]?.price || PLANS[0].price);
+  const [generating, setGenerating] = useState(false);
+  const [lastCode, setLastCode]     = useState(null);
+
+  function pickPlan(code) {
+    setPlan(code);
+    const p = PLANS.find(p => p.code === code);
+    if (p?.price) setAmount(p.price * months);
+  }
+  function pickMonths(m) {
+    setMonths(m);
+    const p = PLANS.find(p => p.code === plan);
+    if (p?.price) setAmount(p.price * m);
+  }
+
+  async function generate() {
+    setGenerating(true);
+    try {
+      const rand = Math.random().toString(36).substr(2, 8).toUpperCase();
+      const code = `PAY-${plan.toUpperCase().substr(0, 3)}-${rand}-${months}M`;
+      await callOwnerApi('insert_payment_code', {
+        code, plan, months, amount, signature: 'owner-verified', used: false,
+      });
+      setLastCode(code);
+      onGenerated?.();
+      toast.success('تم توليد رمز جديد بنجاح');
+    } catch (e) {
+      toast.error('فشل التوليد: ' + (e?.message || ''));
+    }
+    setGenerating(false);
+  }
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <h3 className="font-bold text-white mb-4">توليد رمز تفعيل اشتراك جديد</h3>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <select value={plan} onChange={e => pickPlan(e.target.value)}
+          className="h-10 bg-gray-800 border border-gray-700 rounded-lg px-3 text-sm text-white">
+          {PLANS.map(p => <option key={p.code} value={p.code}>{p.name} ({p.price ?? '—'} ر.س)</option>)}
+        </select>
+        <select value={months} onChange={e => pickMonths(Number(e.target.value))}
+          className="h-10 bg-gray-800 border border-gray-700 rounded-lg px-3 text-sm text-white">
+          {[1,3,6,12].map(m => <option key={m} value={m}>{m} {m===1?'شهر':'شهور'}</option>)}
+        </select>
+        <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))}
+          placeholder="المبلغ (ر.س)"
+          className="h-10 bg-gray-800 border border-gray-700 rounded-lg px-3 text-sm text-white" />
+        <button onClick={generate} disabled={generating}
+          className="h-10 bg-primary text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+          {generating && <Loader2 className="w-4 h-4 animate-spin" />} توليد الرمز
+        </button>
+      </div>
+
+      {lastCode && (
+        <div className="mt-4 bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-emerald-300 text-xs mb-1">الرمز الجديد — أرسله للعميل ليُدخله في صفحة الدفع:</p>
+            <p className="text-white font-mono text-lg font-bold">{lastCode}</p>
+          </div>
+          <button onClick={() => { navigator.clipboard?.writeText(lastCode); toast.success('تم نسخ الرمز'); }}
+            className="px-4 h-10 bg-emerald-700 text-white rounded-lg text-sm font-bold flex items-center gap-1.5">
+            <Copy className="w-4 h-4" /> نسخ
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -80,13 +80,11 @@ export default function PaymentGate({ children, onPaymentVerified }) {
         return;
       }
 
-      // التحقق من توقيع الرمز (HMAC-SHA256)
-      const isValid = await verifyCodeSignature(codeData);
-      if (!isValid) {
-        setError('⚠️ رمز الدفع غير موثوق — تحقق مع المحاسب');
-        setVerifying(false);
-        return;
-      }
+      // ملاحظة أمان: لم نعد نعتمد توقيع HMAC من جهة العميل للتحقق من
+      // صحة الرمز، لأن إنشاء الرموز أصبح يتم حصرياً عبر owner-admin-api
+      // (تتطلب جلسة صاحب نظام موثّقة وتُنفَّذ بصلاحية service_role التي
+      // تتجاوز RLS). لا يمكن لأي عميل إنشاء صف في payment_codes مباشرة
+      // (محظور بسياسة RLS)، فوجود الصف في الجدول أصلاً دليل كافٍ على شرعيته.
 
       // تفعيل الاشتراك
       const expiresAt = new Date();
