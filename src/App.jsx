@@ -89,9 +89,36 @@ function RequireOwner({ children }) {
   return owner ? children : <Navigate to="/owner" replace />;
 }
 
+// ── الصفحة الرئيسية عند فتح الدومين مباشرة: تعرض صفحة الهوم
+// للزائر العادي، وتحوّل المستخدم المسجّل دخوله مباشرة إلى لوحته ──
+function RootGate() {
+  const { session, loading, authChecked, isMissingEnv } = useAuth();
+  const [sessionChecked, setSessionChecked] = React.useState(false);
+  const [pinUnlocked, setPinUnlocked]       = React.useState(false);
+
+  React.useEffect(() => {
+    import('@/lib/security/session').then(({ loadSession }) =>
+      loadSession().then(sess => {
+        setPinUnlocked(!!(sess && sess.unlocked));
+        setSessionChecked(true);
+      })
+    );
+  }, []);
+
+  if (loading || !authChecked || !sessionChecked) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!isMissingEnv && (session || pinUnlocked)) return <Navigate to="/dashboard" replace />;
+  return <LandingPage />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/"               element={<RootGate />} />
       <Route path="/home"          element={<LandingPage />} />
       <Route path="/owner"         element={<SuperAdmin />} />
       <Route path="/super-admin"    element={<SuperAdmin />} />
@@ -114,6 +141,7 @@ function AppRoutes() {
               <Routes>
                 <Route element={<AppLayout />}>
                   <Route path="/"                   element={<Dashboard />} />
+                  <Route path="/dashboard"           element={<Dashboard />} />
                   <Route path="/pos"                element={<POSTerminal />} />
                   <Route path="/orders"             element={<Orders />} />
                   <Route path="/invoices"           element={<Invoices />} />

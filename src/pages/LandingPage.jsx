@@ -45,16 +45,7 @@ const FEATURES = [
 // ── شعار هيئة الزكاة ─────────────────────────────────────────────
 function ZATCABadge() {
   return (
-    <div className="inline-flex items-center gap-3 bg-white border-2 border-green-600 rounded-2xl px-6 py-4 shadow-lg">
-      <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
-        <span className="text-white font-black text-lg">ز</span>
-      </div>
-      <div className="text-right">
-        <p className="font-black text-green-700 text-sm">متوافق مع هيئة الزكاة</p>
-        <p className="text-xs text-green-600">والضريبة والجمارك</p>
-        <p className="text-[10px] text-gray-500 mt-0.5">ZATCA Compliant E-Invoice</p>
-      </div>
-    </div>
+    <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-20 w-auto object-contain" />
   );
 }
 
