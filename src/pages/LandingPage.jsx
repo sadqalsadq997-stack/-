@@ -25,6 +25,7 @@ const PARTNERS = [
 
 import { PLANS, PLAN_SELECT_OPTIONS, CONTACT_INFO } from '@/lib/pricingPlans';
 import zatcaLogo from '@/assets/zatca-logo.webp';
+import { useI18n } from '@/lib/i18n';
 
 // ── ميزات النظام ──────────────────────────────────────────────────
 const FEATURES = [
@@ -73,6 +74,7 @@ function Counter({ to, duration = 2000, suffix = '' }) {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { lang, t, switchLang } = useI18n();
   const [email, setEmail]     = useState('');
   const [phone, setPhone]     = useState('');
   const [name, setName]       = useState('');
@@ -103,7 +105,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div dir="rtl" className="min-h-screen bg-white text-gray-900 font-sans" style={{ fontFamily: "'Segoe UI', 'Cairo', sans-serif" }}>
+    <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white text-gray-900 font-sans" style={{ fontFamily: "'Segoe UI', 'Cairo', sans-serif" }}>
 
       {/* ── Navbar ── */}
       <nav className="fixed top-0 right-0 left-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-sm">
@@ -113,19 +115,23 @@ export default function LandingPage() {
             <span className="text-xs text-gray-400 font-medium">felsy.org</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-            <a href="#features" className="hover:text-red-600 transition-colors">الميزات</a>
-            <a href="#pricing" className="hover:text-red-600 transition-colors">الأسعار</a>
-            <a href="#partners" className="hover:text-red-600 transition-colors">عملاؤنا</a>
-            <a href="#faq" className="hover:text-red-600 transition-colors">الأسئلة الشائعة</a>
+            <a href="#features" className="hover:text-red-600 transition-colors">{t('الميزات', 'Features')}</a>
+            <a href="#pricing" className="hover:text-red-600 transition-colors">{t('الأسعار', 'Pricing')}</a>
+            <a href="#partners" className="hover:text-red-600 transition-colors">{t('عملاؤنا', 'Customers')}</a>
+            <a href="#faq" className="hover:text-red-600 transition-colors">{t('الأسئلة الشائعة', 'FAQ')}</a>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => switchLang(lang === 'ar' ? 'en' : 'ar')}
+              className="text-xs font-bold border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 hover:border-red-300 hover:text-red-600 transition-colors">
+              {lang === 'ar' ? 'EN' : 'AR'}
+            </button>
             <button onClick={() => navigate('/auth/login')}
               className="text-sm font-bold text-gray-700 hover:text-red-600 transition-colors">
-              تسجيل الدخول
+              {t('تسجيل الدخول', 'Login')}
             </button>
             <a href="#signup"
               className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200">
-              ابدأ مجاناً
+              {t('ابدأ مجاناً', 'Start Free')}
             </a>
           </div>
         </div>
@@ -140,36 +146,37 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto text-center relative">
           <div className="inline-flex items-center gap-2 bg-red-50 text-red-700 text-sm font-bold px-4 py-2 rounded-full mb-6 border border-red-100">
             <Zap className="w-4 h-4" />
-            نظام نقاط البيع الأذكى في المملكة
+            {t('نظام نقاط البيع الأذكى في المملكة', 'The Smartest POS System in the Kingdom')}
           </div>
 
           <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-tight mb-6"
             style={{ lineHeight: '1.15' }}>
-            أدِر مشروعك<br />
-            <span className="text-red-600">بذكاء حقيقي</span>
+            {t('أدِر مشروعك', 'Run Your Business')}<br />
+            <span className="text-red-600">{t('بذكاء حقيقي', 'With Real Intelligence')}</span>
           </h1>
 
           <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            نظام فلسي — حل متكامل لنقاط البيع، الفواتير الإلكترونية، إدارة المخزون، الطاولات، والمتجر الإلكتروني. كل ما تحتاجه في مكان واحد.
+            {t('نظام فلسي — حل متكامل لنقاط البيع، الفواتير الإلكترونية، إدارة المخزون، الطاولات، والمتجر الإلكتروني. كل ما تحتاجه في مكان واحد.',
+               'Felsy — an all-in-one solution for point-of-sale, e-invoicing, inventory management, tables, and your online store. Everything you need in one place.')}
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 mb-14">
             <a href="#signup"
               className="bg-red-600 text-white px-8 py-4 rounded-2xl text-lg font-black hover:bg-red-700 transition-all shadow-xl shadow-red-200 flex items-center gap-2">
-              ابدأ تجربتك المجانية <ArrowLeft className="w-5 h-5" />
+              {t('ابدأ تجربتك المجانية', 'Start Your Free Trial')} <ArrowLeft className="w-5 h-5" />
             </a>
             <a href="#pricing"
               className="bg-white text-gray-800 px-8 py-4 rounded-2xl text-lg font-bold border-2 border-gray-200 hover:border-red-300 transition-all">
-              شاهد الأسعار
+              {t('شاهد الأسعار', 'View Pricing')}
             </a>
           </div>
 
           {/* إحصائيات */}
           <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
             {[
-              { num: 1000, suf: '+', label: 'متجر يثق بنا' },
-              { num: 99, suf: '%', label: 'رضا العملاء' },
-              { num: 4, suf: '+', label: 'سنوات خبرة' },
+              { num: 1000, suf: '+', label: t('متجر يثق بنا', 'Stores Trust Us') },
+              { num: 99, suf: '%', label: t('رضا العملاء', 'Customer Satisfaction') },
+              { num: 4, suf: '+', label: t('سنوات خبرة', 'Years of Experience') },
             ].map((s, i) => (
               <div key={i} className="text-center">
                 <p className="text-3xl font-black text-red-600"><Counter to={s.num} suffix={s.suf} /></p>
@@ -231,8 +238,8 @@ export default function LandingPage() {
       <section id="features" className="py-20 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">كل ما تحتاجه في نظام واحد</h2>
-            <p className="text-xl text-gray-500">مصمم خصيصاً للأعمال السعودية مع دعم كامل لمتطلبات هيئة الزكاة والضريبة</p>
+            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('كل ما تحتاجه في نظام واحد', 'Everything You Need in One System')}</h2>
+            <p className="text-xl text-gray-500">{t('مصمم خصيصاً للأعمال السعودية مع دعم كامل لمتطلبات هيئة الزكاة والضريبة', 'Built specifically for Saudi businesses with full ZATCA compliance support')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f, i) => (
@@ -284,8 +291,8 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 px-6 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">أسعار شفافة بدون مفاجآت</h2>
-            <p className="text-xl text-gray-500">اختر الباقة التي تناسب حجم نشاطك — يمكنك الترقية في أي وقت</p>
+            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أسعار شفافة بدون مفاجآت', 'Transparent Pricing, No Surprises')}</h2>
+            <p className="text-xl text-gray-500">{t('اختر الباقة التي تناسب حجم نشاطك — يمكنك الترقية في أي وقت', 'Choose the plan that fits your business — upgrade anytime')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {PLANS.map((pl, i) => (
@@ -338,29 +345,29 @@ export default function LandingPage() {
       <section id="signup" className="py-20 px-6 bg-white">
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">ابدأ تجربتك المجانية الآن</h2>
-            <p className="text-gray-500">14 يوماً مجاناً — بدون بطاقة ائتمانية — بدون تعهدات</p>
+            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('ابدأ تجربتك المجانية الآن', 'Start Your Free Trial Now')}</h2>
+            <p className="text-gray-500">{t('14 يوماً مجاناً — بدون بطاقة ائتمانية — بدون تعهدات', '14 days free — no credit card required — no commitments')}</p>
           </div>
 
           {signupStep === 1 ? (
             <form onSubmit={handleSignup} className="bg-gray-50 border border-gray-200 rounded-3xl p-8 space-y-5 shadow-lg">
               <div>
-                <label className="text-sm font-bold text-gray-700 block mb-1.5">اسم النشاط التجاري</label>
-                <input value={name} onChange={e => setName(e.target.value)} required placeholder="مثال: مطعم الوادي" 
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('اسم النشاط التجاري', 'Business Name')}</label>
+                <input value={name} onChange={e => setName(e.target.value)} required placeholder={t('مثال: مطعم الوادي', 'e.g. Al-Wadi Restaurant')}
                   className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm focus:outline-none focus:border-red-500 transition-colors" />
               </div>
               <div>
-                <label className="text-sm font-bold text-gray-700 block mb-1.5">البريد الإلكتروني</label>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('البريد الإلكتروني', 'Email Address')}</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="your@email.com"
                   className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm focus:outline-none focus:border-red-500 transition-colors" />
               </div>
               <div>
-                <label className="text-sm font-bold text-gray-700 block mb-1.5">رقم الجوال</label>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('رقم الجوال', 'Mobile Number')}</label>
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required placeholder="05xxxxxxxx"
                   className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm focus:outline-none focus:border-red-500 transition-colors" />
               </div>
               <div>
-                <label className="text-sm font-bold text-gray-700 block mb-1.5">الباقة المختارة</label>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('الباقة المختارة', 'Selected Plan')}</label>
                 <select value={plan} onChange={e => setPlan(e.target.value)}
                   className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm focus:outline-none focus:border-red-500 transition-colors">
                   {PLAN_SELECT_OPTIONS.map((label, i) => (
@@ -370,18 +377,18 @@ export default function LandingPage() {
               </div>
               <button type="submit" disabled={loading}
                 className="w-full h-13 bg-red-600 text-white rounded-2xl font-black text-base hover:bg-red-700 transition-colors disabled:opacity-60 py-3.5">
-                {loading ? 'جاري التسجيل...' : 'أنشئ حسابك مجاناً ←'}
+                {loading ? t('جاري التسجيل...', 'Creating account...') : t('أنشئ حسابك مجاناً ←', 'Create Your Free Account ←')}
               </button>
-              <p className="text-xs text-gray-400 text-center">بالتسجيل توافق على <a href="#" className="underline">شروط الاستخدام</a> و<a href="#" className="underline">سياسة الخصوصية</a></p>
+              <p className="text-xs text-gray-400 text-center">{t('بالتسجيل توافق على', 'By signing up you agree to our')} <a href="/terms" className="underline">{t('شروط الاستخدام', 'Terms of Use')}</a> {t('و', 'and')} <a href="/privacy" className="underline">{t('سياسة الخصوصية', 'Privacy Policy')}</a></p>
             </form>
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-3xl p-10 text-center">
               <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-2xl font-black text-gray-900 mb-2">تم إنشاء حسابك!</h3>
-              <p className="text-gray-600 mb-6">تحقق من بريدك الإلكتروني لتفعيل الحساب، ثم سجل دخولك للبدء.</p>
+              <h3 className="text-2xl font-black text-gray-900 mb-2">{t('تم إنشاء حسابك!', 'Your Account Has Been Created!')}</h3>
+              <p className="text-gray-600 mb-6">{t('تحقق من بريدك الإلكتروني لتفعيل الحساب، ثم سجل دخولك للبدء.', 'Check your email to activate your account, then log in to get started.')}</p>
               <button onClick={() => navigate('/auth/login')}
                 className="bg-red-600 text-white px-8 py-3.5 rounded-2xl font-black hover:bg-red-700 transition-colors">
-                تسجيل الدخول الآن
+                {t('تسجيل الدخول الآن', 'Log In Now')}
               </button>
             </div>
           )}
@@ -391,7 +398,7 @@ export default function LandingPage() {
       {/* ── الأسئلة الشائعة ── */}
       <section id="faq" className="py-20 px-6 bg-gray-50">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl font-black text-gray-900 text-center mb-12">الأسئلة الشائعة</h2>
+          <h2 className="text-4xl font-black text-gray-900 text-center mb-12">{t('الأسئلة الشائعة', 'Frequently Asked Questions')}</h2>
           <div className="space-y-3">
             {FAQS.map((f, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -431,13 +438,13 @@ export default function LandingPage() {
             </div>
 
             <div className="flex gap-6 text-sm">
-              <a href="/about" className="hover:text-white transition-colors">من نحن</a>
-              <a href="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</a>
-              <a href="/terms" className="hover:text-white transition-colors">الشروط والأحكام</a>
+              <a href="/about" className="hover:text-white transition-colors">{t('من نحن', 'About Us')}</a>
+              <a href="/privacy" className="hover:text-white transition-colors">{t('سياسة الخصوصية', 'Privacy Policy')}</a>
+              <a href="/terms" className="hover:text-white transition-colors">{t('الشروط والأحكام', 'Terms & Conditions')}</a>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-            <p>© {new Date().getFullYear()} فلسي — جميع الحقوق محفوظة</p>
+            <p>© {new Date().getFullYear()} {t('فلسي — جميع الحقوق محفوظة', 'Felsy — All rights reserved')}</p>
             <div className="flex items-center gap-2">
               <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-6 w-auto object-contain bg-white rounded px-1.5 py-0.5" />
               <span className="text-green-400">متوافق مع هيئة الزكاة والضريبة والجمارك</span>
