@@ -145,10 +145,10 @@ export default function AIAssistant() {
       }
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-goog-api-key': key },
           body: JSON.stringify({
             contents: [{ parts: [{ text: `${systemInstruction}\n\n${context}\n\nسؤال/طلب المستخدم: ${msg}\n\nأجب باللغة العربية.` }] }],
             generationConfig: { maxOutputTokens: 600, temperature: 0.4 },
