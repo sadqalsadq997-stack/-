@@ -891,6 +891,14 @@ function BillingTab() {
     setLoading(false);
   }
 
+  async function subAction(action, id) {
+    try {
+      await callOwnerApi(action, { id });
+      toast.success('تم تنفيذ الإجراء بنجاح');
+      await loadAll();
+    } catch (e) { toast.error('فشل الإجراء: ' + (e?.message || '')); }
+  }
+
   const activePlans = billingPlans.filter(p => p.is_active);
   const totalMRR = subscriptions
     .filter(s => ['active', 'trialing'].includes(s.status))
@@ -1006,14 +1014,14 @@ function BillingTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-gray-400 bg-white/50">
-                  {['المنشأة','الخطة','الحالة','المبلغ القادم','نهاية الدورة','محاولات فاشلة'].map(h => (
+                  {['المنشأة','الخطة','الحالة','المبلغ القادم','نهاية الدورة','محاولات فاشلة','إجراءات'].map(h => (
                     <th key={h} className="text-right px-4 py-3 font-medium text-xs">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {subscriptions.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-gray-400">لا توجد اشتراكات بعد</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-gray-400">لا توجد اشتراكات بعد</td></tr>
                 ) : subscriptions.map(s => (
                   <tr key={s.id} className="border-b border-gray-200/50">
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.tenant_id?.slice(0, 8)}…</td>
@@ -1026,6 +1034,28 @@ function BillingTab() {
                     <td className="px-4 py-3 text-amber-400 font-bold">{fmtSAR(s.next_charge_amount)}</td>
                     <td className="px-4 py-3 text-gray-500">{fmtDate(s.current_period_end)}</td>
                     <td className="px-4 py-3 text-gray-500">{s.failed_attempts || 0}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {s.status !== 'suspended' && (
+                          <button onClick={() => subAction('suspend_tenant_subscription', s.id)}
+                            className="text-xs px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200">
+                            إيقاف
+                          </button>
+                        )}
+                        {s.status === 'suspended' && (
+                          <button onClick={() => subAction('reactivate_tenant_subscription', s.id)}
+                            className="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200">
+                            تفعيل
+                          </button>
+                        )}
+                        {s.status !== 'cancelled' && (
+                          <button onClick={() => { if (confirm('تأكيد إلغاء الاشتراك نهائياً؟')) subAction('cancel_tenant_subscription', s.id); }}
+                            className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
+                            إلغاء
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

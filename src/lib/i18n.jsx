@@ -98,7 +98,13 @@ const translations = {
 export function I18nProvider({ children }) {
   const [lang, setLang] = useState(() => localStorage.getItem('felsy_lang') || 'ar');
 
-  const t = (key) => translations[lang]?.[key] ?? key;
+  // يدعم استدعاءين:
+  // 1) t('dashboard') — بحث بالمفتاح في قاموس الترجمة
+  // 2) t('نص عربي مباشر', 'English text') — نص مباشر بدون قاموس (يُستخدم بكثرة في الصفحة الرئيسية)
+  const t = (arOrKey, en) => {
+    if (en !== undefined) return lang === 'ar' ? arOrKey : en;
+    return translations[lang]?.[arOrKey] ?? arOrKey;
+  };
 
   const switchLang = (l) => {
     setLang(l);

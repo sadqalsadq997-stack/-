@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getTrialBalance, getIncomeStatement, getAgingReport, createVoucher, DEFAULT_COA } from '@/lib/accounting';
 import { AuditHelper } from '@/lib/audit';
+import { exportToExcel } from '@/lib/exportExcel';
 import { toast } from 'sonner';
 import {
   BookOpen, TrendingUp, BarChart3, FileText, Scale,
@@ -96,6 +97,15 @@ function TrialBalanceTab() {
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           تحديث
         </button>
+        {data && (
+          <button onClick={() => exportToExcel(
+              data.accounts.map(a => ({ 'الرمز': a.code, 'اسم الحساب': a.name, 'مدين': a.debit, 'دائن': a.credit, 'الرصيد': a.balance })),
+              'ميزان المراجعة', `trial-balance-${fromDate||'all'}-${toDate||'all'}`
+            )}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm hover:bg-emerald-700">
+            <Download className="w-4 h-4" /> تصدير Excel
+          </button>
+        )}
       </div>
       {data && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -167,9 +177,18 @@ function IncomeStatementTab() {
         <div className="flex justify-center py-10"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
       ) : data ? (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <h3 className="font-bold text-sm">قائمة الدخل</h3>
+          <div className="p-4 border-b border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-sm">قائمة الدخل</h3>
+            </div>
+            <button onClick={() => exportToExcel(
+                rows.map(r => ({ 'البند': r.label, 'القيمة': r.value })),
+                'قائمة الدخل', 'income-statement'
+              )}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700">
+              <Download className="w-3.5 h-3.5" /> تصدير Excel
+            </button>
           </div>
           <div className="divide-y divide-border">
             {rows.map((r, i) => (
