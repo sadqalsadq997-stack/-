@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import felsynLogo from '@/assets/felsy-logo.png';
 import {
   Check, Star, ChevronDown, ArrowLeft, Shield, Zap, BarChart3,
@@ -29,7 +30,7 @@ const PARTNERS = [
 ];
 
 import { PLANS, PLAN_SELECT_OPTIONS, CONTACT_INFO } from '@/lib/pricingPlans';
-import zatcaLogo from '@/assets/zatca-logo.webp';
+import zatcaLogo from '@/assets/zatca-logo.png';
 import { useI18n } from '@/lib/i18n';
 
 // ── ميزات النظام ──────────────────────────────────────────────────
@@ -75,6 +76,143 @@ function Counter({ to, duration = 2000, suffix = '' }) {
     return () => obs.disconnect();
   }, [to, duration]);
   return <span ref={ref}>{val.toLocaleString('ar')}{suffix}</span>;
+}
+
+// ── تأثير ظهور تدريجي عند التمرير — يُستخدم لتنشيط كل قسم بأسلوب موحّد ──
+function Reveal({ children, delay = 0, y = 24 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.6, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ── العنصر البصري المميز: محاكاة حية لشاشة نقطة بيع فعلية ──
+// (بدل صناديق رمادية ثابتة — منتجات حقيقية، عربة تتحرك، إجمالي يتزايد، إشعار نجاح)
+const DEMO_PRODUCTS = [
+  { name: 'قهوة عربية', price: 18, emoji: '☕' },
+  { name: 'كرواسون', price: 14, emoji: '🥐' },
+  { name: 'عصير برتقال', price: 16, emoji: '🍊' },
+  { name: 'ساندويش', price: 24, emoji: '🥪' },
+  { name: 'كيك شوكولاتة', price: 22, emoji: '🍫' },
+  { name: 'موهيتو', price: 19, emoji: '🍹' },
+];
+
+function LivePOSDemo() {
+  const [cart, setCart] = useState([]);
+  const [showToast, setShowToast] = useState(false);
+  const cycleRef = useRef(0);
+
+  useEffect(() => {
+    let timeouts = [];
+    function runCycle() {
+      setCart([]);
+      setShowToast(false);
+      const picks = [...DEMO_PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3);
+      picks.forEach((p, i) => {
+        timeouts.push(setTimeout(() => setCart(c => [...c, p]), 700 * (i + 1)));
+      });
+      timeouts.push(setTimeout(() => setShowToast(true), 700 * (picks.length + 1) + 300));
+      timeouts.push(setTimeout(() => runCycle(), 700 * (picks.length + 1) + 3200));
+    }
+    runCycle();
+    return () => timeouts.forEach(clearTimeout);
+  }, []);
+
+  const total = cart.reduce((s, p) => s + p.price, 0);
+
+  return (
+    <div className="bg-gray-900 rounded-3xl p-2 shadow-2xl border border-gray-700 relative">
+      <div className="bg-white rounded-2xl overflow-hidden">
+        <div className="bg-gray-100 px-4 py-2 flex items-center gap-2 border-b border-gray-200">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-red-400" />
+            <div className="w-3 h-3 rounded-full bg-yellow-400" />
+            <div className="w-3 h-3 rounded-full bg-green-400" />
+          </div>
+          <div className="flex-1 bg-white rounded-lg px-3 py-1 text-xs text-gray-400 text-center border border-gray-200 max-w-xs mx-auto">
+            🔒 felsy.org/pos
+          </div>
+        </div>
+
+        <div className="bg-gray-50 p-6 min-h-64 flex gap-4">
+          {/* شبكة المنتجات */}
+          <div className="flex-1 space-y-3">
+            <div className="h-4 bg-red-100 rounded-lg w-32 flex items-center px-2 text-[10px] font-bold text-red-500">المشروبات والمأكولات</div>
+            <div className="grid grid-cols-3 gap-2">
+              {DEMO_PRODUCTS.map((p, i) => {
+                const active = cart.some(c => c.name === p.name);
+                return (
+                  <motion.div key={i}
+                    animate={active ? { scale: [1, 1.06, 1] } : {}}
+                    transition={{ duration: 0.4 }}
+                    className={`h-16 rounded-xl border flex flex-col items-center justify-center gap-0.5 p-2 transition-colors ${active ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200'}`}>
+                    <span className="text-lg leading-none">{p.emoji}</span>
+                    <span className="text-[9px] text-gray-500 leading-none">{p.name}</span>
+                    <span className="text-[9px] font-bold text-red-500 leading-none">{p.price} ر.س</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* سلة الطلب الحية */}
+          <div className="w-44 bg-white rounded-2xl border border-gray-200 p-3 flex flex-col">
+            <div className="h-3 bg-gray-100 rounded w-20 mb-2 flex items-center px-1 text-[8px] text-gray-400 font-bold">الطلب الحالي</div>
+            <div className="flex-1 space-y-1.5 min-h-20">
+              <AnimatePresence mode="popLayout">
+                {cart.map((p, i) => (
+                  <motion.div key={p.name + i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2">
+                    <span className="text-xs">{p.emoji}</span>
+                    <span className="flex-1 text-[9px] text-gray-600 truncate">{p.name}</span>
+                    <span className="text-[9px] font-bold text-gray-700">{p.price}</span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+            <div className="border-t border-gray-100 pt-2 mt-2">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[9px] text-gray-400">الإجمالي</span>
+                <motion.span key={total} initial={{ scale: 1.3, color: '#dc2626' }} animate={{ scale: 1, color: '#111827' }}
+                  className="text-xs font-black">{total} ر.س</motion.span>
+              </div>
+              <div className="h-8 bg-red-600 rounded-xl flex items-center justify-center text-white text-[10px] font-bold">
+                دفع ✓
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* إشعار نجاح عملية الدفع — يظهر بعد كل دورة */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            className="absolute -bottom-4 right-6 bg-white shadow-xl border border-green-100 rounded-2xl px-4 py-2.5 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+              <Check className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-800">تمت العملية بنجاح</p>
+              <p className="text-[10px] text-gray-400">فاتورة ضريبية ZATCA جاهزة</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function LandingPage() {
@@ -191,70 +329,41 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* صورة المنتج — محاكي شاشة */}
-        <div className="max-w-4xl mx-auto mt-16">
-          <div className="bg-gray-900 rounded-3xl p-2 shadow-2xl border border-gray-700">
-            <div className="bg-white rounded-2xl overflow-hidden">
-              {/* شريط عنوان المتصفح */}
-              <div className="bg-gray-100 px-4 py-2 flex items-center gap-2 border-b border-gray-200">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                </div>
-                <div className="flex-1 bg-white rounded-lg px-3 py-1 text-xs text-gray-400 text-center border border-gray-200 max-w-xs mx-auto">
-                  🔒 felsy.org/pos
-                </div>
-              </div>
-              {/* محتوى POS */}
-              <div className="bg-gray-50 p-6 min-h-48 flex gap-4">
-                <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-red-100 rounded-lg w-32" />
-                  <div className="grid grid-cols-3 gap-2">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="h-16 bg-white rounded-xl border border-gray-200 flex flex-col items-center justify-center gap-1 p-2">
-                        <div className="w-6 h-6 bg-red-100 rounded-lg" />
-                        <div className="h-2 bg-gray-200 rounded w-10" />
-                        <div className="h-2 bg-red-200 rounded w-8" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="w-44 bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
-                  <div className="h-3 bg-gray-100 rounded w-20" />
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-gray-100 rounded-lg" />
-                      <div className="flex-1 h-2 bg-gray-100 rounded" />
-                      <div className="h-2 bg-red-100 rounded w-8" />
-                    </div>
-                  ))}
-                  <div className="border-t border-gray-100 pt-2 mt-2">
-                    <div className="h-8 bg-red-600 rounded-xl" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* صورة المنتج — محاكاة حية لنقطة بيع فعلية */}
+        <motion.div className="max-w-4xl mx-auto mt-16"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.2 }}>
+          <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}>
+            <LivePOSDemo />
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* ── الميزات ── */}
       <section id="features" className="py-20 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('كل ما تحتاجه في نظام واحد', 'Everything You Need in One System')}</h2>
-            <p className="text-xl text-gray-500">{t('مصمم خصيصاً للأعمال السعودية مع دعم كامل لمتطلبات هيئة الزكاة والضريبة', 'Built specifically for Saudi businesses with full ZATCA compliance support')}</p>
-          </div>
+          <Reveal>
+            <div className="text-center mb-14">
+              <h2 className="text-4xl font-black text-gray-900 mb-4">{t('كل ما تحتاجه في نظام واحد', 'Everything You Need in One System')}</h2>
+              <p className="text-xl text-gray-500">{t('مصمم خصيصاً للأعمال السعودية مع دعم كامل لمتطلبات هيئة الزكاة والضريبة', 'Built specifically for Saudi businesses with full ZATCA compliance support')}</p>
+            </div>
+          </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f, i) => (
-              <div key={i} className="bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-2xl p-6 transition-all duration-200 group">
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.45, delay: (i % 3) * 0.1 }}
+                whileHover={{ y: -4 }}
+                className="bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-2xl p-6 transition-colors duration-200 group">
                 <div className="w-12 h-12 bg-white group-hover:bg-red-100 border border-gray-200 group-hover:border-red-200 rounded-xl flex items-center justify-center mb-4 shadow-sm transition-colors">
                   <f.icon className="w-6 h-6 text-gray-600 group-hover:text-red-600 transition-colors" />
                 </div>
                 <h3 className="font-black text-gray-900 mb-2">{f.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -303,13 +412,21 @@ export default function LandingPage() {
       {/* ── الأسعار ── */}
       <section id="pricing" className="py-20 px-6 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أسعار شفافة بدون مفاجآت', 'Transparent Pricing, No Surprises')}</h2>
-            <p className="text-xl text-gray-500">{t('اختر الباقة التي تناسب حجم نشاطك — يمكنك الترقية في أي وقت', 'Choose the plan that fits your business — upgrade anytime')}</p>
-          </div>
+          <Reveal>
+            <div className="text-center mb-14">
+              <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أسعار شفافة بدون مفاجآت', 'Transparent Pricing, No Surprises')}</h2>
+              <p className="text-xl text-gray-500">{t('اختر الباقة التي تناسب حجم نشاطك — يمكنك الترقية في أي وقت', 'Choose the plan that fits your business — upgrade anytime')}</p>
+            </div>
+          </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {PLANS.map((pl, i) => (
-              <div key={i} className={`bg-white border-2 ${pl.color} rounded-3xl p-7 flex flex-col relative shadow-sm hover:shadow-xl transition-shadow`}>
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.45, delay: i * 0.08 }}
+                whileHover={{ y: -6 }}
+                className={`bg-white border-2 ${pl.color} rounded-3xl p-7 flex flex-col relative shadow-sm hover:shadow-xl transition-shadow`}>
                 {pl.badge && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className={`text-xs font-black px-4 py-1.5 rounded-full ${pl.badge === 'الأكثر شيوعاً' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`}>
@@ -342,7 +459,7 @@ export default function LandingPage() {
                   className={`block text-center py-3 rounded-2xl font-bold text-sm transition-all ${i === 1 ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>
                   {pl.cta}
                 </a>
-              </div>
+              </motion.div>
             ))}
           </div>
 
@@ -357,10 +474,12 @@ export default function LandingPage() {
       {/* ── التسجيل ── */}
       <section id="signup" className="py-20 px-6 bg-white">
         <div className="max-w-xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('ابدأ تجربتك المجانية الآن', 'Start Your Free Trial Now')}</h2>
-            <p className="text-gray-500">{t('14 يوماً مجاناً — بدون بطاقة ائتمانية — بدون تعهدات', '14 days free — no credit card required — no commitments')}</p>
-          </div>
+          <Reveal>
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-black text-gray-900 mb-4">{t('ابدأ تجربتك المجانية الآن', 'Start Your Free Trial Now')}</h2>
+              <p className="text-gray-500">{t('14 يوماً مجاناً — بدون بطاقة ائتمانية — بدون تعهدات', '14 days free — no credit card required — no commitments')}</p>
+            </div>
+          </Reveal>
 
           {signupStep === 1 ? (
             <form onSubmit={handleSignup} className="bg-gray-50 border border-gray-200 rounded-3xl p-8 space-y-5 shadow-lg">
@@ -411,7 +530,7 @@ export default function LandingPage() {
       {/* ── الأسئلة الشائعة ── */}
       <section id="faq" className="py-20 px-6 bg-gray-50">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl font-black text-gray-900 text-center mb-12">{t('الأسئلة الشائعة', 'Frequently Asked Questions')}</h2>
+          <Reveal><h2 className="text-4xl font-black text-gray-900 text-center mb-12">{t('الأسئلة الشائعة', 'Frequently Asked Questions')}</h2></Reveal>
           <div className="space-y-3">
             {FAQS.map((f, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
