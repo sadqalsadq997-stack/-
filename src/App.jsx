@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import { I18nProvider } from "@/lib/i18n";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import AppLayout from "@/components/layout/AppLayout";
 import AppPINGate from "@/components/AppPINGate";
 import PaymentGate from "@/pages/PaymentGate";
@@ -194,6 +195,7 @@ export default function App() {
             <Router>
               <AppRoutes />
             </Router>
+            <SpeedInsights />
           </TooltipProvider>
         </I18nProvider>
       </QueryClientProvider>
