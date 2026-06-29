@@ -60,12 +60,17 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to:   { opacity: '1', transform: 'translateY(0)' },
         },
+        marquee: {
+          '0%':   { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up':   'accordion-up 0.2s ease-out',
         shimmer:          'shimmer 1.6s infinite',
         fadeSlide:        'fadeSlide 0.22s ease forwards',
+        marquee:          'marquee 28s linear infinite',
       },
     },
   },

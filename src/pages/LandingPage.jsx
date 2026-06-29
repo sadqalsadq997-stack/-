@@ -9,18 +9,23 @@ import {
   TrendingUp, CreditCard, Bell, CheckCircle2, Building2, Store, Truck
 } from 'lucide-react';
 
-// ── شعارات الشركاء ────────────────────────────────────────────────
+// ── شعارات الشركاء (شعارات حقيقية) ──────────────────────────────────
+import zahraLogo from '@/assets/partners/zahra.png';
+import alshamSweetsLogo from '@/assets/partners/alsham-sweets.png';
+import brghCarLogo from '@/assets/partners/brgh-car.png';
+import goldenRoseLogo from '@/assets/partners/golden-rose.png';
+import goldenFeetLogo from '@/assets/partners/golden-feet.png';
+import blackDeerLogo from '@/assets/partners/black-deer.png';
+import florinaLogo from '@/assets/partners/florina.png';
+
 const PARTNERS = [
-  { name: 'إبرة وخيط', icon: '🪡' },
-  { name: 'الأقدام الذهبية', icon: '👟' },
-  { name: 'جولدن روز', icon: '🌹' },
-  { name: 'فلورينا للأحذية', icon: '👠' },
-  { name: 'بلاكدير التركية', icon: '🦌' },
-  { name: 'كافيه النخيل', icon: '🌴' },
-  { name: 'مطعم الوادي', icon: '🍽️' },
-  { name: 'سبلاش كارواش', icon: '🚗' },
-  { name: 'حلويات الشامي', icon: '🍬' },
-  { name: 'بوتيك لمسة', icon: '👗' },
+  { name: 'زهرة', logo: zahraLogo },
+  { name: 'حلويات الشام', logo: alshamSweetsLogo },
+  { name: 'برق كار', logo: brghCarLogo },
+  { name: 'جولدن روز', logo: goldenRoseLogo },
+  { name: 'الأقدام الذهبية', logo: goldenFeetLogo },
+  { name: 'بلاك دير', logo: blackDeerLogo },
+  { name: 'فلورينا', logo: florinaLogo },
 ];
 
 import { PLANS, PLAN_SELECT_OPTIONS, CONTACT_INFO } from '@/lib/pricingPlans';
@@ -269,22 +274,30 @@ export default function LandingPage() {
       </section>
 
       {/* ── عملاؤنا ── */}
-      <section id="partners" className="py-20 px-6 bg-white">
-        <div className="max-w-7xl mx-auto">
+      <section id="partners" className="py-20 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">أكثر من 1,000 شركة تثق بنا</h2>
-            <p className="text-gray-500">من المطاعم والمقاهي إلى محلات الأحذية والملابس ومحطات غسيل السيارات</p>
+            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أكثر من 100 شركة تثق بنا', 'Trusted by 100+ Businesses')}</h2>
+            <p className="text-gray-500">{t('من المطاعم والمقاهي إلى محلات الأحذية والملابس ومحطات غسيل السيارات', 'From restaurants and cafés to shoe stores, clothing brands, and car wash stations')}</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {PARTNERS.map((p, i) => (
-              <div key={i} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center hover:border-red-200 hover:bg-red-50 transition-all">
-                <div className="text-3xl mb-2">{p.icon}</div>
-                <p className="text-xs font-bold text-gray-700">{p.name}</p>
+        </div>
+
+        {/* شريط شعارات متحرك بلا توقف — يكرّر القائمة مرتين لضمان استمرارية الحركة */}
+        <div className="relative w-full">
+          <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
+            {[...PARTNERS, ...PARTNERS].map((p, i) => (
+              <div key={i} className="flex items-center justify-center mx-8 shrink-0" style={{ width: '160px', height: '90px' }}>
+                <img src={p.logo} alt={p.name} title={p.name}
+                  className="max-w-full max-h-full object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300" />
               </div>
             ))}
           </div>
-          <p className="text-center text-gray-400 text-sm mt-6">وأكثر من 990 عميل آخر في المملكة العربية السعودية</p>
+          {/* تلطيف الحواف لإخفاء بداية/نهاية الشريط */}
+          <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent pointer-events-none" />
+          <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-white to-transparent pointer-events-none" />
         </div>
+
+        <p className="text-center text-gray-400 text-sm mt-8">{t('وأكثر من 90 عميلاً آخر في المملكة العربية السعودية', 'And 90+ more businesses across Saudi Arabia')}</p>
       </section>
 
       {/* ── الأسعار ── */}
@@ -335,7 +348,7 @@ export default function LandingPage() {
 
           {/* ── شارة الاعتماد الرسمي من هيئة الزكاة والضريبة والجمارك ── */}
           <div className="mt-10 flex items-center justify-center gap-3 text-gray-500">
-            <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-10 w-auto object-contain" />
+            <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-16 w-auto object-contain" />
             <span className="text-sm">فلسي متوافق رسمياً مع متطلبات الفاتورة الإلكترونية (ZATCA)</span>
           </div>
         </div>
@@ -446,7 +459,7 @@ export default function LandingPage() {
           <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
             <p>© {new Date().getFullYear()} {t('فلسي — جميع الحقوق محفوظة', 'Felsy — All rights reserved')}</p>
             <div className="flex items-center gap-2">
-              <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-6 w-auto object-contain bg-white rounded px-1.5 py-0.5" />
+              <img src={zatcaLogo} alt="هيئة الزكاة والضريبة والجمارك" className="h-12 w-auto object-contain bg-white rounded-lg px-2 py-1" />
               <span className="text-green-400">متوافق مع هيئة الزكاة والضريبة والجمارك</span>
             </div>
           </div>
