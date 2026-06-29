@@ -10,6 +10,7 @@ import { I18nProvider } from "@/lib/i18n";
 import AppLayout from "@/components/layout/AppLayout";
 import AppPINGate from "@/components/AppPINGate";
 import PaymentGate from "@/pages/PaymentGate";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 
 // Auth pages
 import OwnerLogin    from "@/pages/auth/OwnerLogin";
@@ -194,6 +195,7 @@ export default function App() {
             <Router>
               <AppRoutes />
             </Router>
+            <VercelAnalytics />
           </TooltipProvider>
         </I18nProvider>
       </QueryClientProvider>
