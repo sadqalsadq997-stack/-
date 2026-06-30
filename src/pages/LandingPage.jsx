@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useScroll, useSpring } from 'framer-motion';
 import felsynLogo from '@/assets/felsy-logo.png';
 import {
   Check, Star, ChevronDown, ArrowLeft, Shield, Zap, BarChart3,
@@ -225,6 +225,15 @@ export default function LandingPage() {
   const [signupStep, setSignupStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [faq, setFaq]         = useState(null);
+  const [scrolled, setScrolled] = useState(false);
+  const { scrollYProgress } = useScroll();
+  const scrollProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -250,8 +259,14 @@ export default function LandingPage() {
   return (
     <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white text-gray-900 font-sans" style={{ fontFamily: "'Segoe UI', 'Cairo', sans-serif" }}>
 
+      {/* ── شريط تقدّم التمرير ── */}
+      <motion.div
+        className="fixed top-0 right-0 left-0 h-[3px] bg-red-600 z-[60] origin-left"
+        style={{ scaleX: scrollProgress }}
+      />
+
       {/* ── Navbar ── */}
-      <nav className="fixed top-0 right-0 left-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-sm">
+      <nav className={`fixed top-0 right-0 left-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-sm py-0' : 'bg-transparent border-b border-transparent py-1.5'}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img src={felsynLogo} alt="فلسي Felsy" className="h-9 w-auto object-contain" />
@@ -282,42 +297,53 @@ export default function LandingPage() {
 
       {/* ── Hero ── */}
       <section className="pt-32 pb-20 px-6 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
-        {/* خلفية ديكورية */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-red-50 rounded-full blur-3xl opacity-60 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-red-50 rounded-full blur-3xl opacity-40 pointer-events-none" />
+        {/* خلفية متحركة — شبكة شفافة + ضباب لوني هادئ، إشارة بصرية لطابع نقطة البيع الرقمية */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.035]"
+          style={{ backgroundImage: 'linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
+        <motion.div className="absolute top-10 left-10 w-80 h-80 bg-red-100 rounded-full blur-3xl pointer-events-none"
+          animate={{ opacity: [0.35, 0.55, 0.35], scale: [1, 1.08, 1] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }} />
+        <motion.div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-amber-50 rounded-full blur-3xl pointer-events-none"
+          animate={{ opacity: [0.3, 0.5, 0.3], scale: [1.05, 1, 1.05] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }} />
 
         <div className="max-w-5xl mx-auto text-center relative">
-          <div className="inline-flex items-center gap-2 bg-red-50 text-red-700 text-sm font-bold px-4 py-2 rounded-full mb-6 border border-red-100">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 bg-red-50 text-red-700 text-sm font-bold px-4 py-2 rounded-full mb-6 border border-red-100">
             <Zap className="w-4 h-4" />
             {t('نظام نقاط البيع الأذكى في المملكة', 'The Smartest POS System in the Kingdom')}
-          </div>
+          </motion.div>
 
-          <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-tight mb-6"
+          <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.1 }}
+            className="text-5xl md:text-7xl font-black text-gray-900 leading-tight mb-6"
             style={{ lineHeight: '1.15' }}>
             {t('أدِر مشروعك', 'Run Your Business')}<br />
             <span className="text-red-600">{t('بذكاء حقيقي', 'With Real Intelligence')}</span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.2 }}
+            className="text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
             {t('نظام فلسي — حل متكامل لنقاط البيع، الفواتير الإلكترونية، إدارة المخزون، الطاولات، والمتجر الإلكتروني. كل ما تحتاجه في مكان واحد.',
                'Felsy — an all-in-one solution for point-of-sale, e-invoicing, inventory management, tables, and your online store. Everything you need in one place.')}
-          </p>
+          </motion.p>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-14">
-            <a href="#signup"
-              className="bg-red-600 text-white px-8 py-4 rounded-2xl text-lg font-black hover:bg-red-700 transition-all shadow-xl shadow-red-200 flex items-center gap-2">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.3 }}
+            className="flex flex-wrap items-center justify-center gap-4 mb-14">
+            <motion.a whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} href="#signup"
+              className="bg-red-600 text-white px-8 py-4 rounded-2xl text-lg font-black hover:bg-red-700 transition-colors shadow-xl shadow-red-200 flex items-center gap-2">
               {t('ابدأ تجربتك المجانية', 'Start Your Free Trial')} <ArrowLeft className="w-5 h-5" />
-            </a>
-            <a href="#pricing"
-              className="bg-white text-gray-800 px-8 py-4 rounded-2xl text-lg font-bold border-2 border-gray-200 hover:border-red-300 transition-all">
+            </motion.a>
+            <motion.a whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} href="#pricing"
+              className="bg-white text-gray-800 px-8 py-4 rounded-2xl text-lg font-bold border-2 border-gray-200 hover:border-red-300 transition-colors">
               {t('شاهد الأسعار', 'View Pricing')}
-            </a>
-          </div>
+            </motion.a>
+          </motion.div>
 
           {/* إحصائيات */}
-          <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.4 }}
+            className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
             {[
-              { num: 1000, suf: '+', label: t('متجر يثق بنا', 'Stores Trust Us') },
+              { num: 100, suf: '+', label: t('متجر يثق بنا', 'Stores Trust Us') },
               { num: 99, suf: '%', label: t('رضا العملاء', 'Customer Satisfaction') },
               { num: 4, suf: '+', label: t('سنوات خبرة', 'Years of Experience') },
             ].map((s, i) => (
@@ -326,7 +352,7 @@ export default function LandingPage() {
                 <p className="text-sm text-gray-500 mt-1">{s.label}</p>
               </div>
             ))}
-          </div>
+          </motion.div>
         </div>
 
         {/* صورة المنتج — محاكاة حية لنقطة بيع فعلية */}
@@ -371,24 +397,30 @@ export default function LandingPage() {
 
       {/* ── شهادة ZATCA ── */}
       <section className="py-14 px-6 bg-green-50 border-y border-green-100">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8 text-center md:text-right">
-          <ZATCABadge />
-          <div>
-            <h3 className="text-2xl font-black text-gray-900 mb-2">متوافق مع الفوترة الإلكترونية المرحلة الثانية</h3>
-            <p className="text-gray-600 leading-relaxed">
-              فواتير ضريبية معتمدة مع QR Code، XML موقع، وإرسال مباشر لمنظومة فاتورة. مطابق لمتطلبات هيئة الزكاة والضريبة والجمارك بالكامل.
-            </p>
+        <Reveal>
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8 text-center md:text-right">
+            <motion.div animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
+              <ZATCABadge />
+            </motion.div>
+            <div>
+              <h3 className="text-2xl font-black text-gray-900 mb-2">متوافق مع الفوترة الإلكترونية المرحلة الثانية</h3>
+              <p className="text-gray-600 leading-relaxed">
+                فواتير ضريبية معتمدة مع QR Code، XML موقع، وإرسال مباشر لمنظومة فاتورة. مطابق لمتطلبات هيئة الزكاة والضريبة والجمارك بالكامل.
+              </p>
+            </div>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ── عملاؤنا ── */}
       <section id="partners" className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أكثر من 100 شركة تثق بنا', 'Trusted by 100+ Businesses')}</h2>
-            <p className="text-gray-500">{t('من المطاعم والمقاهي إلى محلات الأحذية والملابس ومحطات غسيل السيارات', 'From restaurants and cafés to shoe stores, clothing brands, and car wash stations')}</p>
-          </div>
+          <Reveal>
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-black text-gray-900 mb-4">{t('أكثر من 100 شركة تثق بنا', 'Trusted by 100+ Businesses')}</h2>
+              <p className="text-gray-500">{t('من المطاعم والمقاهي إلى محلات الأحذية والملابس ومحطات غسيل السيارات', 'From restaurants and cafés to shoe stores, clothing brands, and car wash stations')}</p>
+            </div>
+          </Reveal>
         </div>
 
         {/* شريط شعارات متحرك بلا توقف — يكرّر القائمة مرتين لضمان استمرارية الحركة */}
@@ -482,7 +514,12 @@ export default function LandingPage() {
           </Reveal>
 
           {signupStep === 1 ? (
-            <form onSubmit={handleSignup} className="bg-gray-50 border border-gray-200 rounded-3xl p-8 space-y-5 shadow-lg">
+            <motion.form onSubmit={handleSignup}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.5 }}
+              className="bg-gray-50 border border-gray-200 rounded-3xl p-8 space-y-5 shadow-lg">
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('اسم النشاط التجاري', 'Business Name')}</label>
                 <input value={name} onChange={e => setName(e.target.value)} required placeholder={t('مثال: مطعم الوادي', 'e.g. Al-Wadi Restaurant')}
@@ -512,7 +549,7 @@ export default function LandingPage() {
                 {loading ? t('جاري التسجيل...', 'Creating account...') : t('أنشئ حسابك مجاناً ←', 'Create Your Free Account ←')}
               </button>
               <p className="text-xs text-gray-400 text-center">{t('بالتسجيل توافق على', 'By signing up you agree to our')} <a href="/terms" className="underline">{t('شروط الاستخدام', 'Terms of Use')}</a> {t('و', 'and')} <a href="/privacy" className="underline">{t('سياسة الخصوصية', 'Privacy Policy')}</a></p>
-            </form>
+            </motion.form>
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-3xl p-10 text-center">
               <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -537,13 +574,24 @@ export default function LandingPage() {
                 <button onClick={() => setFaq(faq === i ? null : i)}
                   className="w-full flex items-center justify-between px-6 py-4 text-right hover:bg-gray-50 transition-colors">
                   <span className="font-bold text-gray-900">{f.q}</span>
-                  <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${faq === i ? 'rotate-180' : ''}`} />
+                  <motion.span animate={{ rotate: faq === i ? 180 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  </motion.span>
                 </button>
-                {faq === i && (
-                  <div className="px-6 pb-4 text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
-                    {f.a}
-                  </div>
-                )}
+                <AnimatePresence initial={false}>
+                  {faq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      style={{ overflow: 'hidden' }}>
+                      <div className="px-6 pb-4 text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
+                        {f.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))}
           </div>
