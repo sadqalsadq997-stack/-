@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PLANS } from '@/lib/pricingPlans';
 import { hmacSign, sha256, maskSensitive } from '@/lib/security/crypto';
 import {
-  Crown, Users, Globe, BarChart3, DollarSign, Calendar,
+  Users, Globe, BarChart3, DollarSign, Calendar,
   Shield, Bell, Search, RefreshCw, Loader2, CheckCircle2,
   XCircle, AlertTriangle, MessageSquare, Eye, EyeOff, Lock,
   LogOut, FileText, Activity, Server, Database, Pencil, Trash2,
@@ -12,6 +12,7 @@ import {
   CreditCard, Sparkles, TrendingUp, Copy, UserCog
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { LogoMark } from '@/components/brand/Logo';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('ar-SA');
 const fmtSAR = (n) => `${fmt(n)} ر.س`;
@@ -106,9 +107,7 @@ function OwnerLogin({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4" dir="rtl">
       <div className="bg-white border border-gray-200 rounded-3xl p-10 w-full max-w-sm shadow-2xl">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Crown className="w-8 h-8 text-gray-900" />
-          </div>
+          <div className="flex justify-center mb-4"><LogoMark size={64} /></div>
           <h1 className="text-2xl font-black text-gray-900">لوحة مالك النظام</h1>
           <p className="text-gray-400 text-sm mt-1">فلسي — الداخلية</p>
         </div>
@@ -1134,9 +1133,7 @@ export default function SuperAdmin() {
         {/* رأس */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
-              <Crown className="w-5 h-5 text-gray-900" />
-            </div>
+            <LogoMark size={40} />
             <div>
               <h1 className="text-xl font-black text-gray-900">لوحة المالك — فلسي</h1>
               <p className="text-xs text-gray-400">جلسة آمنة · تنتهي خلال 4 ساعات</p>

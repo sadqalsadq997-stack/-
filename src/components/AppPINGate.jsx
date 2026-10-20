@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Delete, Building2 } from 'lucide-react';
+import { Delete } from 'lucide-react';
+import { LogoMark } from '@/components/brand/Logo';
 import Onboarding from '@/components/Onboarding';
 import { useNavigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '@/lib/security/session';
@@ -183,9 +184,7 @@ export default function AppPINGate({ children }) {
       <div className="fixed inset-0 bg-background flex items-center justify-center p-4" dir="rtl">
         <div className="w-full max-w-sm bg-card rounded-2xl shadow-xl p-8 space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <Building2 className="w-8 h-8 text-primary" />
-            </div>
+            <div className="flex justify-center"><LogoMark size={64} /></div>
             <h1 className="text-2xl font-bold">إنشاء رمز PIN الإداري</h1>
             <p className="text-muted-foreground text-sm">أدخل رمز PIN من 4 أرقام لحماية التطبيق</p>
           </div>
@@ -244,9 +243,7 @@ export default function AppPINGate({ children }) {
     <div className="fixed inset-0 bg-background flex items-center justify-center p-4" dir="rtl">
       <div ref={shakeRef} className="w-full max-w-xs bg-card rounded-2xl shadow-xl p-8 space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-            <Building2 className="w-8 h-8 text-primary" />
-          </div>
+          <div className="flex justify-center"><LogoMark size={64} /></div>
           <h1 className="text-xl font-bold">فلسي POS</h1>
           <p className="text-muted-foreground text-sm">أدخل رمز PIN للدخول</p>
         </div>

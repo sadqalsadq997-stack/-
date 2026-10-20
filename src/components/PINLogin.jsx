@@ -2,7 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { Crown, Delete, AlertTriangle } from 'lucide-react';
+import { Delete, AlertTriangle } from 'lucide-react';
+import Logo from '@/components/brand/Logo';
 
 export default function PINLogin({ onSuccess }) {
   const [pin, setPin] = useState('');
@@ -56,10 +57,7 @@ export default function PINLogin({ onSuccess }) {
         <Card className="p-8 text-center space-y-6 bg-card/98 backdrop-blur-sm shadow-2xl border-gold/20">
           {/* Logo */}
           <div>
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center mx-auto mb-4 shadow-lg shadow-gold/30">
-              <Crown className="w-10 h-10 text-background" />
-            </div>
-            <h2 className="text-[hsl(var(--background))] text-2xl font-bold">فلسي</h2>
+            <div className="flex justify-center mb-3"><Logo size={48} /></div>
             <p className="text-sm text-muted-foreground mt-1">أدخل رمز PIN للدخول</p>
           </div>
 
