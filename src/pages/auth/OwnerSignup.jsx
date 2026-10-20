@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase, isMissingEnv } from '@/integrations/supabase/client';
-import { MailCheck } from 'lucide-react';
+import { MailCheck, Loader2 } from 'lucide-react';
 import { AuthShell, Field, SubmitButton, Alert, GoogleButton, Divider, arabicAuthError, passwordStrength } from '@/components/auth/AuthShell';
 
 const STRENGTH = [
@@ -18,11 +18,39 @@ export default function OwnerSignup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState({ tone: 'ok', text: '' });
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const plan = /^[a-z0-9_-]{2,32}$/i.test(params.get('plan') || '') ? params.get('plan') : '';
   const next = plan ? `/dashboard?plan=${plan}` : '/dashboard';
   const strength = passwordStrength(form.password);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  async function handleResend() {
+    if (cooldown > 0 || resending) return;
+    setResending(true);
+    setResendMsg({ tone: 'ok', text: '' });
+    try {
+      const { error: err } = await supabase.auth.resend({
+        type: 'signup', email: sentTo,
+        options: { emailRedirectTo: `${window.location.origin}${next}` },
+      });
+      if (err) throw err;
+      setResendMsg({ tone: 'ok', text: 'أعدنا إرسال الرابط — شيّك بريدك.' });
+      setCooldown(60);
+    } catch (err) {
+      setResendMsg({ tone: 'error', text: arabicAuthError(err) });
+      setCooldown(30);
+    }
+    setResending(false);
+  }
 
   async function handleSignup(e) {
     e.preventDefault();
@@ -38,7 +66,14 @@ export default function OwnerSignup() {
         options: { data: { full_name: form.name.trim() }, emailRedirectTo: `${window.location.origin}${next}` },
       });
       if (err) throw err;
-      if (!data?.session) { setSentTo(form.email.trim()); setLoading(false); return; }
+      // Supabase يُرجع مستخدماً "وهمياً" بدون خطأ (ولا يرسل أي بريد) إذا كان الإيميل مسجّلاً من قبل.
+      // identities الفارغة = الحساب موجود، فلا نعرض شاشة "أرسلنا الرابط" زوراً.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError('هذا البريد مسجّل عندنا من قبل — سجّل دخولك، أو اضغط "نسيت كلمة المرور" إذا ما تذكرها.');
+        setLoading(false);
+        return;
+      }
+      if (!data?.session) { setSentTo(form.email.trim()); setCooldown(60); setLoading(false); return; }
       navigate(next);
     } catch (err) {
       setError(arabicAuthError(err));
@@ -58,7 +93,13 @@ export default function OwnerSignup() {
             أرسلنا رابط التفعيل إلى <b dir="ltr">{sentTo}</b>. افتحه من جوالك أو جهازك، وبعدها تختار باقتك مباشرة.
           </p>
           <p className="mt-3 text-xs text-emerald-700">ما وصل؟ شيّك مجلد الرسائل غير المرغوبة (Spam).</p>
+          <button type="button" onClick={handleResend} disabled={cooldown > 0 || resending}
+            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-emerald-300 bg-white px-5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60">
+            {resending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {cooldown > 0 ? `إعادة الإرسال بعد ${cooldown} ثانية` : 'إعادة إرسال الرابط'}
+          </button>
         </div>
+        <div className="mt-3"><Alert tone={resendMsg.tone}>{resendMsg.text}</Alert></div>
       </AuthShell>
     );
   }

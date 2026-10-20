@@ -15,6 +15,7 @@ const AR_ERRORS = [
   [/email not confirmed/i, 'لازم تفعّل بريدك أولاً — افتح رابط التفعيل اللي وصلك'],
   [/user already registered|already been registered/i, 'هذا البريد مسجّل عندنا — سجّل دخولك بدلاً من ذلك'],
   [/password should be at least/i, 'كلمة المرور لازم تكون 8 أحرف على الأقل'],
+  [/error sending (confirmation|recovery|magic)|sending .* email/i, 'تعذّر إرسال رسالة التفعيل حالياً — حاول بعد قليل، وإذا استمر تواصل مع الدعم'],
   [/rate limit|too many requests|security purposes/i, 'محاولات كثيرة — انتظر دقيقة وحاول مرة ثانية'],
   [/unable to validate email|invalid email/i, 'صيغة البريد غير صحيحة'],
   [/network|fetch/i, 'تعذر الاتصال — تأكد من الإنترنت'],
