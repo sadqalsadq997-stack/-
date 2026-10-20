@@ -171,12 +171,11 @@ function OverviewTab({ stats, clients }) {
     <div className="space-y-6">
       {/* إحصاءات */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon={Users}       label="إجمالي العملاء"  value={fmt(stats.totalClients)}   color="bg-blue-900 text-blue-400" />
           <StatCard icon={CheckCircle2}label="نشطون"           value={fmt(stats.activeClients)}  color="bg-green-900 text-green-400" />
           <StatCard icon={DollarSign}  label="الإيرادات"       value={fmtSAR(stats.totalRevenue)}color="bg-amber-900 text-amber-400" />
           <StatCard icon={MessageSquare} label="تذاكر مفتوحة"  value={fmt(stats.openTickets)}   color="bg-red-900 text-red-400" />
-          <StatCard icon={Shield}      label="رموز متاحة"      value={fmt(stats.unusedCodes)}   color="bg-violet-900 text-violet-400" />
         </div>
       )}
 
@@ -1086,11 +1085,11 @@ export default function SuperAdmin() {
 
   async function loadAll() {
     setLoading(true);
-    const [subs, tix, pays] = await Promise.all([
+    const [subs, tix] = await Promise.all([
       callOwnerApi('list_subscriptions').catch(() => []),
       callOwnerApi('list_support_tickets').catch(() => []),
-      callOwnerApi('list_payment_codes').catch(() => []),
     ]);
+    const pays = [];
     setClients(subs||[]);
     setTickets(tix||[]);
     setPayments(pays||[]);
@@ -1116,7 +1115,6 @@ export default function SuperAdmin() {
   const TABS = [
     { id: 'overview',  label: 'نظرة عامة',    icon: BarChart3    },
     { id: 'clients',   label: 'العملاء',       icon: Users        },
-    { id: 'payments',  label: 'الرموز',        icon: Shield       },
     { id: 'tickets',   label: 'التذاكر',       icon: MessageSquare},
     { id: 'pricing',   label: 'أسعار الخطط',   icon: BadgeDollarSign },
     { id: 'billing',   label: 'الفوترة الدورية', icon: CreditCard },
@@ -1206,40 +1204,6 @@ export default function SuperAdmin() {
                       </tr>
                     ))}</tbody>
                   </table>
-                </div>
-              </div>
-            )}
-
-            {tab === 'payments' && (
-              <div className="space-y-4">
-                <PaymentCodeGenerator onGenerated={() => loadAll()} />
-                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-900">رموز تفعيل النظام</h3>
-                  <span className="text-xs text-gray-400">{payments.filter(p=>!p.used).length} رمز متاح</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-gray-200 text-gray-400">
-                      {['الرمز','الخطة','المبلغ','الحالة','تاريخ الإنشاء'].map(h => (
-                        <th key={h} className="text-right px-4 py-3 font-medium">{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>{payments.map(p => (
-                      <tr key={p.id} className="border-b border-gray-200/50 hover:bg-gray-50/30">
-                        <td className="px-4 py-3 font-mono text-xs text-gray-700">{p.code}</td>
-                        <td className="px-4 py-3 text-violet-300 text-xs">{p.plan}</td>
-                        <td className="px-4 py-3 text-amber-400">{fmtSAR(p.amount)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${p.used?'bg-gray-50 text-gray-400':'bg-green-900/50 text-green-300'}`}>
-                            {p.used?'مستخدم':'متاح'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">{fmtDate(p.created_at)}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
                 </div>
               </div>
             )}
@@ -1523,80 +1487,6 @@ function TeamAndContentTab() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── توليد رمز تفعيل اشتراك جديد لعميل — الواجهة الفعلية الوحيدة
-// القادرة على إنشاء رموز payment_codes (عبر owner-admin-api فقط) ──
-function PaymentCodeGenerator({ onGenerated }) {
-  const [plan, setPlan]       = useState(PLANS[1]?.code || PLANS[0].code);
-  const [months, setMonths]   = useState(1);
-  const [amount, setAmount]   = useState(PLANS[1]?.price || PLANS[0].price);
-  const [generating, setGenerating] = useState(false);
-  const [lastCode, setLastCode]     = useState(null);
-
-  function pickPlan(code) {
-    setPlan(code);
-    const p = PLANS.find(p => p.code === code);
-    if (p?.price) setAmount(p.price * months);
-  }
-  function pickMonths(m) {
-    setMonths(m);
-    const p = PLANS.find(p => p.code === plan);
-    if (p?.price) setAmount(p.price * m);
-  }
-
-  async function generate() {
-    setGenerating(true);
-    try {
-      const rand = Math.random().toString(36).substr(2, 8).toUpperCase();
-      const code = `PAY-${plan.toUpperCase().substr(0, 3)}-${rand}-${months}M`;
-      await callOwnerApi('insert_payment_code', {
-        code, plan, months, amount, signature: 'owner-verified', used: false,
-      });
-      setLastCode(code);
-      onGenerated?.();
-      toast.success('تم توليد رمز جديد بنجاح');
-    } catch (e) {
-      toast.error('فشل التوليد: ' + (e?.message || ''));
-    }
-    setGenerating(false);
-  }
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5">
-      <h3 className="font-bold text-gray-900 mb-4">توليد رمز تفعيل اشتراك جديد</h3>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <select value={plan} onChange={e => pickPlan(e.target.value)}
-          className="h-10 bg-gray-50 border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
-          {PLANS.map(p => <option key={p.code} value={p.code}>{p.name} ({p.price ?? '—'} ر.س)</option>)}
-        </select>
-        <select value={months} onChange={e => pickMonths(Number(e.target.value))}
-          className="h-10 bg-gray-50 border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
-          {[1,3,6,12].map(m => <option key={m} value={m}>{m} {m===1?'شهر':'شهور'}</option>)}
-        </select>
-        <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))}
-          placeholder="المبلغ (ر.س)"
-          className="h-10 bg-gray-50 border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
-        <button onClick={generate} disabled={generating}
-          className="h-10 bg-primary text-gray-900 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
-          {generating && <Loader2 className="w-4 h-4 animate-spin" />} توليد الرمز
-        </button>
-      </div>
-
-      {lastCode && (
-        <div className="mt-4 bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-emerald-300 text-xs mb-1">الرمز الجديد — أرسله للعميل ليُدخله في صفحة الدفع:</p>
-            <p className="text-gray-900 font-mono text-lg font-bold">{lastCode}</p>
-          </div>
-          <button onClick={() => { navigator.clipboard?.writeText(lastCode); toast.success('تم نسخ الرمز'); }}
-            className="px-4 h-10 bg-emerald-700 text-gray-900 rounded-lg text-sm font-bold flex items-center gap-1.5">
-            <Copy className="w-4 h-4" /> نسخ
-          </button>
-        </div>
-      )}
     </div>
   );
 }

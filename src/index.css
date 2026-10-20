@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&family=Noto+Sans+Arabic:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,71 +5,71 @@
 
 @layer base {
   :root {
-    --font-tajawal: 'Tajawal', sans-serif;
-    --background: 0 0% 97%;
-    --foreground: 220 15% 10%;
+    --font-tajawal: 'Cairo', sans-serif;
+    --background: 0 0% 98%;
+    --foreground: 210 29% 24%;
     --card: 0 0% 100%;
     --card-foreground: 220 15% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 10%;
-    --primary: 0 72% 51%;
+    --primary: 148 19% 37%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 10% 94%;
+    --secondary: 43 30% 94%;
     --secondary-foreground: 220 10% 25%;
-    --muted: 220 8% 93%;
+    --muted: 43 22% 93%;
     --muted-foreground: 220 8% 50%;
-    --accent: 0 72% 51%;
+    --accent: 5 54% 68%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 0 72% 51%;
+    --border: 43 18% 87%;
+    --input: 43 18% 87%;
+    --ring: 141 19% 70%;
     --radius: 1rem;
     --gold: 38 95% 52%;
     --gold-light: 42 100% 65%;
     --gold-dark: 34 90% 38%;
     --emerald: 158 60% 38%;
     --ruby: 0 72% 51%;
-    --chart-1: 0 72% 51%;
+    --chart-1: 141 19% 50%;
     --chart-2: 158 60% 38%;
-    --chart-3: 38 95% 52%;
+    --chart-3: 5 54% 68%;
     --chart-4: 220 70% 55%;
     --chart-5: 280 55% 55%;
-    --sidebar-background: 222 47% 10%;
-    --sidebar-ring: 0 72% 51%;
+    --sidebar-background: 210 29% 20%;
+    --sidebar-ring: 141 19% 70%;
     --sidebar-foreground: 210 20% 88%;
-    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary: 141 19% 70%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 25% 15%;
+    --sidebar-accent: 210 26% 25%;
     --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 220 20% 16%;
+    --sidebar-border: 210 22% 28%;
   }
 
   .dark {
-    --background: 222 25% 8%;
+    --background: 165 22% 7%;
     --foreground: 210 20% 92%;
-    --card: 222 25% 11%;
+    --card: 165 20% 10%;
     --card-foreground: 210 20% 92%;
     --popover: 222 25% 11%;
     --popover-foreground: 210 20% 92%;
-    --primary: 0 72% 55%;
+    --primary: 141 19% 64%;
     --primary-foreground: 0 0% 100%;
     --secondary: 222 20% 16%;
     --secondary-foreground: 210 15% 85%;
     --muted: 222 20% 16%;
     --muted-foreground: 220 10% 55%;
-    --accent: 0 72% 55%;
+    --accent: 20 60% 62%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
     --border: 222 18% 20%;
     --input: 222 18% 20%;
-    --ring: 0 72% 55%;
-    --sidebar-background: 222 30% 6%;
-    --sidebar-ring: 0 72% 55%;
+    --ring: 141 19% 64%;
+    --sidebar-background: 165 30% 6%;
+    --sidebar-ring: 158 35% 52%;
     --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 0 72% 55%;
+    --sidebar-primary: 158 35% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 25% 12%;
     --sidebar-accent-foreground: 0 0% 90%;
@@ -80,7 +79,7 @@
     --gold-dark: 34 90% 42%;
     --emerald: 158 65% 45%;
     --ruby: 0 72% 58%;
-    --chart-1: 0 72% 55%;
+    --chart-1: 158 35% 52%;
     --chart-2: 158 65% 45%;
     --chart-3: 38 95% 55%;
     --chart-4: 220 70% 60%;
@@ -90,11 +89,11 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  *, *::before, *::after { font-family: 'Tajawal', sans-serif !important; }
+  *, *::before, *::after { font-family: 'Cairo', sans-serif !important; }
   body {
     @apply bg-background text-foreground;
     direction: rtl;
-    font-family: 'Tajawal', sans-serif !important;
+    font-family: 'Cairo', sans-serif !important;
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -102,7 +101,7 @@
     -webkit-overflow-scrolling: touch;
   }
   input, button, select, textarea {
-    font-family: 'Tajawal', sans-serif !important;
+    font-family: 'Cairo', sans-serif !important;
   }
 }
 
@@ -213,11 +212,11 @@
    SAR Symbol
 ═══════════════════════════════════════ */
 /* رمز الريال U+FDFC — Noto Sans Arabic fallback لضمان العرض الصحيح */
-.sar-symbol::after { content: '\FDFC'; font-family: 'Tajawal', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
-.sar { font-family: 'Tajawal', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
+.sar-symbol::after { content: '\FDFC'; font-family: 'Cairo', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
+.sar { font-family: 'Cairo', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
 
 /* إصلاح عرض رمز ﷼ في كل مكان */
-:root { --font-sar: 'Tajawal', 'Noto Sans Arabic', 'Arial Unicode MS', sans-serif; }
+:root { --font-sar: 'Cairo', 'Noto Sans Arabic', 'Arial Unicode MS', sans-serif; }
 
 /* ═══════════════════════════════════════
    Touch-friendly tap highlight
@@ -237,7 +236,7 @@ button, [role="button"] { touch-action: manipulation; }
 
 /* تطبيق الفونت على كل عناصر تحتوي ﷼ */
 body {
-  font-family: 'SARSymbol', 'Tajawal', 'Noto Sans Arabic', sans-serif !important;
+  font-family: 'SARSymbol', 'Cairo', 'Noto Sans Arabic', sans-serif !important;
 }
 
 /* ═══════════════════════════════════════

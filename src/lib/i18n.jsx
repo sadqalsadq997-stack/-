@@ -96,7 +96,7 @@ const translations = {
 };
 
 export function I18nProvider({ children }) {
-  const [lang, setLang] = useState(() => localStorage.getItem('felsy_lang') || 'ar');
+  const [lang, setLang] = useState(() => { try { return (typeof window !== 'undefined' && localStorage.getItem('felsy_lang')) || 'ar'; } catch { return 'ar'; } });
 
   // يدعم استدعاءين:
   // 1) t('dashboard') — بحث بالمفتاح في قاموس الترجمة

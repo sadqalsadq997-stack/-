@@ -32,29 +32,29 @@ const ROLE_ACCESS = {
     '/customers', '/invoices', '/suppliers',
     '/expenses', '/analytics', '/employees',
     '/settings', '/ai', '/estore', '/loyalty',
-    '/car-orders', '/support',
+    '/car-orders', '/support', '/pager',
   ],
 
   cashier: [
     '/', '/pos', '/orders', '/invoices',
-    '/customers', '/tables', '/support',
+    '/customers', '/tables', '/support', '/pager',
   ],
 
   waiter: [
-    '/pos', '/orders', '/tables', '/kitchen', '/support',
+    '/pos', '/orders', '/tables', '/kitchen', '/support', '/pager',
   ],
 
   kitchen: [
-    '/kitchen', '/orders', '/support',
+    '/kitchen', '/orders', '/support', '/pager',
   ],
 
   employee: [
-    '/', '/pos', '/orders', '/support',
+    '/', '/pos', '/orders', '/support', '/pager',
   ],
 
   // ✅ موظف الدعم الفني — فقط صفحة الدعم وصفحة رد المدير
   support_agent: [
-    '/support', '/admin-support',
+    '/support',
   ],
 };
 

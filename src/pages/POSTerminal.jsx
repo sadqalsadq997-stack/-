@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, QrCode, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, QrCode, ShoppingCart, BellRing } from 'lucide-react';
+import { PagerTicketDialog } from '@/components/pager/PagerTicket';
 import { toast } from 'sonner';
 
 const PAYMENT_METHODS = [
@@ -17,6 +18,9 @@ export default function POSTerminal() {
   const [category, setCategory]   = useState('all');
   const [payMethod, setPayMethod] = useState('cash');
   const [processing, setProcessing] = useState(false);
+  const [usePager, setUsePager]   = useState(() => { try { return localStorage.getItem('felsy_pos_pager') === '1'; } catch { return false; } });
+  const [pagerTicket, setPagerTicket] = useState(null);
+  const togglePager = () => setUsePager(v => { try { localStorage.setItem('felsy_pos_pager', v ? '0' : '1'); } catch { /* */ } return !v; });
   const qc = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -64,7 +68,7 @@ export default function POSTerminal() {
     try {
       const orderNumber = `ORD-${Date.now()}`;
       const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { return null; } })();
-      const { error } = await supabase.from('orders').insert({
+      const { data: created, error } = await supabase.from('orders').insert({
         order_number: orderNumber,
         status: 'completed',
         payment_method: payMethod,
@@ -73,9 +77,16 @@ export default function POSTerminal() {
         tax_amount: vat,
         total,
         branch_id: branchId,
-      });
+        // مع البيجر: الطلب يدخل المطبخ أولاً، ويصير "جاهز" لاحقاً فيرن جوال العميل
+        ...(usePager ? { status: 'pending' } : {}),
+      }).select('id').single();
       if (error) throw error;
       toast.success('✅ تم إتمام الطلب بنجاح!');
+      if (usePager && created?.id) {
+        const { data: pager, error: pErr } = await supabase.rpc('create_pager', { p_order_id: created.id, p_branch_id: branchId, p_label: null });
+        if (pErr) toast.error('تعذر إنشاء البيجر: ' + pErr.message);
+        else setPagerTicket(pager);
+      }
       setCart([]);
       qc.invalidateQueries({ queryKey: ['orders'] });
       qc.invalidateQueries({ queryKey: ['dashboard-orders'] });
@@ -202,6 +213,11 @@ export default function POSTerminal() {
             ))}
           </div>
 
+          <button type="button" onClick={togglePager} aria-pressed={usePager}
+            className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-colors ${usePager ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
+            <BellRing className="h-3.5 w-3.5" /> بيجر إلكتروني للعميل {usePager ? '— مفعّل' : ''}
+          </button>
+
           <button onClick={handleCheckout} disabled={!cart.length || processing}
             className="w-full h-11 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center gap-2">
             {processing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CreditCard className="w-4 h-4" />}
@@ -209,6 +225,7 @@ export default function POSTerminal() {
           </button>
         </div>
       </div>
+      <PagerTicketDialog pager={pagerTicket} onClose={() => setPagerTicket(null)} />
     </div>
   );
 }

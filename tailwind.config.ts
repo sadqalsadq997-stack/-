@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Tajawal', 'Noto Sans Arabic', 'sans-serif'],
+        sans: ['Cairo', 'Noto Sans Arabic', 'sans-serif'],
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -19,6 +19,14 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        // ── هوية فلسي الجديدة: أخضر مريمي هادئ + خوخي دافئ ──
+        // هوية فلسي: أخضر مريمي هادئ #A3C1AD + بيج دافئ + نحاسي ناعم + فحمي
+        sage: { 50: '#F3F7F4', 100: '#E6EFE9', 200: '#CFE0D5', 300: '#B7D1C0', 400: '#A3C1AD', 500: '#86A992', 600: '#6A8F77', 700: '#4F7360', 800: '#3A5747', 900: '#273B30' },
+        peach: { 50: '#FCF3F2', 100: '#F8E5E3', 200: '#F0CBC6', 300: '#E6A9A2', 400: '#D98880', 500: '#CB766E', 600: '#B8655D', 700: '#9C5048' },
+        beige: { DEFAULT: '#F4F1EA', 200: '#EAE4D8', 300: '#DDD5C4' },
+        ink: '#2C3E50',
+        brand: '#42BCA2', // لون الشعار
+        paper: '#FAFAFA',
         background:  'hsl(var(--background))',
         foreground:  'hsl(var(--foreground))',
         card:        { DEFAULT: 'hsl(var(--card))',        foreground: 'hsl(var(--card-foreground))' },

@@ -1,219 +1,295 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Clock, CreditCard, AlertTriangle, Loader2, Shield, Star, Zap } from 'lucide-react';
+import {
+  CheckCircle2, CreditCard, AlertTriangle, Loader2, ShieldCheck, Star, Lock, Building2, LogOut, Tag,
+} from 'lucide-react';
 import { PLANS } from '@/lib/pricingPlans';
+import { clearSession } from '@/lib/security/session';
+import Logo from '@/components/brand/Logo';
 
-// ══════════════════════════════════════════════════════
-// بوابة الدفع — يُمنع الوصول حتى يتم الدفع والتحقق
-// الباقات تُستورد من src/lib/pricingPlans.js (مصدر وحيد للتسعير
-// في كل التطبيق — أي تعديل سعر يكون هناك فقط ويظهر هنا تلقائياً)
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// بوابة الدفع الوحيدة — Moyasar
+// ──────────────────────────────────────────────────────────────────
+//  • حالة الاشتراك تُقرأ من السيرفر عبر my_billing_status() (لا يمكن
+//    للمتصفح كتابة أو تعديل أي اشتراك — RLS يمنع ذلك).
+//  • بيانات البطاقة تذهب من المتصفح مباشرة إلى api.moyasar.com
+//    بالمفتاح العام، ويرجع token فقط.
+//  • السعر يُحسب ويُطابَق في Edge Function "billing-subscribe".
+//  • بطاقات مدى/3DS: يتحول العميل لصفحة البنك ثم يرجع لـ
+//    /dashboard?billing=return&id=... فنؤكد الدفعة من موياسر مباشرة.
+// ══════════════════════════════════════════════════════════════════
 
-export default function PaymentGate({ children, onPaymentVerified }) {
-  const [status, setStatus]           = useState('checking'); // checking | unpaid | pending | paid | error
-  const [subscription, setSubscription] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState('pro');
-  const [paymentCode, setPaymentCode]   = useState('');
-  const [verifying, setVerifying]       = useState(false);
-  const [error, setError]               = useState('');
-  const [success, setSuccess]           = useState('');
-  const [branchId]                      = useState(() => {
-    try {
-      const raw = localStorage.getItem('activeBranch');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      // التحقق من أن الـ id هو UUID صحيح لمنع injection
-      const id = parsed?.id;
-      if (typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) return id;
-      return null;
-    } catch { return null; }
-  });
+const PUBLISHABLE_KEY = import.meta.env.VITE_MOYASAR_PUBLISHABLE_KEY || '';
+const ACTIVE = ['active', 'trialing'];
 
-  useEffect(() => { checkSubscription(); }, []);
+// أكواد قاعدة البيانات ↔ أكواد الواجهة
+const CODE_ALIASES = { starter: 'basic', basic: 'basic', pro: 'pro', enterprise: 'enterprise' };
 
-  async function checkSubscription() {
-    try {
-      const { data, error: e } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+function isActive(st) {
+  return st && ACTIVE.includes(st.sub_status) && st.period_end && new Date(st.period_end) > new Date();
+}
 
-      if (e) { setStatus('unpaid'); return; }
-      if (!data) { setStatus('unpaid'); return; }
+function formatCardNumber(v) {
+  return v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+}
 
-      setSubscription(data);
+async function signOut() {
+  clearSession();
+  try { await supabase.auth.signOut(); } catch { /* تجاهل */ }
+  window.location.replace('/auth/login');
+}
 
-      if (data.status === 'active') {
-        const expiry = new Date(data.expires_at);
-        if (expiry > new Date()) {
-          setStatus('paid');
-          if (onPaymentVerified) onPaymentVerified(data);
-          return;
-        }
-      }
-      if (data.status === 'pending') { setStatus('pending'); return; }
-      setStatus('unpaid');
-    } catch {
-      setStatus('unpaid');
-    }
-  }
-
-  // التحقق من رمز الدفع المرسل من المحاسب
-  async function verifyPaymentCode() {
-    if (!paymentCode.trim()) { setError('أدخل رمز الدفع'); return; }
-    setVerifying(true);
-    setError('');
-    try {
-      // التحقق من رمز الدفع في جدول payment_codes
-      const { data: codeData, error: codeErr } = await supabase
-        .from('payment_codes')
-        .select('*')
-        .eq('code', paymentCode.trim().toUpperCase())
-        .eq('used', false)
-        .maybeSingle();
-
-      if (codeErr || !codeData) {
-        setError('رمز الدفع غير صحيح أو تم استخدامه مسبقاً');
-        setVerifying(false);
-        return;
-      }
-
-      // ملاحظة أمان: لم نعد نعتمد توقيع HMAC من جهة العميل للتحقق من
-      // صحة الرمز، لأن إنشاء الرموز أصبح يتم حصرياً عبر owner-admin-api
-      // (تتطلب جلسة صاحب نظام موثّقة وتُنفَّذ بصلاحية service_role التي
-      // تتجاوز RLS). لا يمكن لأي عميل إنشاء صف في payment_codes مباشرة
-      // (محظور بسياسة RLS)، فوجود الصف في الجدول أصلاً دليل كافٍ على شرعيته.
-
-      // تفعيل الاشتراك
-      const expiresAt = new Date();
-      expiresAt.setMonth(expiresAt.getMonth() + (codeData.months || 1));
-
-      const { data: sub, error: subErr } = await supabase
-        .from('subscriptions')
-        .upsert({
-          plan: codeData.plan || selectedPlan,
-          status: 'active',
-          activated_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-          payment_code: paymentCode.trim().toUpperCase(),
-          amount_paid: codeData.amount,
-          branch_id: branchId,
-        })
-        .select()
-        .single();
-
-      if (subErr) throw subErr;
-
-      // تعليم الرمز كمستخدم
-      await supabase
-        .from('payment_codes')
-        .update({ used: true, used_at: new Date().toISOString() })
-        .eq('id', codeData.id);
-
-      setSubscription(sub);
-      setSuccess('✅ تم التحقق من الدفع بنجاح! مرحباً بك في فلسي');
-      setTimeout(() => {
-        setStatus('paid');
-        if (onPaymentVerified) onPaymentVerified(sub);
-      }, 2000);
-    } catch (err) {
-      setError('حدث خطأ أثناء التحقق: ' + err.message);
-    }
-    setVerifying(false);
-  }
-
-  // التحقق من توقيع الرمز
-  async function verifyCodeSignature(codeData) {
-    // ── لا bypass مطلقاً — حتى في التطوير ──
-    if (!codeData.signature || codeData.signature === 'dev') return false;
-    try {
-      const SECRET = import.meta.env.VITE_PAYMENT_SECRET;
-      if (!SECRET) return false; // يجب وجود المفتاح في .env
-      const payload = `${codeData.code}:${codeData.plan}:${codeData.amount}:${codeData.months}`;
-      const key = await crypto.subtle.importKey(
-        'raw', new TextEncoder().encode(SECRET),
-        { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-      );
-      const sigBytes = Uint8Array.from(atob(codeData.signature), c => c.charCodeAt(0));
-      const dataBytes = new TextEncoder().encode(payload);
-      return await crypto.subtle.verify('HMAC', key, sigBytes, dataBytes);
-    } catch {
-      return false; // أي خطأ = رفض
-    }
-  }
-
-  // إذا الاشتراك فعّال → اعرض المحتوى
-  if (status === 'paid') return children;
-
-  // شاشة التحميل
-  if (status === 'checking') return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">جارٍ التحقق من الاشتراك...</p>
+function Shell({ children }) {
+  return (
+    <div className="fixed inset-0 z-[9999] overflow-y-auto bg-sage-900 text-white" dir="rtl">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-32 right-0 h-[28rem] w-[28rem] rounded-full bg-sage-500/25 blur-3xl" />
+        <div className="absolute bottom-0 -left-20 h-80 w-80 rounded-full bg-peach-500/10 blur-3xl" />
+      </div>
+      <div className="relative mx-auto w-full max-w-5xl px-4 py-10">
+        <div className="mb-8 flex items-center justify-between">
+          <Logo size={38} variant="light" />
+          <button onClick={signOut} className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white">
+            <LogOut className="h-4 w-4" /> خروج
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
+}
+
+function Centered({ children }) {
+  return <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">{children}</div>;
+}
+
+export default function PaymentGate({ children }) {
+  const [phase, setPhase] = useState('checking'); // checking | confirming | no_tenant | not_manager | pay | paid | error
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState('');
+
+  async function load() {
+    setError('');
+    const { data, error: e } = await supabase.rpc('my_billing_status');
+    if (e) { setError('تعذر التحقق من الاشتراك — حاول مرة أخرى'); setPhase('error'); return; }
+    const st = Array.isArray(data) ? data[0] : data;
+    setStatus(st || null);
+    if (!st?.tenant_id) return setPhase('no_tenant');
+    if (isActive(st)) return setPhase('paid');
+    if (!['owner', 'admin'].includes(st.role)) return setPhase('not_manager');
+    setPhase('pay');
+  }
+
+  useEffect(() => {
+    (async () => {
+      // الرجوع من صفحة 3D Secure
+      const params = new URLSearchParams(window.location.search);
+      const paymentId = params.get('id');
+      if (params.get('billing') === 'return' && paymentId) {
+        setPhase('confirming');
+        window.history.replaceState({}, '', window.location.pathname);
+        const { data, error: fnErr } = await supabase.functions.invoke('billing-subscribe', {
+          body: { action: 'confirm', payment_id: paymentId },
+        });
+        if (fnErr || data?.error) {
+          setError(data?.error || params.get('message') || 'لم تكتمل عملية الدفع');
+        }
+      }
+      await load();
+    })();
+  }, []);
+
+  if (phase === 'paid') return children;
+
+  if (phase === 'checking' || phase === 'confirming') {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {phase === 'confirming' ? 'جارٍ تأكيد الدفع مع البنك...' : 'جارٍ التحقق من الاشتراك...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'error') {
+    return (
+      <Shell>
+        <Centered>
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-400" />
+          <p className="mb-5 text-slate-300">{error}</p>
+          <button onClick={() => { setPhase('checking'); load(); }} className="h-11 w-full rounded-xl bg-sage-400 font-bold hover:bg-sage-500">
+            إعادة المحاولة
+          </button>
+        </Centered>
+      </Shell>
+    );
+  }
+
+  if (phase === 'no_tenant') return <Shell><CreateTenant onCreated={() => { setPhase('checking'); load(); }} /></Shell>;
+
+  if (phase === 'not_manager') {
+    return (
+      <Shell>
+        <Centered>
+          <Lock className="mx-auto mb-3 h-10 w-10 text-slate-400" />
+          <h2 className="mb-2 text-xl font-bold">اشتراك المنشأة غير فعّال</h2>
+          <p className="text-sm text-slate-400">تواصل مع مالك المنشأة لتجديد الاشتراك.</p>
+        </Centered>
+      </Shell>
+    );
+  }
+
+  return <Shell><Checkout status={status} initialError={error} /></Shell>;
+}
+
+// ── إنشاء منشأة للحساب الجديد (مرة واحدة فقط) ─────────────────────
+function CreateTenant({ onCreated }) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    if (name.trim().length < 2) return setError('اكتب اسم المنشأة');
+    setSaving(true); setError('');
+    const { error: err } = await supabase.rpc('create_my_tenant', { p_name: name.trim() });
+    setSaving(false);
+    if (err) return setError(err.message);
+    onCreated();
+  }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center z-[9999] p-4 overflow-y-auto" dir="rtl">
-      {/* خلفية زخرفية */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 left-20 w-80 h-80 bg-amber-500/8 rounded-full blur-3xl animate-pulse delay-1000" />
+    <form onSubmit={submit} className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+      <div className="mb-6 text-center">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-sage-500/25">
+          <Building2 className="h-7 w-7 text-sage-300" />
+        </div>
+        <h2 className="text-xl font-bold">أهلاً بك في فلسي</h2>
+        <p className="mt-1 text-sm text-slate-400">الخطوة الأولى: اسم منشأتك</p>
+      </div>
+      <input value={name} onChange={e => setName(e.target.value)} maxLength={80} placeholder="مثال: مقهى الورد"
+        className="h-12 w-full rounded-xl border border-white/15 bg-white/5 px-4 text-white placeholder:text-slate-500 focus:border-sage-300 focus:outline-none" />
+      {error && <p className="mt-3 text-sm text-sage-300">{error}</p>}
+      <button disabled={saving} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-sage-400 font-bold hover:bg-sage-500 disabled:opacity-50">
+        {saving && <Loader2 className="h-4 w-4 animate-spin" />} متابعة للدفع
+      </button>
+    </form>
+  );
+}
+
+// ── اختيار الخطة + الدفع في صفحة واحدة ───────────────────────────
+function Checkout({ status, initialError }) {
+  const [dbPlans, setDbPlans] = useState(null);
+  const [planCode, setPlanCode] = useState(() => new URLSearchParams(window.location.search).get('plan') || 'pro');
+  const [promoInput, setPromoInput] = useState('');
+  const [card, setCard] = useState({ name: '', number: '', expiry: '', cvc: '' });
+  const [step, setStep] = useState('form'); // form | tokenizing | charging | redirecting
+  const [error, setError] = useState(initialError || '');
+
+  useEffect(() => {
+    supabase.from('billing_plans').select('*').eq('is_active', true).order('price_monthly')
+      .then(({ data }) => {
+        // نسخة واحدة (الأحدث) لكل plan_code
+        const latest = {};
+        (data || []).forEach(p => { if (!latest[p.plan_code] || p.version > latest[p.plan_code].version) latest[p.plan_code] = p; });
+        const list = Object.values(latest).sort((a, b) => a.price_monthly - b.price_monthly);
+        setDbPlans(list);
+        if (list.length && !list.some(p => p.plan_code === planCode)) {
+          setPlanCode((list.find(p => p.plan_code === 'pro') || list[0]).plan_code);
+        }
+      });
+  }, []);
+
+  const plans = useMemo(() => (dbPlans || []).map(p => {
+    const ui = PLANS.find(x => x.code === CODE_ALIASES[p.plan_code]) || {};
+    const features = ui.features?.length ? ui.features : (Array.isArray(p.features) ? p.features : []);
+    return { code: p.plan_code, name: p.name_ar || ui.name, price: Number(p.price_monthly), features, popular: ui.popular };
+  }), [dbPlans]);
+
+  const selected = plans.find(p => p.code === planCode);
+  const busy = step !== 'form';
+  const set = (k, v) => setCard(c => ({ ...c, [k]: v }));
+
+  async function pay(e) {
+    e.preventDefault();
+    setError('');
+    if (!PUBLISHABLE_KEY) return setError('بوابة الدفع غير مهيأة (VITE_MOYASAR_PUBLISHABLE_KEY)');
+    const [mm, yyRaw] = card.expiry.split('/').map(s => (s || '').trim());
+    const yy = yyRaw?.length === 2 ? `20${yyRaw}` : yyRaw;
+    const number = card.number.replace(/\s/g, '');
+    if (!card.name.trim() || number.length < 15 || !/^\d{2}$/.test(mm || '') || !/^\d{4}$/.test(yy || '') || !/^\d{3,4}$/.test(card.cvc)) {
+      return setError('تأكد من بيانات البطاقة');
+    }
+
+    try {
+      setStep('tokenizing');
+      const tokenRes = await fetch('https://api.moyasar.com/v1/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publishable_api_key: PUBLISHABLE_KEY,
+          save_only: true,
+          name: card.name.trim(), number, month: mm, year: yy, cvc: card.cvc,
+          callback_url: `${window.location.origin}/dashboard`,
+        }),
+      });
+      const token = await tokenRes.json();
+      if (!tokenRes.ok || !token?.id) throw new Error(token?.message || 'تعذر التحقق من البطاقة');
+
+      setStep('charging');
+      const { data, error: fnErr } = await supabase.functions.invoke('billing-subscribe', {
+        body: { action: 'start', plan_code: planCode, moyasar_token: token.id, promotion_code: promoInput.trim() || null },
+      });
+      if (fnErr || data?.error) {
+        let msg = data?.error;
+        if (!msg && fnErr?.context?.json) { try { msg = (await fnErr.context.json())?.error; } catch { /* */ } }
+        throw new Error(msg || 'فشل الدفع');
+      }
+
+      if (data?.requires_action && data.transaction_url) {
+        setStep('redirecting');
+        window.location.assign(data.transaction_url);
+        return;
+      }
+      window.location.replace('/dashboard');
+    } catch (err) {
+      setError(err.message || 'حدث خطأ غير متوقع');
+      setStep('form');
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-black md:text-4xl">اختر باقتك وفعّل حسابك</h1>
+        <p className="mt-2 text-slate-400">
+          {status?.tenant_name ? <>منشأة <b className="text-white">{status.tenant_name}</b> — </> : null}
+          {status?.sub_status ? 'انتهى اشتراكك، جدّده للمتابعة' : 'الدفع آمن ويتجدد تلقائياً كل شهر، ويمكنك الإلغاء في أي وقت'}
+        </p>
       </div>
 
-      <div className="relative w-full max-w-4xl mx-auto py-8">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full px-4 py-1.5 text-sm font-medium mb-4">
-            <Shield className="w-4 h-4" />
-            <span>يتطلب اشتراكاً فعّالاً</span>
-          </div>
-          <h1 className="text-4xl font-black text-white mb-2">
-            <span className="text-primary">فلسي</span> POS
-          </h1>
-          <p className="text-slate-400 text-base">اختر خطتك وابدأ إدارة عملك بذكاء</p>
-        </div>
-
-        {/* خطط الاشتراك */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {PLANS.map(plan => (
-            <button
-              key={plan.id}
-              onClick={() => setSelectedPlan(plan.id)}
-              className={`relative rounded-2xl p-6 text-right transition-all duration-300 border-2 ${
-                selectedPlan === plan.id
-                  ? 'border-primary bg-primary/10 scale-[1.02] shadow-lg shadow-primary/20'
-                  : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                    <Star className="w-3 h-3" /> الأكثر شيوعاً
-                  </span>
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        {/* الخطط */}
+        <div className="grid content-start gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          {dbPlans === null && <div className="col-span-full flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div>}
+          {dbPlans && !plans.length && <p className="col-span-full text-center text-slate-400">لا توجد باقات متاحة حالياً</p>}
+          {plans.map(p => (
+            <button key={p.code} type="button" onClick={() => setPlanCode(p.code)} disabled={busy}
+              className={`relative rounded-2xl border-2 p-5 text-right transition-all ${planCode === p.code ? 'border-sage-300 bg-sage-300/10' : 'border-white/10 bg-white/5 hover:border-white/25'}`}>
+              {p.popular && (
+                <span className="absolute -top-3 right-4 inline-flex items-center gap-1 rounded-full bg-sage-400 px-2.5 py-0.5 text-[11px] font-bold">
+                  <Star className="h-3 w-3" /> الأكثر طلباً
+                </span>
               )}
-              <div className="text-3xl mb-3">{plan.icon}</div>
-              <h3 className="text-white font-bold text-lg mb-1">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-4">
-                {plan.price !== null ? (
-                  <>
-                    <span className="text-3xl font-black text-white">{plan.price}</span>
-                    <span className="text-slate-400 text-sm">ر.س / {plan.period}</span>
-                  </>
-                ) : (
-                  <span className="text-xl font-bold text-white">تواصل معنا</span>
-                )}
-              </div>
-              <ul className="space-y-1.5">
-                {plan.features.map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                    {f}
+              <h3 className="font-bold">{p.name}</h3>
+              <p className="mt-1"><span className="text-3xl font-black">{p.price}</span> <span className="text-sm text-slate-400">ر.س / شهر</span></p>
+              <ul className="mt-3 space-y-1.5">
+                {p.features.slice(0, 5).map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sage-300" />{f}
                   </li>
                 ))}
               </ul>
@@ -221,96 +297,62 @@ export default function PaymentGate({ children, onPaymentVerified }) {
           ))}
         </div>
 
-        {/* بوابة إدخال رمز الدفع */}
-        {PLANS.find(p => p.id === selectedPlan)?.contactOnly ? (
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 max-w-lg mx-auto text-center">
-            <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <Star className="w-7 h-7 text-primary" />
+        {/* البطاقة */}
+        <form onSubmit={pay} className="h-fit rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sage-500/25"><CreditCard className="h-5 w-5 text-sage-300" /></div>
+            <div>
+              <p className="font-bold">الدفع بالبطاقة</p>
+              <p className="text-xs text-slate-400">مدى · فيزا · ماستركارد</p>
             </div>
-            <h2 className="text-white font-bold text-xl mb-2">الباقة المخصصة</h2>
-            <p className="text-slate-400 text-sm mb-5">
-              تواصل معنا مباشرة لتحديد المميزات والسعر المناسب لحجم أعمالك
-            </p>
-            <a
-              href="https://wa.me/966500000000"
-              target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 w-full h-12 bg-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-all"
-            >
-              تواصل معنا على واتساب
-            </a>
-          </div>
-        ) : (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 max-w-lg mx-auto">
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <CreditCard className="w-7 h-7 text-primary" />
-            </div>
-            <h2 className="text-white font-bold text-xl mb-1">إدخال رمز الدفع</h2>
-            <p className="text-slate-400 text-sm">
-              {status === 'pending'
-                ? 'تم استلام طلبك — في انتظار تأكيد الدفع'
-                : 'أرسل للمحاسب لاستلام رمز التفعيل'}
-            </p>
           </div>
 
-          {status === 'pending' && (
-            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl p-3 mb-4 text-sm">
-              <Clock className="w-4 h-4 flex-shrink-0" />
-              <span>في انتظار تأكيد الدفع من قِبل المحاسب</span>
+          <div className="space-y-3">
+            <Field label="الاسم على البطاقة" value={card.name} onChange={v => set('name', v)} autoComplete="cc-name" dir="ltr" />
+            <Field label="رقم البطاقة" value={card.number} onChange={v => set('number', formatCardNumber(v))} inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000" dir="ltr" />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="الانتهاء" value={card.expiry} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" dir="ltr"
+                onChange={v => { const d = v.replace(/\D/g, '').slice(0, 4); set('expiry', d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d); }} />
+              <Field label="CVC" value={card.cvc} onChange={v => set('cvc', v.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="cc-csc" placeholder="•••" dir="ltr" />
+            </div>
+            <div className="relative">
+              <Tag className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input value={promoInput} onChange={e => setPromoInput(e.target.value)} placeholder="كود خصم (اختياري)"
+                className="h-11 w-full rounded-xl border border-white/15 bg-white/5 pr-9 pl-3 text-sm text-white placeholder:text-slate-500 focus:border-sage-300 focus:outline-none" />
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{error}
             </div>
           )}
 
-          <div className="space-y-3">
-            <input
-              value={paymentCode}
-              onChange={e => setPaymentCode(e.target.value.toUpperCase())}
-              placeholder="أدخل رمز الدفع (مثال: PAY-XXXX-XXXX)"
-              className="w-full h-12 bg-white/5 border border-white/20 rounded-xl px-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-slate-600 placeholder:text-sm placeholder:tracking-normal focus:outline-none focus:border-primary transition-colors"
-              onKeyDown={e => e.key === 'Enter' && verifyPaymentCode()}
-            />
-
-            {error && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-3 text-sm">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </div>
+          <button type="submit" disabled={busy || !selected}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-sage-400 font-bold transition hover:bg-sage-500 disabled:opacity-50">
+            {busy ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />
+                {step === 'tokenizing' ? 'جارٍ التحقق من البطاقة...' : step === 'charging' ? 'جارٍ تنفيذ الدفع...' : 'جارٍ التحويل للبنك...'}</>
+            ) : (
+              <>ادفع {selected ? `${selected.price} ر.س` : ''} وفعّل</>
             )}
+          </button>
 
-            {success && (
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl p-3 text-sm">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                {success}
-              </div>
-            )}
-
-            <button
-              onClick={verifyPaymentCode}
-              disabled={verifying || !paymentCode.trim()}
-              className="w-full h-12 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
-            >
-              {verifying ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> جارٍ التحقق...</>
-              ) : (
-                <><Zap className="w-4 h-4" /> تفعيل الاشتراك</>
-              )}
-            </button>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-white/10 text-center">
-            <p className="text-slate-500 text-xs">
-              للحصول على رمز الدفع تواصل معنا على
-            </p>
-            <div className="flex items-center justify-center gap-4 mt-2">
-              <a href="https://wa.me/966500000000" className="text-emerald-400 text-sm hover:underline">واتساب</a>
-              <span className="text-slate-600">•</span>
-              <a href="tel:+966500000000" className="text-blue-400 text-sm hover:underline">اتصل بنا</a>
-              <span className="text-slate-600">•</span>
-              <a href="mailto:support@felsy.sa" className="text-violet-400 text-sm hover:underline">البريد الإلكتروني</a>
-            </div>
-          </div>
-        </div>
-        )}
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck className="h-3.5 w-3.5" /> تُعالج البطاقة مباشرة عبر Moyasar المرخّصة من ساما — لا نحفظ بيانات بطاقتك
+          </p>
+        </form>
       </div>
     </div>
+  );
+}
+
+function Field({ label, onChange, ...props }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs text-slate-400">{label}</span>
+      <input {...props} onChange={e => onChange(e.target.value)} required
+        className="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-slate-600 focus:border-sage-300 focus:outline-none" />
+    </label>
   );
 }

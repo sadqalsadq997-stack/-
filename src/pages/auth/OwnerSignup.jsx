@@ -1,89 +1,102 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase, isMissingEnv } from '@/integrations/supabase/client';
-import felsynLogo from '@/assets/felsy-logo.png';
-import { Loader2, UserPlus } from 'lucide-react';
+import { MailCheck } from 'lucide-react';
+import { AuthShell, Field, SubmitButton, Alert, GoogleButton, Divider, arabicAuthError, passwordStrength } from '@/components/auth/AuthShell';
+
+const STRENGTH = [
+  { label: 'ضعيفة جداً', color: 'bg-red-500' },
+  { label: 'ضعيفة', color: 'bg-orange-500' },
+  { label: 'متوسطة', color: 'bg-amber-400' },
+  { label: 'جيدة', color: 'bg-emerald-500' },
+  { label: 'قوية', color: 'bg-emerald-600' },
+];
 
 export default function OwnerSignup() {
-  const [form, setForm]   = useState({ name: '', email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [agree, setAgree] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [error, setError] = useState('');
+  const [sentTo, setSentTo] = useState('');
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const plan = /^[a-z0-9_-]{2,32}$/i.test(params.get('plan') || '') ? params.get('plan') : '';
+  const next = plan ? `/dashboard?plan=${plan}` : '/dashboard';
+  const strength = passwordStrength(form.password);
 
   async function handleSignup(e) {
     e.preventDefault();
-    if (form.password !== form.confirm) { setError('كلمات المرور غير متطابقة'); return; }
-    setLoading(true); setError('');
+    setError('');
+    if (form.name.trim().length < 2) return setError('اكتب اسمك');
+    if (form.password.length < 8) return setError('كلمة المرور لازم تكون 8 أحرف على الأقل');
+    if (!agree) return setError('لازم توافق على الشروط والأحكام');
+    setLoading(true);
     try {
-      if (isMissingEnv) { navigate('/'); return; }
-      const { error: err } = await supabase.auth.signUp({
-        email: form.email, password: form.password,
-        options: { data: { full_name: form.name } }
+      if (isMissingEnv) throw new Error('النظام غير مهيأ حالياً');
+      const { data, error: err } = await supabase.auth.signUp({
+        email: form.email.trim(), password: form.password,
+        options: { data: { full_name: form.name.trim() }, emailRedirectTo: `${window.location.origin}${next}` },
       });
       if (err) throw err;
-      navigate('/');
+      if (!data?.session) { setSentTo(form.email.trim()); setLoading(false); return; }
+      navigate(next);
     } catch (err) {
-      setError(err.message);
+      setError(arabicAuthError(err));
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  const f = (k) => (e) => setForm(v => ({ ...v, [k]: e.target.value }));
+  const f = k => e => setForm(v => ({ ...v, [k]: e.target.value }));
+
+  if (sentTo) {
+    return (
+      <AuthShell title="تحقق من بريدك" subtitle={null}
+        footer={<>وصلك الرابط وفعّلت؟ <Link to="/auth/login" className="font-bold text-sage-700 hover:underline">سجّل دخولك</Link></>}>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+          <MailCheck className="mx-auto h-10 w-10 text-emerald-600" />
+          <p className="mt-3 text-[15px] leading-relaxed text-emerald-900">
+            أرسلنا رابط التفعيل إلى <b dir="ltr">{sentTo}</b>. افتحه من جوالك أو جهازك، وبعدها تختار باقتك مباشرة.
+          </p>
+          <p className="mt-3 text-xs text-emerald-700">ما وصل؟ شيّك مجلد الرسائل غير المرغوبة (Spam).</p>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-3 p-3">
-            <img src={felsynLogo} alt="فلسي Felsy" className="w-full h-full object-contain" />
-          </div>
-          <h1 className="text-2xl font-black text-foreground">إنشاء حساب</h1>
-          <p className="text-muted-foreground text-sm mt-1">ابدأ تجربتك المجانية</p>
-        </div>
-        <form onSubmit={handleSignup} className="space-y-4">
-          {[
-            { key: 'name', label: 'الاسم الكامل', type: 'text', placeholder: 'محمد العمري' },
-            { key: 'email', label: 'البريد الإلكتروني', type: 'email', placeholder: 'you@example.com', dir: 'ltr' },
-            { key: 'password', label: 'كلمة المرور', type: 'password', placeholder: '••••••••', dir: 'ltr' },
-            { key: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', placeholder: '••••••••', dir: 'ltr' },
-          ].map(inp => (
-            <div key={inp.key}>
-              <label className="text-sm font-medium block mb-1.5">{inp.label}</label>
-              <input type={inp.type} value={form[inp.key]} onChange={f(inp.key)}
-                placeholder={inp.placeholder} required dir={inp.dir}
-                className="w-full h-11 bg-muted/50 border border-border rounded-xl px-4 text-sm focus:outline-none focus:border-primary transition-colors" />
+    <AuthShell
+      title="أنشئ حسابك"
+      subtitle="دقيقتين وتبدأ البيع — الباقات من 29 ريال بالشهر"
+      footer={<>عندك حساب؟ <Link to="/auth/login" className="font-bold text-sage-700 hover:underline">سجّل دخولك</Link></>}
+    >
+      <GoogleButton redirectPath={next} label="التسجيل بحساب جوجل" onError={setError} />
+      <Divider />
+      <form onSubmit={handleSignup} className="space-y-4" noValidate>
+        <Field label="اسمك" name="name" autoComplete="name" value={form.name} onChange={f('name')} required placeholder="محمد العتيبي" autoFocus />
+        <Field label="البريد الإلكتروني" name="email" type="email" dir="ltr" autoComplete="email" inputMode="email"
+          value={form.email} onChange={f('email')} required placeholder="you@example.com" />
+        <div>
+          <Field label="كلمة المرور" name="password" type="password" dir="ltr" autoComplete="new-password"
+            value={form.password} onChange={f('password')} required placeholder="••••••••" />
+          <p className="mt-1.5 text-xs text-slate-400">8 أحرف على الأقل</p>
+          {form.password && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex flex-1 gap-1">
+                {[0, 1, 2, 3].map(i => (
+                  <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < strength ? STRENGTH[strength].color : 'bg-slate-200'}`} />
+                ))}
+              </div>
+              <span className="w-16 text-left text-xs text-slate-500">{STRENGTH[strength].label}</span>
             </div>
-          ))}
-          {error && <p className="text-destructive text-sm bg-destructive/10 rounded-xl px-3 py-2">{error}</p>}
-          <button type="submit" disabled={loading}
-            className="w-full h-11 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-            إنشاء الحساب
-          </button>
-        </form>
-
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted-foreground">أو</span>
-          <div className="flex-1 h-px bg-border" />
+          )}
         </div>
-
-        <button onClick={async () => {
-            await supabase.auth.signInWithOAuth({
-              provider: 'google',
-              options: { redirectTo: `${window.location.origin}/dashboard` },
-            });
-          }}
-          className="w-full h-11 border border-border rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-muted transition-all">
-          <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.69-2.26 1.1-3.71 1.1-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.69-.35-1.42-.35-2.09s.13-1.4.35-2.09V6.91H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 5.09l2.85-2.07.81-.93z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.99 14.97 1 12 1 7.7 1 3.99 3.47 2.18 6.91l3.66 2.91C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
-          إنشاء حساب بجوجل
-        </button>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          لديك حساب؟{' '}
-          <Link to="/auth/login" className="text-primary hover:underline font-medium">تسجيل الدخول</Link>
-        </p>
-      </div>
-    </div>
+        <label className="flex items-start gap-2.5 text-sm text-slate-600">
+          <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-sage-700" />
+          <span>أوافق على <Link to="/terms" className="font-bold text-slate-800 hover:underline">الشروط والأحكام</Link> و<Link to="/privacy" className="font-bold text-slate-800 hover:underline">سياسة الخصوصية</Link></span>
+        </label>
+        <Alert>{error}</Alert>
+        <SubmitButton loading={loading}>إنشاء الحساب</SubmitButton>
+      </form>
+    </AuthShell>
   );
 }

@@ -1,5 +1,15 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+// خط Cairo مستضاف محلياً (أسرع ولا يعتمد على Google Fonts)
+import '@fontsource/cairo/arabic-400.css';
+import '@fontsource/cairo/arabic-500.css';
+import '@fontsource/cairo/arabic-600.css';
+import '@fontsource/cairo/arabic-700.css';
+import '@fontsource/cairo/arabic-800.css';
+import '@fontsource/cairo/latin-400.css';
+import '@fontsource/cairo/latin-600.css';
+import '@fontsource/cairo/latin-700.css';
+import '@fontsource/cairo/latin-800.css';
 import './index.css';
 import { initSecurityLayer } from '@/lib/security/antiTamper';
 import { setupPrivacyCleanup, injectPrivacyOverlay } from '@/lib/security/privacy';
@@ -12,7 +22,7 @@ injectPrivacyOverlay();
 // ضمان ظهور رمز الريال ﷼ (U+FDFC) في كل المتصفحات
 // نضع الرمز في DOM مخفي عشان المتصفح يحمّل الـ glyph من الفونت
 const sarPreload = document.createElement('span');
-sarPreload.style.cssText = 'position:absolute;opacity:0;pointer-events:none;font-family:"Noto Sans Arabic","Tajawal",sans-serif;';
+sarPreload.style.cssText = 'position:absolute;opacity:0;pointer-events:none;font-family:"Noto Sans Arabic","Cairo",sans-serif;';
 sarPreload.textContent = '\uFDFC';
 document.body.appendChild(sarPreload);
 

@@ -29,9 +29,9 @@ export default function ThermalReceipt({ order, branch, label = 'طباعة', si
 <head>
 <meta charset="UTF-8"/>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Tajawal',Arial,sans-serif;font-size:13px;width:${width};max-width:${width};padding:6px 8px;color:#000;background:#fff;}
+  body{font-family:'Cairo',Arial,sans-serif;font-size:13px;width:${width};max-width:${width};padding:6px 8px;color:#000;background:#fff;}
   .center{text-align:center;}.bold{font-weight:700;}.sm{font-size:11px;}.lg{font-size:18px;}
   .row{display:flex;justify-content:space-between;margin:2px 0;}
   .sep{border-top:1px dashed #000;margin:5px 0;}

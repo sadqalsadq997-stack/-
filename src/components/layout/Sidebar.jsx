@@ -6,12 +6,13 @@ import { Moon, Sun, Car, Palette,
   UtensilsCrossed, Warehouse, Receipt, UserCog,
   Store, CreditCard, LogOut, Sparkles, GitBranch,
   ChevronDown, ChefHat, Gift, User, Headphones, Globe, Crown,
-  Plug, Shield
+  Plug, Shield, BellRing
 , BookOpen} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { canAccess, ROLE_LABELS } from '@/lib/permissions';
-import felsynLogo from '@/assets/felsy-logo.png';
+import { loadSession, clearSession } from '@/lib/security/session';
+import Logo, { LogoMark } from '@/components/brand/Logo';
 
 const ALL_ITEMS = [
   { path: '/',                icon: LayoutDashboard, label: 'لوحة التحكم'           },
@@ -19,6 +20,7 @@ const ALL_ITEMS = [
   { path: '/orders',          icon: Receipt,         label: 'الطلبات'               },
   { path: '/tables',          icon: UtensilsCrossed, label: 'الطاولات',   food: true },
   { path: '/kitchen',         icon: ChefHat,         label: 'المطبخ',     food: true },
+  { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني' },
   { path: '/kiosk',           icon: Plug,            label: 'الكشك والبيجر', food: true },
   { path: '/products',        icon: Package,         label: 'المتجر'                },
   { path: '/categories',      icon: Layers,          label: 'التصنيفات'             },
@@ -34,10 +36,8 @@ const ALL_ITEMS = [
   { path: '/car-orders',      icon: Car,             label: 'طلبات السيارات', carOnly: true },
   { path: '/ai',              icon: Sparkles,        label: 'المساعد الذكي'         },
   { path: '/support',         icon: Headphones,      label: 'الدعم الفني'           },
-  { path: '/admin-support',   icon: Headphones,      label: 'تذاكر الدعم', adminOnly: true },
   { path: '/domain',          icon: Globe,           label: 'الدومين', ownerOnly: true },
   { path: '/theme',           icon: Palette,         label: 'تخصيص الواجهة', adminOnly: true },
-  { path: '/subscriptions',   icon: Crown,           label: 'الاشتراكات', ownerOnly: true },
   { path: '/accounting',      icon: BookOpen,        label: 'المحاسبة' },
   { path: '/zatca-admin',     icon: Shield,          label: 'ZATCA مراقبة', adminOnly: true },
   { path: '/settings',        icon: Settings,        label: 'الإعدادات'             },
@@ -45,15 +45,8 @@ const ALL_ITEMS = [
 
 const FOOD_INDUSTRIES = ['restaurant', 'cafe'];
 
-function getSession() {
-  try {
-    return {
-      role:  sessionStorage.getItem('pin_role') || 'admin',
-      perms: JSON.parse(sessionStorage.getItem('pin_employee_perms') || '{}'),
-      name:  sessionStorage.getItem('pin_employee_name') || 'المدير',
-    };
-  } catch { return { role: 'admin', perms: {}, name: 'المدير' }; }
-}
+// الدور الافتراضي "موظف" (أقل صلاحية) — لا يُفترض "مدير" أبداً
+const GUEST_SESSION = { role: 'employee', perms: {}, name: '' };
 
 export default function Sidebar({ dark, setDark, onCollapse }) {
   const [collapsed,    setCollapsed]    = useState(false);
@@ -64,7 +57,13 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
   });
   const [branchOpen, setBranchOpen] = useState(false);
   const location  = useLocation();
-  const sess      = getSession();
+  const [sess, setSess] = useState(GUEST_SESSION);
+
+  useEffect(() => {
+    loadSession().then(d => {
+      if (d?.unlocked) setSess({ role: d.role || 'employee', perms: d.perms || {}, name: d.empName || (d.role === 'admin' ? 'المدير' : '') });
+    });
+  }, []);
 
   const handleCollapse = (val) => {
     setCollapsed(val);
@@ -99,8 +98,10 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
     return canAccess(sess.role, sess.perms, item.path);
   });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    clearSession();
     sessionStorage.clear();
+    try { await supabase.auth.signOut(); } catch { /* تجاهل */ }
     window.location.replace('/');
   };
 
@@ -114,21 +115,9 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
       {/* ─── الشعار الرسمي ─── */}
       <div className="flex items-center justify-between h-[70px] px-3 border-b border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-accent))]">
         {!collapsed ? (
-          <div className="flex items-center gap-2 w-full">
-            <img
-              src={felsynLogo}
-              alt="Felsy"
-              className="h-10 w-auto object-contain rounded-xl flex-shrink-0"
-              style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.35))' }}
-            />
-          </div>
+          <div className="flex items-center gap-2 w-full"><Logo size={36} variant="light" /></div>
         ) : (
-          <img
-            src={felsynLogo}
-            alt="Felsy"
-            className="h-9 w-9 mx-auto object-contain rounded-xl"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-          />
+          <LogoMark size={36} className="mx-auto" />
         )}
       </div>
 

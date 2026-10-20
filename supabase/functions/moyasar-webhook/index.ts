@@ -1,83 +1,77 @@
 // ══════════════════════════════════════════════════════════════════
 // Edge Function: moyasar-webhook
 // ══════════════════════════════════════════════════════════════════
-// تستقبل هذه الدالة إشعارات موياسر التلقائية (Webhooks) عند تغيّر
-// حالة أي دفعة — مهم خصوصاً لحالات 3D Secure التي لا تكتمل فوراً،
-// أو لتأكيد دفعات محرك الفوترة الدوري بشكل مزدوج (defense in depth).
-//
-// اضبط رابط هذه الدالة في لوحة Moyasar → Webhooks:
+// اضبط الرابط في لوحة Moyasar → Webhooks:
 //   https://YOUR_PROJECT.supabase.co/functions/v1/moyasar-webhook
+// واضبط "Secret Token" هناك بنفس قيمة السر:
+//   MOYASAR_WEBHOOK_SECRET (Supabase Secrets) — إلزامي
 //
-// المتطلبات (Supabase Secrets):
-//   MOYASAR_WEBHOOK_SECRET — السر المشترك الذي تضبطه بنفس القيمة
-//                            في لوحة Moyasar (للتحقق من صحة المصدر)
+// الأمان:
+//   • بدون السر الصحيح يُرفض الطلب (fail closed)
+//   • لا نثق بحالة الدفعة في جسم الطلب — نجلبها من موياسر مباشرة
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { CORS, json, adminClient } from '../_shared/auth.ts';
+import { moyasarFetchPayment, activateFromCheckout } from '../_shared/billing.ts';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-moyasar-secret',
-};
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const expectedSecret = Deno.env.get('MOYASAR_WEBHOOK_SECRET') || '';
+  const payload = await req.json().catch(() => null);
+  const provided = String(payload?.secret_token || req.headers.get('x-moyasar-secret') || '');
+
+  if (!expectedSecret || !provided || !safeEqual(provided, expectedSecret)) {
+    return json({ error: 'غير مصرح' }, 401);
+  }
+
+  const sb = adminClient();
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const eventType = payload?.type || 'unknown';
+    const paymentId = payload?.data?.id;
 
-    // ── التحقق من السر المشترك (إن كان مضبوطاً) ──
-    const expectedSecret = Deno.env.get('MOYASAR_WEBHOOK_SECRET');
-    if (expectedSecret) {
-      const provided = req.headers.get('x-moyasar-secret') || new URL(req.url).searchParams.get('secret');
-      if (provided !== expectedSecret) {
-        return new Response(JSON.stringify({ error: 'غير مصرح' }), {
-          status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    const payload = await req.json();
-    const eventType = payload?.type || payload?.event || 'unknown';
-    const paymentData = payload?.data || payload;
-    const paymentId = paymentData?.id;
-
-    // ── تسجيل الحدث الخام دائماً (للتدقيق، حتى لو فشل المعالجة) ──
-    await supabase.from('moyasar_webhook_events').insert({
+    await sb.from('moyasar_webhook_events').insert({
       event_type: eventType,
       payment_id: paymentId,
-      raw_payload: payload,
+      raw_payload: { ...payload, secret_token: undefined },
       processed: false,
     });
 
-    if (!paymentId) {
-      return new Response(JSON.stringify({ success: true, note: 'لا يوجد payment_id بالحدث' }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+    if (!paymentId) return json({ received: true });
+
+    // المصدر الموثوق: موياسر نفسه
+    const payment = await moyasarFetchPayment(String(paymentId));
+
+    // 1) دفعة اشتراك جديد (بعد 3DS) لم يكمل العميل الرجوع للموقع
+    const { data: checkout } = await sb.from('billing_checkouts')
+      .select('id, status').eq('moyasar_payment_id', payment.id).maybeSingle();
+    if (checkout) {
+      if (payment.status === 'paid') await activateFromCheckout(sb, checkout.id, payment);
+      else if (payment.status === 'failed') {
+        await sb.from('billing_checkouts').update({ status: 'failed' }).eq('id', checkout.id).eq('status', 'pending');
+      }
     }
 
-    // ── تحديث الفاتورة المرتبطة بهذه الدفعة (إن وُجدت) ──
-    const status = paymentData?.status; // paid | failed | ...
-    if (status === 'paid' || status === 'failed') {
-      const { data: invoice } = await supabase
-        .from('billing_invoices')
-        .select('id, subscription_id, tenant_id')
-        .eq('moyasar_payment_id', paymentId)
-        .maybeSingle();
-
+    // 2) دفعة تجديد دوري
+    if (payment.status === 'paid' || payment.status === 'failed') {
+      const { data: invoice } = await sb.from('billing_invoices')
+        .select('id, subscription_id').eq('moyasar_payment_id', payment.id).maybeSingle();
       if (invoice) {
-        await supabase.from('billing_invoices').update({
-          status: status === 'paid' ? 'paid' : 'failed',
-          paid_at: status === 'paid' ? new Date().toISOString() : null,
+        await sb.from('billing_invoices').update({
+          status: payment.status,
+          paid_at: payment.status === 'paid' ? new Date().toISOString() : null,
         }).eq('id', invoice.id);
-
-        // إن نجحت الدفعة وكان الاشتراك معلّقاً بسبب فشل سابق، نعيده نشطاً
-        if (status === 'paid') {
-          await supabase.from('tenant_subscriptions')
+        if (payment.status === 'paid') {
+          await sb.from('tenant_subscriptions')
             .update({ status: 'active', failed_attempts: 0 })
             .eq('id', invoice.subscription_id)
             .in('status', ['past_due', 'suspended']);
@@ -85,21 +79,11 @@ serve(async (req) => {
       }
     }
 
-    await supabase.from('moyasar_webhook_events')
-      .update({ processed: true })
-      .eq('payment_id', paymentId)
-      .eq('processed', false);
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
-
+    await sb.from('moyasar_webhook_events').update({ processed: true })
+      .eq('payment_id', paymentId).eq('processed', false);
   } catch (err) {
     console.error('[moyasar-webhook]', err);
-    // نرجّع 200 دائماً لموياسر حتى لو حصل خطأ داخلي، لتجنب إعادة محاولات
-    // لا نهائية من جهتهم على نفس الحدث — الخطأ مسجّل بالـ logs للمراجعة
-    return new Response(JSON.stringify({ received: true }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
   }
+  // نرجّع 200 دائماً بعد التحقق من السر لتفادي إعادة الإرسال اللانهائية
+  return json({ received: true });
 });

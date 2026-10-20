@@ -26,6 +26,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { adminClient as __admin, requireTenantMember as __requireMember, tenantHasActiveSubscription as __hasSub, HttpError as __HttpError } from '../_shared/auth.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -172,6 +173,14 @@ serve(async (req) => {
     );
 
     const { tenant_id, customer_id } = await req.json();
+
+    // ── حماية: المستدعي لازم يكون عضواً في نفس المنشأة ──
+    try {
+      await __requireMember(req, __admin(), tenant_id, false);
+    } catch (e) {
+      const st = e instanceof __HttpError ? e.status : 401;
+      return new Response(JSON.stringify({ error: (e as Error).message }), { status: st, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
 
     if (!tenant_id || !customer_id) {
       return new Response(JSON.stringify({ error: 'tenant_id و customer_id مطلوبان' }), {

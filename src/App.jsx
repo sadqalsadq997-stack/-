@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClientInstance } from "@/lib/query-client";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { loadSession } from "@/lib/security/session";
+import { canAccess, defaultPage } from "@/lib/permissions";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import { I18nProvider } from "@/lib/i18n";
 import AppLayout from "@/components/layout/AppLayout";
@@ -14,7 +16,10 @@ import PaymentGate from "@/pages/PaymentGate";
 // Auth pages
 import OwnerLogin    from "@/pages/auth/OwnerLogin";
 import OwnerSignup   from "@/pages/auth/OwnerSignup";
-import EmployeeLogin from "@/pages/auth/EmployeeLogin";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword  from "@/pages/auth/ResetPassword";
+import PagerCustomer  from "@/pages/PagerCustomer";
+import Pager          from "@/pages/Pager";
 
 // App pages
 import Dashboard             from "@/pages/Dashboard";
@@ -43,11 +48,11 @@ import LoyaltyCardDesigner   from "@/pages/LoyaltyCardDesigner";
 import LoyaltyQR             from "@/pages/LoyaltyQR";
 import BranchAddressSettings from "@/pages/BranchAddressSettings";
 import Support               from "@/pages/Support";
-import AdminSupport          from "@/pages/AdminSupport";
 import DomainManagement      from "@/pages/DomainManagement";
-import SubscriptionManagement from "@/pages/SubscriptionManagement";
-import BillingSubscribe       from "@/pages/BillingSubscribe";
 import LandingPage           from "@/pages/LandingPage";
+import PricingPage           from "@/pages/PricingPage";
+import SolutionPage          from "@/pages/SolutionPage";
+import { SOLUTIONS }         from "@/content/seo";
 import PrivacyPolicy         from "@/pages/PrivacyPolicy";
 import TermsConditions       from "@/pages/TermsConditions";
 import AboutUs                from "@/pages/AboutUs";
@@ -58,60 +63,77 @@ import Accounting            from "@/pages/accounting";
 import ZATCASettings         from "@/pages/ZATCASettings";
 import PageNotFound          from "@/lib/PageNotFound";
 
-function RequireAuth({ children }) {
-  const { session, loading, authChecked, isMissingEnv } = useAuth();
-  const [sessionChecked, setSessionChecked] = React.useState(false);
-  const [pinUnlocked, setPinUnlocked]       = React.useState(false);
+// ══════════════════════════════════════════════════════════════════
+// طبقات الحماية (بالترتيب):
+//   RequireAuth  → لازم جلسة Supabase حقيقية (لا يكفي PIN وحده)
+//   PaymentGate  → لازم اشتراك فعّال للمنشأة (يُتحقق منه من السيرفر)
+//   AppPINGate   → PIN الموظف/المدير على الجهاز
+//   RoleGuard    → كل دور يدخل فقط صفحاته المسموحة
+// ══════════════════════════════════════════════════════════════════
 
-  React.useEffect(() => {
-    import('@/lib/security/session').then(({ loadSession }) =>
-      loadSession().then(sess => {
-        setPinUnlocked(!!(sess && sess.unlocked));
-        setSessionChecked(true);
-      })
-    );
-  }, []);
-
-  if (loading || !authChecked || !sessionChecked) return (
+function FullScreenSpinner() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
+}
 
-  if (isMissingEnv) return children;
+function MissingConfig() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6" dir="rtl">
+      <div className="max-w-md text-center space-y-3">
+        <h1 className="text-xl font-black text-foreground">النظام غير مهيأ</h1>
+        <p className="text-sm text-muted-foreground">
+          مفاتيح الاتصال بقاعدة البيانات غير مضبوطة في هذا النشر، لذلك تم إيقاف الدخول للنظام.
+        </p>
+      </div>
+    </div>
+  );
+}
 
-  if (!session && !pinUnlocked) return <Navigate to="/auth/login" replace />;
+function RequireAuth({ children }) {
+  const { session, loading, authChecked, isMissingEnv } = useAuth();
+  const location = useLocation();
+  if (isMissingEnv) return <MissingConfig />;
+  if (loading || !authChecked) return <FullScreenSpinner />;
+  if (!session) return <Navigate to="/auth/login" replace state={{ from: location.pathname }} />;
   return children;
 }
 
-function RequireOwner({ children }) {
-  const owner = sessionStorage.getItem('owner_authenticated') === '1';
-  return owner ? children : <Navigate to="/owner" replace />;
-}
-
-// ── الصفحة الرئيسية عند فتح الدومين مباشرة: تعرض صفحة الهوم
-// للزائر العادي، وتحوّل المستخدم المسجّل دخوله مباشرة إلى لوحته ──
-function RootGate() {
-  const { session, loading, authChecked, isMissingEnv } = useAuth();
-  const [sessionChecked, setSessionChecked] = React.useState(false);
-  const [pinUnlocked, setPinUnlocked]       = React.useState(false);
+// يمنع الدخول بالرابط المباشر لصفحات غير مسموحة للدور الحالي
+function RoleGuard({ children }) {
+  const location = useLocation();
+  const [state, setState] = React.useState({ ready: false, allowed: false, home: '/' });
 
   React.useEffect(() => {
-    import('@/lib/security/session').then(({ loadSession }) =>
-      loadSession().then(sess => {
-        setPinUnlocked(!!(sess && sess.unlocked));
-        setSessionChecked(true);
-      })
-    );
-  }, []);
+    let alive = true;
+    loadSession().then(sess => {
+      if (!alive) return;
+      if (!sess?.unlocked) { setState({ ready: true, allowed: false, home: '/' }); return; }
+      const path = location.pathname === '/dashboard' ? '/' : location.pathname;
+      setState({
+        ready: true,
+        allowed: canAccess(sess.role, sess.perms || {}, path),
+        home: defaultPage(sess.role),
+      });
+    });
+    return () => { alive = false; };
+  }, [location.pathname]);
 
-  if (loading || !authChecked || !sessionChecked) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
+  if (!state.ready) return <FullScreenSpinner />;
+  if (!state.allowed) {
+    const target = state.home === location.pathname ? '/support' : state.home;
+    return <Navigate to={target} replace />;
+  }
+  return children;
+}
 
-  if (!isMissingEnv && (session || pinUnlocked)) return <Navigate to="/dashboard" replace />;
+// الصفحة الرئيسية: الزائر يشوف صفحة الهبوط، والمسجّل يتحول للوحته
+function RootGate() {
+  const { session, loading, authChecked, isMissingEnv } = useAuth();
+  if (!isMissingEnv && (loading || !authChecked)) return <FullScreenSpinner />;
+  if (!isMissingEnv && session) return <Navigate to="/dashboard" replace />;
   return <LandingPage />;
 }
 
@@ -119,25 +141,30 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/"               element={<RootGate />} />
-      <Route path="/home"          element={<LandingPage />} />
+      <Route path="/home"          element={<Navigate to="/" replace />} />
+      <Route path="/pricing"       element={<PricingPage />} />
+      {SOLUTIONS.map(s => (
+        <Route key={s.slug} path={`/${s.slug}`} element={<SolutionPage slug={s.slug} />} />
+      ))}
       <Route path="/owner"         element={<SuperAdmin />} />
-      <Route path="/super-admin"    element={<SuperAdmin />} />
       <Route path="/privacy"       element={<PrivacyPolicy />} />
       <Route path="/terms"         element={<TermsConditions />} />
       <Route path="/about"         element={<AboutUs />} />
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
-      <Route path="/kitchen-display" element={<KitchenDisplay />} />
       <Route path="/loyalty/:id"   element={<LoyaltyCard />} />
       <Route path="/wallet/:token" element={<LoyaltyQR />} />
       <Route path="/auth/login"    element={<OwnerLogin />} />
       <Route path="/auth/signup"   element={<OwnerSignup />} />
-      <Route path="/auth/employee" element={<EmployeeLogin />} />
+      <Route path="/auth/forgot"   element={<ForgotPassword />} />
+      <Route path="/auth/reset"    element={<ResetPassword />} />
+      <Route path="/p/:token"      element={<PagerCustomer />} />
 
       <Route path="*" element={
         <RequireAuth>
-          <AppPINGate>
-            <PaymentGate>
+          <PaymentGate>
+            <AppPINGate>
+              <RoleGuard>
               <Routes>
                 <Route element={<AppLayout />}>
                   <Route path="/"                   element={<Dashboard />} />
@@ -150,6 +177,7 @@ function AppRoutes() {
                   <Route path="/inventory"          element={<Inventory />} />
                   <Route path="/tables"             element={<Tables />} />
                   <Route path="/kitchen"            element={<KitchenDisplay />} />
+                  <Route path="/pager"              element={<Pager />} />
                   <Route path="/kiosk"              element={<KioskIntegration />} />
                   <Route path="/customers"          element={<Customers />} />
                   <Route path="/suppliers"          element={<Suppliers />} />
@@ -164,19 +192,17 @@ function AppRoutes() {
                   <Route path="/loyalty-card-design" element={<LoyaltyCardDesigner />} />
                   <Route path="/branch-addresses"    element={<BranchAddressSettings />} />
                   <Route path="/support"            element={<Support />} />
-                  <Route path="/admin-support"      element={<AdminSupport />} />
                   <Route path="/domain"             element={<DomainManagement />} />
                   <Route path="/theme"              element={<ThemeEditor />} />
-                  <Route path="/subscriptions"      element={<SubscriptionManagement />} />
-                  <Route path="/billing-subscribe"  element={<BillingSubscribe />} />
                   <Route path="/zatca-admin"        element={<ZATCADashboard />} />
                   <Route path="/zatca-settings"    element={<ZATCASettings />} />
                   <Route path="/accounting"          element={<Accounting />} />
                   <Route path="*"                   element={<PageNotFound />} />
                 </Route>
               </Routes>
-            </PaymentGate>
-          </AppPINGate>
+              </RoleGuard>
+            </AppPINGate>
+          </PaymentGate>
         </RequireAuth>
       } />
     </Routes>

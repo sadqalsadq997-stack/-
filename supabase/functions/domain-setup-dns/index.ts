@@ -1,5 +1,6 @@
 // Supabase Edge Function — إعداد DNS تلقائياً
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { adminClient as __admin, requireTenantMember as __requireMember, tenantHasActiveSubscription as __hasSub, HttpError as __HttpError } from '../_shared/auth.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,18 @@ serve(async (req) => {
 
   try {
     const { domain, target } = await req.json();
+
+    // ── حماية: مالك منشأة باشتراك فعّال فقط (العملية تكلّف مال حقيقي) ──
+    {
+      const __sb = __admin();
+      try {
+        const __c = await __requireMember(req, __sb, null, true);
+        if (!(await __hasSub(__sb, __c.tenantId))) throw new __HttpError(402, 'يتطلب اشتراكاً فعّالاً');
+      } catch (e) {
+        const st = e instanceof __HttpError ? e.status : 401;
+        return new Response(JSON.stringify({ error: (e as Error).message }), { status: st, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+    }
     const NC_USER = Deno.env.get('NAMECHEAP_API_USER') || '';
     const NC_KEY  = Deno.env.get('NAMECHEAP_API_KEY')  || '';
     const NC_IP   = Deno.env.get('NAMECHEAP_CLIENT_IP') || '127.0.0.1';

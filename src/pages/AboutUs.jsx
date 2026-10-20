@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import felsynLogo from '@/assets/felsy-logo.png';
+import MarketingLayout from '@/components/marketing/MarketingLayout';
 import { CONTACT_INFO } from '@/lib/pricingPlans';
 import { ArrowRight, Loader2 } from 'lucide-react';
 
@@ -10,8 +10,8 @@ const FALLBACK_CONTENT = `فلسي هو نظام نقطة بيع سعودي مت
 فواتير ضريبية متوافقة مع هيئة الزكاة والضريبة والجمارك (ZATCA)، وتقارير تساعدك تتخذ قرارات أفضل لنشاطك.`;
 
 export default function AboutUs() {
-  const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState(FALLBACK_CONTENT);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     supabase.from('system_settings').select('value').eq('key', 'about_us_content').maybeSingle()
@@ -23,19 +23,9 @@ export default function AboutUs() {
   }, []);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-white">
-      <header className="border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-2.5">
-            <img src={felsynLogo} alt="فلسي Felsy" className="h-8 w-auto object-contain" />
-          </Link>
-          <Link to="/home" className="text-sm text-gray-500 hover:text-red-600 flex items-center gap-1">
-            <ArrowRight className="w-4 h-4" /> العودة للرئيسية
-          </Link>
-        </div>
-      </header>
+    <MarketingLayout path="/about">
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
+      <div className="max-w-3xl mx-auto px-6 pb-16 pt-28">
         <h1 className="text-4xl font-black text-gray-900 mb-8 text-center">من نحن</h1>
 
         {loading ? (
@@ -70,7 +60,7 @@ export default function AboutUs() {
           </p>
           <p>{CONTACT_INFO.address}</p>
         </div>
-      </main>
-    </div>
+      </div>
+    </MarketingLayout>
   );
 }

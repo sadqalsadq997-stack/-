@@ -1,24 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, isMissingEnv } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { Delete, Building2 } from 'lucide-react';
 import Onboarding from '@/components/Onboarding';
-import { canAccess, defaultPage, ROLE_LABELS } from '@/lib/permissions';
 import { useNavigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '@/lib/security/session';
 import { setupIdleLock } from '@/lib/security/privacy';
 
-// PBKDF2 — أقوى من SHA-256 العادي ضد brute-force
-async function hashPin(pin) {
-  const enc = new TextEncoder();
-  // salt ثابت مشترك للـ PIN (يُمكن جعله per-user لاحقاً)
-  const salt = enc.encode('felsy-pin-salt-v2');
-  const km = await crypto.subtle.importKey('raw', enc.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
-    km, 256
-  );
-  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
+import { hashPin } from '@/lib/security/pin';
 
 export default function AppPINGate({ children }) {
   const [phase, setPhase]           = useState('loading'); // loading | onboarding | setup | pin | unlocked | blocked
@@ -27,7 +15,6 @@ export default function AppPINGate({ children }) {
   const [error, setError]           = useState('');
   const [loading, setLoading]       = useState(false);
   const [settings, setSettings]     = useState(null);
-  const [profiles, setProfiles]     = useState([]);
   const [currentEmp, setCurrentEmp] = useState(null);
   const [attempts, setAttempts]     = useState(0);
   const [lockedUntil, setLockedUntil] = useState(null);
@@ -55,53 +42,23 @@ export default function AppPINGate({ children }) {
     })();
   }, []);
 
+  // ── تحميل حالة الإعداد من السيرفر (بدون تنزيل أي رموز PIN للمتصفح) ──
   async function init() {
-    // بدون Supabase — استخدم PIN افتراضي 1234
-    if (isMissingEnv) {
-      const demoPin = await hashPin('1234');
-      setSettings({ admin_pin: demoPin, onboarded: true });
-      setProfiles([]);
-      setPhase('pin');
-      return;
-    }
     try {
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('app_settings')
-        .select('*')
-        .limit(1);
-
-      // خطأ واضح من Supabase
-      if (settingsError) {
-        console.error('[Felsy] خطأ في تحميل الإعدادات:', settingsError.message);
-        if (settingsError.code === '42P01' || settingsError.message?.includes('does not exist')) {
-          setError('⚠️ جداول قاعدة البيانات غير موجودة — شغّل ملفات supabase/migrations بالترتيب من SQL Editor');
-          setPhase('pin');
-          return;
-        }
-        throw settingsError;
-      }
-
-      const row = settingsData?.[0] ?? null;
-      setSettings(row);
-
-      if (!row) { setPhase('setup'); return; }
-      if (!row.onboarded) { setPhase('onboarding'); return; }
-      if (!row.admin_pin) { setPhase('setup'); return; }
-
-      const { data: emps, error: empsError } = await supabase
-        .from('employee_profiles')
-        .select('id,name,pin,role,permissions,branch_id,is_active')
-        .eq('is_active', true);
-
-      if (empsError) console.warn('[Felsy] خطأ في تحميل الموظفين:', empsError.message);
-      setProfiles(emps ?? []);
+      const { data, error: e } = await supabase.rpc('app_pin_status');
+      if (e) throw e;
+      const st = Array.isArray(data) ? data[0] : data;
+      setSettings(st || null);
+      if (!st?.has_settings) { setPhase('onboarding'); return; }
+      if (!st.onboarded)     { setPhase('onboarding'); return; }
+      if (!st.has_admin_pin) { setPhase('setup'); return; }
+      setPhase('pin');
     } catch (err) {
-      console.error('[Felsy] خطأ عام في init:', err);
-      const demoPin = await hashPin('1234');
-      setSettings({ admin_pin: demoPin, onboarded: true });
-      setProfiles([]);
+      // لا يوجد أي رمز افتراضي — أي خطأ = الدخول مقفل
+      console.error('[Felsy] تعذر تحميل حالة PIN:', err?.message || err);
+      setError('تعذر الاتصال بالخادم — تأكد من الإنترنت ثم أعد المحاولة');
+      setPhase('blocked');
     }
-    setPhase('pin');
   }
 
   // حماية Brute Force: قفل بعد 5 محاولات فاشلة لمدة 2 دقيقة
@@ -138,25 +95,31 @@ export default function AppPINGate({ children }) {
   const verify = async (entered) => {
     if (checkLock()) { setPin(''); return; }
     setLoading(true);
-    const hashed = await hashPin(entered);
-
-    // تحقق admin pin
-    if (hashed === settings?.admin_pin) {
-      await saveSession('admin');
-      setupIdleLock(() => { clearSession(); setPhase('pin'); setCurrentEmp(null); });
-      setPhase('unlocked');
-      setLoading(false);
+    let result = null;
+    try {
+      const hashed = await hashPin(entered);
+      // التحقق يتم في السيرفر — المتصفح لا يرى رموز PIN المخزنة إطلاقاً
+      const { data, error: e } = await supabase.rpc('verify_app_pin', { p_hash: hashed });
+      if (e) throw e;
+      result = Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      setError(err?.message?.includes('too_many_attempts')
+        ? 'محاولات كثيرة — انتظر 5 دقائق'
+        : 'تعذر التحقق — حاول مرة أخرى');
+      triggerShake(); setPin(''); setLoading(false);
       return;
     }
 
-    // تحقق موظف
-    const match = profiles.find(p => p.pin === hashed);
-    if (match) {
-      await saveSession(match.role || 'employee', match);
+    if (result?.ok) {
+      const emp = result.role === 'admin' ? null : {
+        id: result.emp_id, name: result.emp_name, role: result.role,
+        permissions: result.permissions || {}, branch_id: result.branch_id,
+      };
+      await saveSession(result.role || 'employee', emp || undefined);
       setupIdleLock(() => { clearSession(); setPhase('pin'); setCurrentEmp(null); });
-      setCurrentEmp(match);
-      setPhase('unlocked');
+      setCurrentEmp(emp);
       setAttempts(0);
+      setPhase('unlocked');
       setLoading(false);
       return;
     }
@@ -182,36 +145,26 @@ export default function AppPINGate({ children }) {
     if (pin.length !== 4) { setError('يجب أن يكون PIN 4 أرقام'); return; }
     if (pin !== confirmPin) { setError('رموز PIN غير متطابقة'); return; }
     setLoading(true);
-    const hashed = await hashPin(pin);
     try {
-      if (isMissingEnv) {
-        setSettings(s => ({ ...s, admin_pin: hashed }));
-        await saveSession('admin');
-        setPhase('unlocked');
-      } else if (!settings) {
-        // لا يوجد صف app_settings بعد لهذا الحساب — أنشئه الآن بدل تحديث صف غير موجود
-        const { data: inserted, error: e } = await supabase
-          .from('app_settings')
-          .insert({ admin_pin: hashed, onboarded: true })
-          .select()
-          .single();
-        if (e) throw e;
-        setSettings(inserted);
-        await saveSession('admin');
-        setPhase('unlocked');
-      } else {
-        const { error: e } = await supabase
-          .from('app_settings')
-          .update({ admin_pin: hashed })
-          .eq('id', settings.id);
-        if (e) throw e;
-        await saveSession('admin');
-        setPhase('unlocked');
-      }
+      const hashed = await hashPin(pin);
+      // السيرفر يسمح بتعيين PIN المدير فقط إذا لم يكن مضبوطاً مسبقاً،
+      // وفقط لمالك/مدير المنشأة المسجّل دخوله
+      const { error: e } = await supabase.rpc('set_initial_admin_pin', { p_hash: hashed });
+      if (e) throw e;
+      await saveSession('admin');
+      setupIdleLock(() => { clearSession(); setPhase('pin'); setCurrentEmp(null); });
+      setPhase('unlocked');
     } catch (err) {
-      setError('حدث خطأ أثناء الحفظ: ' + err.message);
+      setError('حدث خطأ أثناء الحفظ: ' + (err?.message || ''));
     }
+    setPin(''); setConfirmPin('');
     setLoading(false);
+  };
+
+  const signOut = async () => {
+    clearSession();
+    try { await supabase.auth.signOut(); } catch { /* تجاهل */ }
+    window.location.replace('/auth/login');
   };
 
   // ── عرض المحتوى إذا الجلسة مفتوحة ─────────────────────────
@@ -221,7 +174,7 @@ export default function AppPINGate({ children }) {
 
   // ── شاشة الإعداد الأولي ─────────────────────────────────────
   if (phase === 'onboarding') {
-    return <Onboarding onComplete={() => { init(); }} />;
+    return <Onboarding onDone={() => { init(); }} />;
   }
 
   // ── شاشة إنشاء PIN ─────────────────────────────────────────
@@ -257,6 +210,21 @@ export default function AppPINGate({ children }) {
               {loading ? 'جاري الحفظ...' : 'حفظ رمز PIN'}
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── تعذر الاتصال: لا دخول ───────────────────────────────────
+  if (phase === 'blocked') {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center p-4" dir="rtl">
+        <div className="w-full max-w-sm bg-card rounded-2xl shadow-xl p-8 space-y-4 text-center">
+          <h1 className="text-lg font-bold">تعذر فتح النظام</h1>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <button onClick={() => { setError(''); setPhase('loading'); init(); }}
+            className="w-full bg-primary text-primary-foreground rounded-lg py-3 font-medium">إعادة المحاولة</button>
+          <button onClick={signOut} className="w-full text-sm text-muted-foreground hover:underline">تسجيل الخروج</button>
         </div>
       </div>
     );
@@ -310,6 +278,7 @@ export default function AppPINGate({ children }) {
             );
           })}
         </div>
+        <button onClick={signOut} className="w-full text-xs text-muted-foreground hover:underline">تسجيل الخروج من الحساب</button>
       </div>
 
       <style>{`

@@ -1,194 +1,104 @@
 // ══════════════════════════════════════════════════════════════════
-// Edge Function: billing-subscribe
+// Edge Function: billing-subscribe — بوابة الدفع الوحيدة (Moyasar)
 // ══════════════════════════════════════════════════════════════════
-// يُستدعى عند تسجيل منشأة جديدة أو ترقية اشتراكها. يستقبل "token"
-// (رمز بطاقة مُولّد مسبقاً من نموذج Moyasar بالواجهة الأمامية —
-// انظر التعليق بالأسفل لشرح آلية التوكنة من جهة العميل) ويُجري
-// أول عملية دفع فعلية (سعر العرض الترويجي إن وجد، أو السعر الكامل).
+// action = "start":   يستقبل token البطاقة (مولّد من المتصفح مباشرة
+//                     عند موياسر بالمفتاح العام) + رمز الخطة، يحسب
+//                     السعر من قاعدة البيانات، وينشئ الدفعة الأولى.
+//                     إن احتاجت البطاقة تحقق 3D Secure (مدى دائماً)
+//                     يرجع transaction_url ليتحول له العميل.
+// action = "confirm": بعد رجوع العميل من 3DS، نجلب الدفعة من موياسر
+//                     مباشرة (لا نثق بأي status في الرابط) ونفعّل.
 //
-// ⚠️ مهم جداً من ناحية الأمان والـ PCI-DSS Compliance:
-// لا يُسمح أبداً بإرسال رقم البطاقة (PAN) أو CVC للسيرفر الخاص بك.
-// حسب وثائق Moyasar الرسمية، عملية التوكنة (tokenization) يجب أن
-// تبدأ من المتصفح مباشرة ضد API الخاص بـ Moyasar (باستخدام
-// publishable_api_key وليس المفتاح السري)، فترجع لك "token" فقط،
-// وهذا التوكن هو الذي يُرسل لهذه الدالة — لا بيانات بطاقة خام أبداً.
+// الأمان:
+//   • لازم JWT لمستخدم حقيقي + يكون مالك/مدير المنشأة
+//   • tenant_id يؤخذ من عضوية المستخدم، ليس من جسم الطلب
+//   • السعر يُحسب من billing_plans فقط، ويُطابَق مع مبلغ الدفعة
 //
-// المتطلبات (Supabase Secrets):
-//   MOYASAR_SECRET_KEY   — المفتاح السري (sk_live_... أو sk_test_...)
-//   APP_PUBLIC_URL        — رابط نطاقك (لإعادة التوجيه بعد 3DS لو احتاج الأمر)
+// Secrets: MOYASAR_SECRET_KEY, APP_PUBLIC_URL (مثال: https://felsy.org)
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { CORS, json, adminClient, requireTenantMember, errorResponse, HttpError } from '../_shared/auth.ts';
+import { resolvePricing, moyasarCreatePayment, moyasarFetchPayment, activateFromCheckout } from '../_shared/billing.ts';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function basicAuthHeader(secretKey: string): string {
-  return 'Basic ' + btoa(`${secretKey}:`);
+function callbackUrl(): string {
+  const base = (Deno.env.get('APP_PUBLIC_URL') || '').replace(/\/+$/, '');
+  if (!/^https:\/\//.test(base)) throw new HttpError(500, 'لم يتم ضبط APP_PUBLIC_URL في Supabase Secrets');
+  return `${base}/dashboard?billing=return`;
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const sb = adminClient();
+    const body = await req.json().catch(() => ({}));
+    const caller = await requireTenantMember(req, sb, null, true);
 
-    const { tenant_id, plan_code, moyasar_token, promotion_code } = await req.json();
+    // ── تأكيد بعد الرجوع من 3D Secure ──
+    if (body.action === 'confirm') {
+      const paymentId = String(body.payment_id || '');
+      const payment = await moyasarFetchPayment(paymentId);
+      const { data: checkout } = await sb.from('billing_checkouts')
+        .select('id, tenant_id').eq('moyasar_payment_id', payment.id).maybeSingle();
+      if (!checkout || checkout.tenant_id !== caller.tenantId) throw new HttpError(404, 'عملية الدفع غير موجودة');
 
-    if (!tenant_id || !plan_code || !moyasar_token) {
-      return new Response(JSON.stringify({ error: 'tenant_id و plan_code و moyasar_token مطلوبة' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      if (payment.status !== 'paid') {
+        await sb.from('billing_checkouts').update({ status: 'failed' }).eq('id', checkout.id).eq('status', 'pending');
+        return json({ error: payment.source?.message || 'لم تكتمل عملية الدفع' }, 402);
+      }
+      await activateFromCheckout(sb, checkout.id, payment);
+      return json({ success: true, status: 'active' });
     }
 
-    const secretKey = Deno.env.get('MOYASAR_SECRET_KEY');
-    if (!secretKey) {
-      return new Response(JSON.stringify({ error: 'لم يتم ضبط MOYASAR_SECRET_KEY في إعدادات Supabase Secrets' }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
+    // ── بدء اشتراك جديد ──
+    const planCode = String(body.plan_code || '');
+    const token = String(body.moyasar_token || '');
+    if (!planCode || !/^token_[A-Za-z0-9]+$/.test(token)) throw new HttpError(400, 'بيانات الدفع غير مكتملة');
 
-    // ── جلب نسخة السعر النشطة للخطة المطلوبة ──
-    const { data: plan, error: planErr } = await supabase
-      .rpc('get_active_billing_plan', { p_plan_code: plan_code });
+    const { plan, promotion, amount } = await resolvePricing(sb, planCode, body.promotion_code || null);
 
-    if (planErr || !plan) {
-      return new Response(JSON.stringify({ error: 'الخطة المطلوبة غير موجودة' }), {
-        status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
+    const { data: checkout, error: chkErr } = await sb.from('billing_checkouts').insert({
+      tenant_id: caller.tenantId,
+      auth_id: caller.userId,
+      billing_plan_id: plan.id,
+      promotion_id: promotion?.id || null,
+      amount,
+      moyasar_token: token,
+      status: 'pending',
+    }).select().single();
+    if (chkErr) throw new Error(chkErr.message);
 
-    // ── البحث عن عرض ترويجي صالح (سواء بكود محدد أو عرض تلقائي عام) ──
-    let promotion = null;
-    if (promotion_code) {
-      const { data } = await supabase
-        .from('billing_promotions')
-        .select('*')
-        .eq('code', promotion_code)
-        .eq('plan_code', plan_code)
-        .eq('is_active', true)
-        .maybeSingle();
-      promotion = data;
-    } else {
-      const { data } = await supabase
-        .from('billing_promotions')
-        .select('*')
-        .is('code', null)
-        .eq('plan_code', plan_code)
-        .eq('is_active', true)
-        .lte('valid_from', new Date().toISOString())
-        .maybeSingle();
-      promotion = data;
-    }
-
-    // فحص حد الاستخدام وصلاحية تاريخ العرض
-    if (promotion) {
-      const now = new Date();
-      const validUntilOk = !promotion.valid_until || new Date(promotion.valid_until) > now;
-      const redemptionsOk = promotion.max_redemptions === null || promotion.redemptions_count < promotion.max_redemptions;
-      if (!validUntilOk || !redemptionsOk) promotion = null;
-    }
-
-    const firstChargeAmount = promotion ? Number(promotion.trial_price) : Number(plan.price_monthly);
-
-    // ── تنفيذ أول عملية دفع فعلية عبر Moyasar باستخدام الرمز ──
-    const paymentRes = await fetch('https://api.moyasar.com/v1/payments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: basicAuthHeader(secretKey),
-      },
-      body: JSON.stringify({
-        amount: Math.round(firstChargeAmount * 100), // موياسر يتوقع المبلغ بالهللات
-        currency: 'SAR',
-        description: `اشتراك ${plan.name_ar}${promotion ? ' (عرض ترويجي)' : ''}`,
-        source: { type: 'token', token: moyasar_token },
-        metadata: { tenant_id, plan_code },
-      }),
+    const { ok, data: payment } = await moyasarCreatePayment({
+      amount: Math.round(amount * 100), // بالهللات
+      currency: 'SAR',
+      description: `اشتراك فلسي — ${plan.name_ar}${promotion ? ' (عرض ترويجي)' : ''}`,
+      callback_url: callbackUrl(),
+      source: { type: 'token', token, '3ds': true },
+      metadata: { tenant_id: caller.tenantId, checkout_id: checkout.id },
     });
 
-    const payment = await paymentRes.json();
-
-    if (!paymentRes.ok || payment.status !== 'paid') {
-      return new Response(JSON.stringify({
-        error: 'فشلت عملية الدفع', details: payment.message || payment,
-      }), { status: 402, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    if (!ok || !payment?.id) {
+      await sb.from('billing_checkouts').update({ status: 'failed' }).eq('id', checkout.id);
+      return json({ error: payment?.message || 'رفضت بوابة الدفع العملية' }, 402);
     }
 
-    // ── حساب تواريخ الدورة القادمة ──
-    const periodStart = new Date();
-    const periodEnd = new Date(periodStart);
-    let trialPeriodsRemaining = 0;
-    let nextChargeAmount = Number(plan.price_monthly);
+    await sb.from('billing_checkouts').update({ moyasar_payment_id: payment.id }).eq('id', checkout.id);
 
-    if (promotion) {
-      const unit = promotion.trial_period_unit === 'day' ? 'day' : 'month';
-      if (unit === 'day') periodEnd.setDate(periodEnd.getDate() + promotion.trial_period_count);
-      else periodEnd.setMonth(periodEnd.getMonth() + 1); // أول فترة من الـ trial تنتهي بعد شهر واحد فقط
-      trialPeriodsRemaining = Math.max(0, promotion.trial_period_count - 1);
-      nextChargeAmount = trialPeriodsRemaining > 0 ? Number(promotion.trial_price) : Number(plan.price_monthly);
-    } else {
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    if (payment.status === 'paid') {
+      await activateFromCheckout(sb, checkout.id, payment);
+      return json({ success: true, status: 'active' });
     }
 
-    // ── حفظ/تحديث الاشتراك (upsert حسب tenant_id الفريد) ──
-    const { data: subscription, error: subErr } = await supabase
-      .from('tenant_subscriptions')
-      .upsert({
-        tenant_id,
-        billing_plan_id: plan.id,
-        promotion_id: promotion?.id || null,
-        status: trialPeriodsRemaining > 0 ? 'trialing' : 'active',
-        current_period_start: periodStart.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        next_charge_amount: nextChargeAmount,
-        trial_periods_remaining: trialPeriodsRemaining,
-        moyasar_token,
-        moyasar_card_brand: payment.source?.company || null,
-        moyasar_card_last_four: payment.source?.number?.slice(-4) || null,
-        failed_attempts: 0,
-        last_payment_id: payment.id,
-        cancelled_at: null,
-      }, { onConflict: 'tenant_id' })
-      .select()
-      .single();
-
-    if (subErr) throw new Error(`فشل حفظ الاشتراك: ${subErr.message}`);
-
-    // ── تسجيل أول فاتورة كناجحة ──
-    await supabase.from('billing_invoices').insert({
-      tenant_id, subscription_id: subscription.id,
-      amount: firstChargeAmount, status: 'paid',
-      moyasar_payment_id: payment.id,
-      period_start: periodStart.toISOString(), period_end: periodEnd.toISOString(),
-      paid_at: new Date().toISOString(),
-    });
-
-    // ── زيادة عداد استخدام العرض الترويجي ──
-    if (promotion) {
-      await supabase.from('billing_promotions')
-        .update({ redemptions_count: promotion.redemptions_count + 1 })
-        .eq('id', promotion.id);
+    const transactionUrl = payment.source?.transaction_url;
+    if (payment.status === 'initiated' && transactionUrl) {
+      return json({ requires_action: true, transaction_url: transactionUrl });
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      subscription_id: subscription.id,
-      status: subscription.status,
-      next_charge_amount: nextChargeAmount,
-      current_period_end: periodEnd.toISOString(),
-    }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
-
+    await sb.from('billing_checkouts').update({ status: 'failed' }).eq('id', checkout.id);
+    return json({ error: payment.source?.message || 'فشلت عملية الدفع' }, 402);
   } catch (err) {
-    console.error('[billing-subscribe]', err);
-    return new Response(JSON.stringify({ error: String(err?.message || err) }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(err);
   }
 });

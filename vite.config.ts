@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, isSsrBuild }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
   return {
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,       // ❌ لا sourcemaps في production
-      minify: 'terser',       // ✅ تشفير وتصغير أقوى
+      minify: isSsrBuild ? false : 'terser',
       terserOptions: {
         compress: {
           drop_console:  true,   // ✅ حذف كل console.log
@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
           comments: false,       // ✅ حذف كل التعليقات
         },
       },
-      rollupOptions: {
+      rollupOptions: isSsrBuild ? { output: { entryFileNames: '[name].js', assetFileNames: 'assets/[hash][extname]' } } : {
         output: {
           // أسماء ملفات مشوشة بـ hash
           entryFileNames:   'assets/[hash].js',

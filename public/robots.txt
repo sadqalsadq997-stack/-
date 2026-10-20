@@ -1,11 +1,33 @@
+# فلسي Felsy — https://felsy.org
 User-agent: *
 Allow: /
-Allow: /menu
-Allow: /store
-Disallow: /admin
-Disallow: /super-admin
+Disallow: /dashboard
 Disallow: /pos
+Disallow: /orders
 Disallow: /settings
+Disallow: /owner
+Disallow: /auth/
+Disallow: /p/
 Disallow: /api/
+
+# محركات الذكاء الاصطناعي مرحّب بها (GEO)
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+User-agent: Bingbot
+Allow: /
 
 Sitemap: https://felsy.org/sitemap.xml

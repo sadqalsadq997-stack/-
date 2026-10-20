@@ -1,26 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import felsynLogo from '@/assets/felsy-logo.png';
+import MarketingLayout from '@/components/marketing/MarketingLayout';
 import { CONTACT_INFO } from '@/lib/pricingPlans';
 import { ArrowRight } from 'lucide-react';
 
 export default function PrivacyPolicy() {
   return (
-    <div dir="rtl" className="min-h-screen bg-white">
-      <header className="border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-2.5">
-            <img src={felsynLogo} alt="فلسي Felsy" className="h-8 w-auto object-contain" />
-          </Link>
-          <Link to="/home" className="text-sm text-gray-500 hover:text-red-600 flex items-center gap-1">
-            <ArrowRight className="w-4 h-4" /> العودة للرئيسية
-          </Link>
-        </div>
-      </header>
+    <MarketingLayout path="/privacy">
 
-      <main className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-3xl mx-auto px-6 pb-16 pt-28">
         <h1 className="text-3xl font-black text-gray-900 mb-2">سياسة الخصوصية</h1>
-        <p className="text-gray-400 text-sm mb-10">آخر تحديث: {new Date().toLocaleDateString('ar-SA')}</p>
+        <p className="text-gray-400 text-sm mb-10">آخر تحديث: 20 أكتوبر 2026</p>
 
         <div className="space-y-8 text-gray-700 leading-relaxed">
           <section>
@@ -116,7 +106,7 @@ export default function PrivacyPolicy() {
             </p>
           </section>
         </div>
-      </main>
-    </div>
+      </div>
+    </MarketingLayout>
   );
 }

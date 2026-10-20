@@ -44,7 +44,7 @@ serve(async (req) => {
     // بالهيدر؛ نتحقق أيضاً من رمز سري إضافي كطبقة حماية ثانية)
     const cronSecret = req.headers.get('x-cron-secret');
     const expectedSecret = Deno.env.get('BILLING_CRON_SECRET');
-    if (expectedSecret && cronSecret !== expectedSecret) {
+    if (!expectedSecret || cronSecret !== expectedSecret) {
       return new Response(JSON.stringify({ error: 'غير مصرح' }), {
         status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
@@ -92,7 +92,7 @@ serve(async (req) => {
             amount: Math.round(chargeAmount * 100),
             currency: 'SAR',
             description: `تجديد اشتراك ${sub.billing_plans?.name_ar || sub.billing_plans?.plan_code}`,
-            source: { type: 'token', token: sub.moyasar_token },
+            source: { type: 'token', token: sub.moyasar_token, '3ds': false }, // خصم تلقائي بدون حضور العميل (MIT)
             metadata: { tenant_id: sub.tenant_id, subscription_id: sub.id },
           }),
         });

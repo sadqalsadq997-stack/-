@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { hashPin } from '@/lib/security/pin';
 import { supabase } from '@/integrations/supabase/client';
 import {
   UserCheck, Plus, Search, Trash2, Edit3, Loader2,
@@ -27,7 +28,6 @@ const ALL_PAGES = [
   { path: '/analytics',   label: 'التقارير'        },
   { path: '/employees',   label: 'الموظفون'        },
   { path: '/support',     label: 'الدعم الفني'    },
-  { path: '/admin-support', label: 'دعم — رد المدير' },
   { path: '/ai',          label: 'المساعد الذكي'  },
   { path: '/estore',      label: 'المتجر الإلكتروني' },
   { path: '/loyalty',     label: 'الولاء'          },
@@ -88,6 +88,7 @@ function EmployeeForm({ initial, onSave, onCancel, branches }) {
   const [form, setForm] = useState({
     name: '', phone: '', email: '', role: 'cashier', pin: '',
     salary: '', notes: '', branch_id: '', ...initial,
+    pin: '', // لا نعرض الرمز المحفوظ — اتركه فارغاً للإبقاء عليه
     permissions: initial?.permissions || {},
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -178,6 +179,9 @@ export default function Employees() {
   const save = useMutation({
     mutationFn: async (form) => {
       const { id, ...rest } = form;
+      // PIN يُحفظ مشفّراً فقط — وإذا تُرك فارغاً عند التعديل يبقى القديم
+      if (rest.pin && /^\d{4}$/.test(rest.pin)) rest.pin = await hashPin(rest.pin);
+      else delete rest.pin;
       if (id) { const { error } = await supabase.from('employee_profiles').update(rest).eq('id', id); if (error) throw error; }
       else     { const { error } = await supabase.from('employee_profiles').insert(rest); if (error) throw error; }
     },

@@ -15,7 +15,7 @@ interface SEOConfig {
 }
 
 const SITE_NAME = 'فلسي — Felsy POS & ERP';
-const BASE_URL  = import.meta.env.VITE_APP_URL || 'https://felsy.sa';
+const BASE_URL  = import.meta.env.VITE_APP_URL || 'https://felsy.org';
 const OG_IMAGE  = `${BASE_URL}/og-default.png`;
 
 export function setSEO(config: SEOConfig) {
