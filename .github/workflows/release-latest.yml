@@ -1,0 +1,41 @@
+# ينشر APK وملف ويندوز من بناء ناجح كـ Release برابط تحميل مباشر (بدون إعادة البناء)
+# التشغيل: Actions ← "Felsy Release" ← Run workflow ← ضع رقم التشغيل (run_id) من رابط البناء
+name: Felsy Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'رقم تشغيل Felsy App الناجح'
+        required: true
+      tag:
+        description: 'وسم الإصدار'
+        required: true
+        default: 'app-v1.0.0-test'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: felsy-*
+          path: out
+      - name: تجهيز الملفات
+        run: |
+          mkdir -p rel
+          cp out/felsy-android/app-release.apk rel/felsy-android.apk
+          cp out/felsy-windows/felsy-windows.zip rel/felsy-windows.zip
+          ls -la rel
+      - name: نشر Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ inputs.tag }}" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create "${{ inputs.tag }}" rel/* --repo "$GITHUB_REPOSITORY" --title "Felsy ${{ inputs.tag }}" --notes "APK (أندرويد) + نسخة ويندوز (فك الضغط وشغّل felsy.exe). توقيع تجريبي."

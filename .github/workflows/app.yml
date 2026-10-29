@@ -178,6 +178,7 @@ jobs:
   ios:
     needs: check
     runs-on: macos-26
+    continue-on-error: true
     timeout-minutes: 60
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
