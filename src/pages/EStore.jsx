@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingBag, ToggleLeft, ToggleRight, Loader2, Globe, Package } from 'lucide-react';
+import { ShoppingBag, ToggleLeft, ToggleRight, Loader2, Globe, Package, Palette } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useMyAccount } from '@/components/AccountNumber';
 import { toast } from 'sonner';
 
 export default function EStore() {
   const qc = useQueryClient();
+  const { data: acc } = useMyAccount();
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['store-products'],
@@ -43,7 +46,7 @@ export default function EStore() {
 
   const inStore = products.filter(p => p.show_in_store).length;
   const inMenu = products.filter(p => p.show_in_menu).length;
-  const formatSAR = n => `${Number(n||0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n||0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-6">
@@ -51,17 +54,22 @@ export default function EStore() {
         <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
           <ShoppingBag className="w-6 h-6 text-primary" />المتجر الإلكتروني
         </h1>
-        <a href="/menu" target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-primary hover:underline">
-          <Globe className="w-4 h-4" />عرض المتجر
-        </a>
+        <div className="flex items-center gap-3">
+          <Link to="/settings?tab=menu" className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground">
+            <Palette className="w-4 h-4" />تغيير التصميم
+          </Link>
+          <a href={acc ? `/m/${acc.slug || acc.account_number}` : '/menu'} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm font-bold text-primary hover:underline">
+            <Globe className="w-4 h-4" />عرض المتجر
+          </a>
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
-          { label: 'منتجات في المتجر', value: inStore, color: 'bg-blue-50 text-blue-700' },
+          { label: 'منتجات في المتجر', value: inStore, color: 'bg-sage-50 text-sage-700' },
           { label: 'منتجات في القائمة', value: inMenu, color: 'bg-green-50 text-green-700' },
-          { label: 'طلبات متجر', value: storeOrders.length, color: 'bg-purple-50 text-purple-700' },
+          { label: 'طلبات متجر', value: storeOrders.length, color: 'bg-peach-50 text-peach-700' },
         ].map(s => (
           <div key={s.label} className={`${s.color} rounded-2xl p-4`}>
             <p className="text-2xl font-black">{s.value}</p>
@@ -97,7 +105,7 @@ export default function EStore() {
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <button onClick={() => toggleStore.mutate({ id: p.id, show_in_store: p.show_in_store })}
                       className="text-muted-foreground hover:text-foreground transition-colors">
-                      {p.show_in_store ? <ToggleRight className="w-5 h-5 text-blue-500" /> : <ToggleLeft className="w-5 h-5" />}
+                      {p.show_in_store ? <ToggleRight className="w-5 h-5 text-sage-500" /> : <ToggleLeft className="w-5 h-5" />}
                     </button>
                     <span className="text-muted-foreground">المتجر</span>
                   </label>

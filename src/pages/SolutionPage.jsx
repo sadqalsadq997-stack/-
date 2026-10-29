@@ -2,13 +2,13 @@ import React from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  BellRing, Calculator, UtensilsCrossed, Coffee, ShoppingBag, ReceiptText, Globe, Car, Check, ArrowLeft, ChevronLeft,
+  BellRing, Calculator, UtensilsCrossed, Coffee, ShoppingBag, ReceiptText, Globe, Car, Check, ArrowLeft, ChevronLeft, Receipt, Package, Gift,
 } from 'lucide-react';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
 import { Reveal, FAQList, CTABand } from '@/components/marketing/blocks';
 import { SOLUTIONS, PRICES } from '@/content/seo';
 
-const ICONS = { BellRing, Calculator, UtensilsCrossed, Coffee, ShoppingBag, ReceiptText, Globe, Car };
+const ICONS = { BellRing, Calculator, UtensilsCrossed, Coffee, ShoppingBag, ReceiptText, Globe, Car, Receipt, Package, Gift };
 
 export default function SolutionPage({ slug }) {
   const page = SOLUTIONS.find(s => s.slug === slug);

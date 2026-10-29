@@ -81,7 +81,7 @@ export function HeroVisual({ className = '' }) {
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-semibold text-ink/55">مبيعات اليوم</p>
-            <p className="mt-1 text-[2rem] font-extrabold leading-none text-ink" dir="ltr">12,480 <span className="text-base font-bold text-ink/50">ر.س</span></p>
+            <p className="mt-1 text-[2rem] font-extrabold leading-none text-ink" dir="ltr">12,480 <span className="text-base font-bold text-ink/50">⃁</span></p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-peach-100 px-2.5 py-1 text-xs font-bold text-peach-700" dir="ltr">
             <TrendingUp className="h-3.5 w-3.5" /> +18%
@@ -92,7 +92,7 @@ export function HeroVisual({ className = '' }) {
           {['9AM', '12PM', '3PM', '6PM', '9PM'].map(t => <span key={t}>{t}</span>)}
         </div>
         <div className="mt-5 grid grid-cols-3 gap-3 border-t border-beige-200 pt-5">
-          {[['الطلبات', '214'], ['متوسط الفاتورة', '58 ر.س'], ['عملاء جدد', '37']].map(([l, v]) => (
+          {[['الطلبات', '214'], ['متوسط الفاتورة', '58 ⃁'], ['عملاء جدد', '37']].map(([l, v]) => (
             <div key={l}>
               <p className="text-[11px] font-semibold text-ink/50">{l}</p>
               <p className="mt-0.5 text-lg font-extrabold text-ink">{v}</p>
@@ -130,7 +130,7 @@ export function HeroVisual({ className = '' }) {
           <QRMini size={44} />
           <div>
             <p className="flex items-center gap-1 text-xs font-extrabold text-ink"><ShieldCheck className="h-4 w-4 text-sage-600" /> فاتورة معتمدة</p>
-            <p className="text-[11px] text-ink/50">ZATCA · المرحلة الثانية</p>
+            <p className="text-[11px] text-ink/50">ZATCA · QR</p>
           </div>
         </motion.div>
       </motion.div>
@@ -146,7 +146,7 @@ export function ChartCardVisual() {
         <span className="font-bold text-ink/60">صافي الربح</span>
         <span className="rounded-full bg-white px-2 py-0.5 font-bold text-sage-700">هذا الشهر</span>
       </div>
-      <p className="text-xl font-extrabold text-ink" dir="ltr">38,920 <span className="text-xs text-ink/45">ر.س</span></p>
+      <p className="text-xl font-extrabold text-ink" dir="ltr">38,920 <span className="text-xs text-ink/45">⃁</span></p>
       <SmoothChart id="card1" values={[14, 18, 16, 24, 22, 30, 34, 31, 40]} h={80} strokeWidth={2.5} delay={0.2} />
     </div>
   );

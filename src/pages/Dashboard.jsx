@@ -7,6 +7,7 @@ import {
   ChevronRight, AlertTriangle, Shield, CheckCircle, XCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import AccountNumber from '@/components/AccountNumber';
 
 function StatCard({ icon: Icon, label, value, change, color = 'text-primary', bg = 'bg-primary/10' }) {
   const positive = change >= 0;
@@ -31,104 +32,64 @@ function StatCard({ icon: Icon, label, value, change, color = 'text-primary', bg
   );
 }
 
-// ── بانر حالة ZATCA في لوحة التحكم ───────────────────────────────────────
+// ── بانر الفوترة الإلكترونية في لوحة التحكم ─────────────────────────
 function ZATCAStatusBanner() {
-  const { data: config } = useQuery({
+  const { data: st } = useQuery({
     queryKey: ['zatca-dashboard-status'],
     queryFn: async () => {
-      const { data: branch } = await supabase
-        .from('branches')
-        .select('id, zatca_enabled, zatca_status')
-        .eq('is_active', true)
-        .single();
-      if (!branch) return null;
-
-      const { data: zc } = await supabase
-        .from('zatca_config')
-        .select('onboarding_status, environment, pcsid_expires_at, invoice_counter, onboarding_error')
-        .eq('branch_id', branch.id)
-        .single();
-
-      return { branch, zc };
+      let br = null; try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}').id; } catch { /* */ }
+      if (!br) return null;
+      return (await supabase.rpc('zatca_branch_status', { p_branch: br })).data;
     },
-    staleTime: 60000,
+    staleTime: 60_000, refetchInterval: 120_000,
   });
+  if (!st) return null;
 
-  if (!config) return null;
-  const { branch, zc } = config;
-
-  // لا نُظهر البانر إذا لم يُبدأ التسجيل
-  if (!zc || zc.onboarding_status === 'not_started') {
+  if (st.status !== 'active') {
     return (
-      <Link to="/settings" className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-5 py-3.5 hover:bg-primary/10 transition-colors">
-        <Shield className="w-5 h-5 text-primary flex-shrink-0" />
+      <Link to="/settings?tab=zatca" className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3.5 hover:bg-amber-100">
+        <Shield className="h-5 w-5 flex-shrink-0 text-amber-600" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">ابدأ ربط ZATCA Phase 2</p>
-          <p className="text-xs text-muted-foreground">أصدر فواتير إلكترونية متوافقة مع هيئة الزكاة — اضغط للإعداد</p>
+          <p className="text-sm font-bold text-amber-900">اربط فرعك بمنصة فاتورة (المرحلة الثانية)</p>
+          <p className="text-xs text-amber-800">إلزامية لكل منشأة مسجلة بالضريبة دخلت موجتها — الربط من الإعدادات بدقيقتين برمز OTP</p>
         </div>
-        <span className="text-xs text-primary font-medium">إعداد ←</span>
+        <span className="text-xs font-medium text-amber-800">ربط ←</span>
       </Link>
     );
   }
-
-  if (zc.onboarding_status === 'active') {
-    // تحقق من انتهاء صلاحية الشهادة
-    const daysLeft = zc.pcsid_expires_at
-      ? Math.ceil((new Date(zc.pcsid_expires_at) - new Date()) / (1000 * 60 * 60 * 24))
-      : null;
-
-    if (daysLeft !== null && daysLeft <= 30) {
-      return (
-        <Link to="/settings" className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-2xl px-5 py-3.5 hover:bg-yellow-100 transition-colors">
-          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-yellow-800">شهادة ZATCA تنتهي خلال {daysLeft} يوم</p>
-            <p className="text-xs text-yellow-700">يُنصح بتجديد الشهادة قبل انتهائها لاستمرار إصدار الفواتير</p>
-          </div>
-          <span className="text-xs text-yellow-700 font-medium">تجديد ←</span>
-        </Link>
-      );
-    }
-
+  const days = st.cert_expires_at ? Math.ceil((new Date(st.cert_expires_at) - new Date()) / 864e5) : null;
+  if (st.overdue > 0 || st.rejected > 0) {
     return (
-      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-5 py-3">
-        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+      <Link to="/zatca-admin" className="flex items-center gap-3 rounded-2xl border border-red-300 bg-red-50 px-5 py-3.5 hover:bg-red-100">
+        <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-green-800">ZATCA Phase 2 مفعّل ✅</p>
-          <p className="text-xs text-green-700">
-            الفواتير تُرسَل تلقائياً — {zc.invoice_counter} فاتورة حتى الآن — بيئة: {zc.environment}
-          </p>
+          <p className="text-sm font-bold text-red-800">{st.overdue > 0 ? `${st.overdue} فاتورة متأخرة عن الإرسال للهيئة` : `${st.rejected} فاتورة مرفوضة من الهيئة`}</p>
+          <p className="text-xs text-red-700">المهلة النظامية للفاتورة المبسطة 24 ساعة — افتح مركز الفوترة للمعالجة</p>
         </div>
-        <Link to="/zatca-admin" className="text-xs text-green-700 font-medium hover:underline">
-          مراقبة ←
-        </Link>
-      </div>
-    );
-  }
-
-  if (zc.onboarding_status === 'failed') {
-    return (
-      <Link to="/settings" className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-5 py-3.5 hover:bg-red-100 transition-colors">
-        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-sm font-bold text-red-800">فشل تسجيل ZATCA</p>
-          <p className="text-xs text-red-700 truncate">{zc.onboarding_error || 'اضغط لمراجعة الإعدادات'}</p>
-        </div>
-        <span className="text-xs text-red-700 font-medium">إصلاح ←</span>
+        <span className="text-xs font-medium text-red-700">معالجة ←</span>
       </Link>
     );
   }
-
-  // قيد التسجيل
+  if (days !== null && days <= 30) {
+    return (
+      <Link to="/settings?tab=zatca" className="flex items-center gap-3 rounded-2xl border border-yellow-200 bg-yellow-50 px-5 py-3.5 hover:bg-yellow-100">
+        <AlertTriangle className="h-5 w-5 flex-shrink-0 text-yellow-600" />
+        <div className="flex-1">
+          <p className="text-sm font-bold text-yellow-800">شهادة الربط تنتهي خلال {days} يوم</p>
+          <p className="text-xs text-yellow-700">أعد الربط برمز OTP جديد قبل الانتهاء</p>
+        </div>
+      </Link>
+    );
+  }
   return (
-    <Link to="/settings" className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-5 py-3.5 hover:bg-blue-100 transition-colors">
-      <Shield className="w-5 h-5 text-blue-600 flex-shrink-0" />
+    <div className="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3">
+      <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
       <div className="flex-1">
-        <p className="text-sm font-bold text-blue-800">التسجيل مع ZATCA جارٍ...</p>
-        <p className="text-xs text-blue-700">أكمل خطوات الربط للبدء في إصدار الفواتير الإلكترونية</p>
+        <p className="text-sm font-bold text-green-800">الفوترة الإلكترونية شغالة ✓</p>
+        <p className="text-xs text-green-700">{st.reported_24h} فاتورة انرسلت للهيئة آخر 24 ساعة{st.pending ? ` · ${st.pending} بالطريق` : ''}</p>
       </div>
-      <span className="text-xs text-blue-700 font-medium">متابعة ←</span>
-    </Link>
+      <Link to="/zatca-admin" className="text-xs font-medium text-green-700 hover:underline">التفاصيل ←</Link>
+    </div>
   );
 }
 
@@ -165,13 +126,14 @@ export default function Dashboard() {
   const pendingOrders = orders.filter(o => ['pending', 'preparing'].includes(o.status));
   const lowStock = products.filter(p => p.track_inventory && (p.stock_quantity || 0) <= (p.min_stock_alert || 5));
 
-  const formatSAR = (n) => `${Number(n || 0).toLocaleString('ar')} ر.س`;
+  const formatSAR = (n) => `${Number(n || 0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-foreground">لوحة التحكم</h1>
+          <AccountNumber showName className="mt-1" />
           <p className="text-muted-foreground text-sm">{new Date().toLocaleDateString('ar', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl px-3 py-1.5 text-sm font-medium">
@@ -185,8 +147,8 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={TrendingUp}   label="مبيعات اليوم"    value={formatSAR(todayRevenue)}  change={12} color="text-emerald-500" bg="bg-emerald-500/10" />
-        <StatCard icon={ShoppingCart} label="طلبات اليوم"    value={todayOrders.length}        change={5}  color="text-blue-500"    bg="bg-blue-500/10" />
-        <StatCard icon={Users}        label="إجمالي العملاء" value={customersCount ?? '…'}      change={3}  color="text-violet-500"  bg="bg-violet-500/10" />
+        <StatCard icon={ShoppingCart} label="طلبات اليوم"    value={todayOrders.length}        change={5}  color="text-sage-500"    bg="bg-sage-500/10" />
+        <StatCard icon={Users}        label="إجمالي العملاء" value={customersCount ?? '…'}      change={3}  color="text-peach-500"  bg="bg-peach-500/10" />
         <StatCard icon={Package}      label="المنتجات"       value={products.length}                        color="text-amber-500"   bg="bg-amber-500/10" />
       </div>
 

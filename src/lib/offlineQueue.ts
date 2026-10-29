@@ -44,41 +44,49 @@ export async function getPending(): Promise<number> {
   } catch { return 0; }
 }
 
-export async function flushQueue(): Promise<void> {
+// يرجع عدد العمليات اللي تمت مزامنتها
+export async function flushQueue(): Promise<number> {
+  let synced = 0;
   try {
     const d = await openDB();
-    const tx = d.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const all: Record<string, unknown>[] = await new Promise((res, rej) => {
-      const req = store.getAll();
-      req.onsuccess = () => res(req.result);
-      req.onerror   = () => rej([]);
+    // 1) قراءة كل العمليات في معاملة واحدة (المعاملة تنتهي قبل أي طلب شبكة)
+    const all: Record<string, unknown>[] = await new Promise((res) => {
+      const req = d.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror   = () => res([]);
     });
 
     for (const op of all) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sb = supabase as any;
-        if (op.action === 'insert') {
-          await sb.from(op.table).insert(op.payload);
-        } else if (op.action === 'update') {
-          await sb.from(op.table).update(op.payload).eq('id', (op.payload as Record<string,unknown>).id);
-        } else if (op.action === 'delete') {
-          await sb.from(op.table).delete().eq('id', (op.payload as Record<string,unknown>).id);
-        }
-        store.delete(op.id as IDBValidKey);
-      } catch { /* skip failed ops */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const payload = op.payload as Record<string, unknown>;
+      let res: { error?: unknown } | null = null;
+      if (op.action === 'insert')      res = await sb.from(op.table).insert(payload);
+      else if (op.action === 'update') res = await sb.from(op.table).update(payload).eq('id', payload.id);
+      else if (op.action === 'delete') res = await sb.from(op.table).delete().eq('id', payload.id);
+      if (!res || res.error) continue; // تبقى في الطابور وتُعاد لاحقاً
+
+      // 2) حذف العملية بعد نجاحها فقط — في معاملة جديدة (يمنع تكرار الإدخال)
+      await new Promise<void>((resolve) => {
+        const tx = d.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(op.id as IDBValidKey);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+      synced++;
     }
   } catch { /* offline */ }
+  return synced;
 }
 
-export function startSyncListener(onSync?: () => void): () => void {
+export function startSyncListener(onSync?: (r: { synced: number }) => void): () => void {
   const handler = async () => {
     if (navigator.onLine) {
-      await flushQueue();
-      if (onSync) onSync();
+      const synced = await flushQueue();
+      if (onSync) onSync({ synced });
     }
   };
   window.addEventListener('online', handler);
+  if (navigator.onLine) setTimeout(handler, 3000); // مزامنة المتبقي عند فتح التطبيق
   return () => window.removeEventListener('online', handler);
 }

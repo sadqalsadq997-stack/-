@@ -2,13 +2,18 @@ import React from 'react';
 import { Check, Minus } from 'lucide-react';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
 import { Reveal, PricingCards, FAQList, CTABand } from '@/components/marketing/blocks';
-import { PRICES, PRICING_FAQS as FAQS } from '@/content/seo';
+import { PRICES, PRICING_FAQS as FAQS, CUSTOM_APP_PRICE } from '@/content/seo';
+import { whatsappLink } from '@/lib/contact';
+import { Smartphone, MessageCircle } from 'lucide-react';
 
 const COMPARE = [
   ['نقطة البيع والفواتير الضريبية (ZATCA)', true, true, true],
   ['البيجر الإلكتروني بالباركود', true, true, true],
   ['المنتجات والمخزون', true, true, true],
-  ['عدد الفروع', '1', 'حتى 3', 'بلا حد'],
+  ['الفروع المشمولة', '1', '3', 'بلا حد'],
+  ['كل فرع إضافي', '+29 ⃁', '+59 ⃁', '—'],
+  ['عدد الفواتير', 'بلا حد', 'بلا حد', 'بلا حد'],
+  ['برنامج الولاء (أختام ونقاط)', true, true, true],
   ['الطاولات وشاشة المطبخ', false, true, true],
   ['متجر إلكتروني ومنيو QR + دومين', false, true, true],
   ['بطاقة الولاء في محفظة الجوال', false, true, true],
@@ -47,7 +52,7 @@ export default function PricingPage() {
               <thead className="bg-slate-50">
                 <tr>
                   <th scope="col" className="p-4 text-start font-bold text-slate-500">الميزة</th>
-                  {PRICES.map(p => <th key={p.code} scope="col" className="p-4 font-black">{p.name}<span className="block text-sm font-bold text-sage-700">{p.price} ريال</span></th>)}
+                  {PRICES.map(p => <th key={p.code} scope="col" className="p-4 font-black">{p.name}<span className="block text-sm font-bold text-sage-700">{p.price} ⃁</span></th>)}
                 </tr>
               </thead>
               <tbody>
@@ -60,6 +65,32 @@ export default function PricingPage() {
               </tbody>
             </table>
           </div>
+
+          <p className="mt-3 text-sm text-slate-500">مثال: الأساسي بفرعين = 29 × 2 = 58 ⃁ شهرياً. خصم 10% على 6 أشهر و20% على سنة. الأسعار قبل ضريبة القيمة المضافة.</p>
+
+          {/* تطبيق خاص بالمنشأة */}
+          <Reveal>
+            <div className="mt-16 grid items-center gap-8 overflow-hidden rounded-3xl bg-ink p-8 text-white sm:p-10 md:grid-cols-[1fr_auto]">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold"><Smartphone className="h-3.5 w-3.5" />إضافة</span>
+                <h2 className="mt-3 text-3xl font-black sm:text-4xl">تطبيق خاص باسم منشأتك</h2>
+                <p className="mt-3 max-w-xl text-white/75">تطبيق جوال بشعارك وألوانك يحمّله عملاؤك: المنيو والطلب أونلاين وبطاقة الولاء والعروض — كل الطلبات توصل نظام فلسي حقك مباشرة.</p>
+                <ul className="mt-5 grid gap-2 text-sm text-white/85 sm:grid-cols-2">
+                  {['اسم وأيقونة وألوان منشأتك', 'منيو وطلبات أونلاين', 'بطاقة الولاء داخل التطبيق', 'مربوط مع نقطة البيع والمطبخ'].map(t => (
+                    <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-sage-300" />{t}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-center md:text-left">
+                <p className="text-5xl font-black">{CUSTOM_APP_PRICE} <span className="text-2xl">⃁</span></p>
+                <p className="text-sm text-white/60">دفعة وحدة · قبل الضريبة</p>
+                <a href={whatsappLink(`السلام عليكم، أبي تطبيق خاص لمنشأتي (${CUSTOM_APP_PRICE} ريال)`)} target="_blank" rel="noopener"
+                  className="mt-5 inline-flex h-12 items-center gap-2 rounded-2xl bg-white px-6 font-black text-ink">
+                  <MessageCircle className="h-5 w-5" /> اطلبه بالواتساب
+                </a>
+              </div>
+            </div>
+          </Reveal>
 
           <h2 className="mb-6 mt-20 text-3xl font-black">أسئلة عن الأسعار والدفع</h2>
           <FAQList faqs={FAQS} />

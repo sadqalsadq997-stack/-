@@ -6,32 +6,30 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Receipt, Search, Eye, Loader2, CheckCircle2, Clock,
-  XCircle, ChefHat, Shield, RefreshCw, AlertCircle
+  XCircle, ChefHat, Shield, RefreshCw, AlertCircle, Printer, Undo2
 } from 'lucide-react';
+import ReturnDialog from '@/components/orders/ReturnDialog';
+import { printReceipt, loadSeller, PAY, TYPES } from '@/lib/receipt';
 import { toast } from 'sonner';
-import { submitInvoice } from '@/services/zatcaService';
+import { issueEinvoice } from '@/lib/einvoice';
+import { ZATCA_STATUS } from '@/pages/ZatcaCenter';
 
 const STATUS_MAP = {
   pending:    { label: 'قيد الانتظار', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  preparing:  { label: 'يُحضَّر',      color: 'bg-blue-100 text-blue-700',   icon: ChefHat },
+  preparing:  { label: 'يُحضَّر',      color: 'bg-sage-100 text-sage-700',   icon: ChefHat },
   ready:      { label: 'جاهز',          color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
   completed:  { label: 'مكتمل',         color: 'bg-gray-100 text-gray-600',   icon: CheckCircle2 },
   cancelled:  { label: 'ملغي',          color: 'bg-red-100 text-red-600',     icon: XCircle },
 };
 
-const ZATCA_BADGE = {
-  reported:  { label: 'ZATCA ✅', color: 'bg-green-100 text-green-700' },
-  cleared:   { label: 'مُخلَّص ✅', color: 'bg-green-100 text-green-700' },
-  pending:   { label: 'ZATCA ⏳', color: 'bg-yellow-100 text-yellow-700' },
-  rejected:  { label: 'مرفوض ❌', color: 'bg-red-100 text-red-700' },
-  error:     { label: 'خطأ ⚠️',   color: 'bg-red-100 text-red-700' },
-};
+const ZATCA_BADGE = Object.fromEntries(Object.entries(ZATCA_STATUS).map(([k, v]) => [k, { label: v.label, color: v.cls }]));
 
 export default function Orders() {
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState('all');
   const [selected, setSelected] = useState(null);
   const [retrying, setRetrying] = useState(null);
+  const [returning, setReturning] = useState(null);
   const qc = useQueryClient();
 
   const { data: orders = [], isLoading } = useQuery({
@@ -52,82 +50,48 @@ export default function Orders() {
   const { data: zatcaActive } = useQuery({
     queryKey: ['zatca-active'],
     queryFn: async () => {
-      const { data: branch } = await supabase
-        .from('branches')
-        .select('id, zatca_enabled')
-        .eq('is_active', true)
-        .single();
-      return branch?.zatca_enabled || false;
+      let br = null; try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}').id; } catch { /* */ }
+      if (!br) return false;
+      const { data } = await supabase.rpc('zatca_branch_status', { p_branch: br });
+      return data?.status === 'active';
     },
+    staleTime: 60_000,
   });
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }) => {
-      const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+      const { data, error } = await supabase.from('orders').update({ status }).eq('id', id).select('id, invoice_no, zatca_status').single();
       if (error) throw error;
+      // الإكمال قد يُصدر الفاتورة (طلبات الأونلاين) ⇒ نوقّعها ونرسلها للهيئة
+      if (data?.invoice_no && (!data.zatca_status || data.zatca_status === 'pending')) issueEinvoice('invoice', id).catch(() => {});
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] });
       toast.success('تم تحديث الحالة');
     },
-    onError: () => toast.error('فشل التحديث'),
+    onError: (e) => toast.error(e?.message || 'فشل التحديث'),
   });
 
-  // إعادة إرسال الفاتورة لـ ZATCA
+  // توقيع/إعادة إرسال الفاتورة للهيئة (نفس البصمة — بدون رقم جديد في السلسلة)
   async function retryZATCA(order) {
     setRetrying(order.id);
-    try {
-      const { data: branch } = await supabase
-        .from('branches')
-        .select('id')
-        .eq('is_active', true)
-        .single();
-
-      const result = await submitInvoice({
-        branchId: branch.id,
-        orderId: order.id,
-        invoiceData: {
-          invoiceType: 'simplified',
-          items: (order.items || []).map((item, idx) => ({
-            id: idx + 1,
-            name: item.name_ar || item.name || 'منتج',
-            quantity: item.quantity || 1,
-            unitCode: 'PCE',
-            unitPrice: item.unit_price || item.price || 0,
-            lineTotal: (item.unit_price || item.price || 0) * (item.quantity || 1),
-            vatRate: 15,
-            vatAmount: Math.round((item.unit_price || item.price || 0) * (item.quantity || 1) * 0.15 * 100) / 100,
-            vatCategory: 'S',
-          })),
-          subtotal: order.subtotal || order.total / 1.15,
-          discountTotal: order.discount_amount || 0,
-          vatAmount: order.tax_amount || (order.total * 15 / 115),
-          total: order.total,
-          paymentMethod: order.payment_method || 'cash',
-        },
-      });
-
-      if (result.success) {
-        toast.success(`✅ تم الإرسال لـ ZATCA: ${result.message}`);
-        qc.invalidateQueries({ queryKey: ['orders'] });
-      } else {
-        toast.error(result.error || 'فشل إرسال الفاتورة');
-      }
-    } catch (err) {
-      toast.error(err.message || 'خطأ غير متوقع');
-    }
+    const r = await issueEinvoice('invoice', order.id, { timeoutMs: 15000 });
     setRetrying(null);
+    if (r.status === 'not_onboarded') toast.error('الفرع غير مربوط بالهيئة — الإعدادات ← الفوترة');
+    else if (r.qr) toast.success(ZATCA_STATUS[r.status]?.label || 'تم');
+    else toast.error('تعذر الإرسال الآن — يعاد تلقائياً خلال دقائق');
+    qc.invalidateQueries({ queryKey: ['orders'] });
   }
 
   const filtered = orders.filter(o => {
     const matchSearch = !search ||
-      o.order_number?.includes(search) ||
+      o.order_number?.includes(search) || o.invoice_no?.includes(search) ||
       o.customer_name?.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'all' || o.status === filter;
     return matchSearch && matchFilter;
   });
 
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-5">
@@ -185,8 +149,7 @@ export default function Orders() {
               const sm = STATUS_MAP[order.status] || STATUS_MAP.pending;
               const Icon = sm.icon;
               const zb = ZATCA_BADGE[order.zatca_status];
-              const needsRetry = zatcaActive && order.status === 'completed' &&
-                (!order.zatca_status || ['pending', 'error', 'rejected'].includes(order.zatca_status));
+              const needsRetry = zatcaActive && order.invoice_no && ['pending', 'signed', 'error'].includes(order.zatca_status);
 
               return (
                 <div key={order.id}
@@ -194,22 +157,22 @@ export default function Orders() {
                     ${selected?.id === order.id ? 'bg-primary/5' : ''}`}>
                   {/* رقم وحالة */}
                   <div className="min-w-0">
-                    <p className="font-bold font-mono text-sm">#{order.order_number}</p>
+                    <p className="font-bold font-mono text-sm">{order.invoice_no || `#${order.order_number}`}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleString('ar-SA')}
+                      {new Date(order.created_at).toLocaleString('ar-SA-u-nu-latn-ca-gregory', { dateStyle: 'short', timeStyle: 'short' })}
                     </p>
                   </div>
 
                   {/* العميل */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{order.customer_name || '—'}</p>
-                    <p className="text-xs text-muted-foreground">{order.order_type || 'نقطة بيع'}</p>
+                    <p className="text-xs text-muted-foreground">{TYPES[order.order_type] || order.order_type || 'نقطة بيع'}</p>
                   </div>
 
                   {/* المبلغ */}
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-foreground">{formatSAR(order.total)}</p>
-                    <p className="text-xs text-muted-foreground">{order.payment_method || '—'}</p>
+                    <p className="text-xs text-muted-foreground">{PAY[order.payment_method] || order.payment_method || '—'}</p>
                   </div>
 
                   {/* حالة الطلب */}
@@ -262,12 +225,12 @@ export default function Orders() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
             {[
               ['العميل',   selected.customer_name || '—'],
-              ['النوع',    selected.order_type    || '—'],
-              ['الدفع',    selected.payment_method || '—'],
+              ['النوع',    TYPES[selected.order_type] || selected.order_type || '—'],
+              ['الدفع',    PAY[selected.payment_method] || selected.payment_method || '—'],
               ['الطاولة',  selected.table_number  || '—'],
               ['الإجمالي', formatSAR(selected.total)],
               ['الضريبة',  formatSAR(selected.tax_amount)],
-              ['ZATCA UUID', selected.invoice_uuid ? selected.invoice_uuid.substring(0, 18) + '...' : '—'],
+              ['رقم الفاتورة', selected.invoice_no || 'لم تصدر بعد'],
               ['حالة ZATCA', ZATCA_BADGE[selected.zatca_status]?.label || '—'],
             ].map(([k, v]) => (
               <div key={k} className="bg-muted/30 rounded-xl p-3">
@@ -294,9 +257,30 @@ export default function Orders() {
             </div>
           )}
 
+          {/* طباعة + مرتجع */}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={async () => {
+                // فاتورة الشركات في المرحلة الثانية: ما تُسلَّم قبل اعتماد الهيئة
+                if (selected.is_b2b && zatcaActive && !String(selected.zatca_status || '').startsWith('cleared')) {
+                  toast.error('فاتورة الشركة ما اعتمدتها الهيئة بعد — اضغط "إعادة الإرسال" وانتظر الاعتماد ثم اطبع');
+                  return;
+                }
+                printReceipt(selected, await loadSeller(supabase));
+              }}
+              className="flex h-9 items-center gap-1.5 rounded-xl bg-muted px-4 text-sm font-bold hover:bg-muted/80">
+              <Printer className="h-4 w-4" /> طباعة الفاتورة
+            </button>
+            {['completed', 'ready'].includes(selected.status) && (
+              <button onClick={() => setReturning(selected)}
+                className="flex h-9 items-center gap-1.5 rounded-xl bg-amber-500/10 px-4 text-sm font-bold text-amber-700 hover:bg-amber-500/20 dark:text-amber-400">
+                <Undo2 className="h-4 w-4" /> مرتجع (إشعار دائن)
+              </button>
+            )}
+          </div>
+
           {/* تغيير الحالة */}
           <div className="flex gap-2 flex-wrap">
-            {Object.entries(STATUS_MAP).map(([k, v]) => (
+            {Object.entries(STATUS_MAP).filter(([k]) => !(k === 'cancelled' && selected.invoice_no)).map(([k, v]) => (
               <button key={k}
                 onClick={() => updateStatus.mutate({ id: selected.id, status: k })}
                 disabled={selected.status === k || updateStatus.isPending}
@@ -308,8 +292,7 @@ export default function Orders() {
           </div>
 
           {/* زر إعادة إرسال لـ ZATCA */}
-          {zatcaActive && selected.status === 'completed' &&
-           (!selected.zatca_status || ['pending','error','rejected'].includes(selected.zatca_status)) && (
+          {zatcaActive && selected.invoice_no && ['pending', 'signed', 'error'].includes(selected.zatca_status) && (
             <button
               onClick={() => retryZATCA(selected)}
               disabled={retrying === selected.id}
@@ -323,6 +306,7 @@ export default function Orders() {
           )}
         </div>
       )}
+      {returning && <ReturnDialog order={returning} onClose={() => setReturning(null)} onDone={() => qc.invalidateQueries({ queryKey: ['orders'] })} />}
     </div>
   );
 }

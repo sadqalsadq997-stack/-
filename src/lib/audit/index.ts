@@ -37,16 +37,9 @@ function getDeviceInfo(): string {
   return `${mobile ? 'mobile' : 'desktop'} | ${screen}`;
 }
 
-// IP من خدمة خارجية (cached per session)
-let _cachedIP: string | null = null;
+// عنوان IP يُسجَّل في السيرفر — لا نرسل بيانات الزائر لخدمة خارجية
 async function getClientIP(): Promise<string> {
-  if (_cachedIP) return _cachedIP;
-  try {
-    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
-    const d = await r.json();
-    _cachedIP = d.ip || 'unknown';
-  } catch { _cachedIP = 'unknown'; }
-  return _cachedIP!;
+  return 'server';
 }
 
 /**

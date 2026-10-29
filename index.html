@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#A3C1AD" />
     <link rel="apple-touch-icon" href="/logo-square.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- SEO:START (يُستبدل لكل صفحة وقت البناء بواسطة scripts/prerender.mjs) -->
     <title>فلسي Felsy | نظام نقاط بيع وكاشير ومحاسبة وبيجر إلكتروني في السعودية</title>
@@ -31,20 +32,9 @@
     <meta name="apple-mobile-web-app-title" content="فلسي" />
 
 
-    <!-- Security headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
-    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-    <script>
-      const dark = localStorage.getItem('felsy_dark_mode');
-      if (dark === '1' || (!dark && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-      }
-      const lang = localStorage.getItem('felsy_lang') || 'ar';
-      document.documentElement.setAttribute('lang', lang);
-      document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

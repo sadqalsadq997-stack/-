@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig, useScroll, useSpring } from 'framer-motion';
-import { Menu, X, Phone, Mail, MapPin, ChevronDown } from 'lucide-react';
+import { Menu, X, Phone, Mail, MapPin, ChevronDown, MessageCircle } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import zatcaLogo from '@/assets/zatca-logo-wide.png';
 import { SITE, SOLUTIONS, getHead } from '@/content/seo';
+import PaymentBadges from '@/components/payments/PaymentBadges';
 
 // ── تحديث وسوم الـ head عند التنقل داخل الموقع (SPA) ───────────────
-export function useHead(path) {
+export function useHead(path, override) {
   useEffect(() => {
-    const h = getHead(path);
+    const h = override || getHead(path);
     if (!h || typeof document === 'undefined') return;
     document.title = h.title;
     const meta = (attr, key, val) => {
@@ -31,7 +32,8 @@ export function useHead(path) {
     let ld = document.getElementById('ld-json');
     if (!ld) { ld = document.createElement('script'); ld.type = 'application/ld+json'; ld.id = 'ld-json'; document.head.appendChild(ld); }
     ld.textContent = JSON.stringify(h.jsonLd);
-  }, [path]);
+    if (h.image) meta('property', 'og:image', h.image);
+  }, [path, override]);
 }
 
 const NAV = [
@@ -39,12 +41,13 @@ const NAV = [
   { to: '/accounting-software', label: 'المحاسبة' },
   { to: '/zatca-e-invoicing', label: 'الفوترة الإلكترونية' },
   { to: '/pricing', label: 'الأسعار' },
+  { to: '/blog', label: 'المدونة' },
 ];
 
-export default function MarketingLayout({ children, path }) {
+export default function MarketingLayout({ children, path, head }) {
   const location = useLocation();
   const current = path || location.pathname;
-  useHead(current);
+  useHead(current, head);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [solOpen, setSolOpen] = useState(false);
@@ -139,18 +142,24 @@ export default function MarketingLayout({ children, path }) {
               <ul className="space-y-2 text-sm">
                 {SOLUTIONS.slice(4).map(s => <li key={s.slug}><Link to={`/${s.slug}`} className="hover:text-white">{s.nav}</Link></li>)}
                 <li><Link to="/pricing" className="hover:text-white">الأسعار</Link></li>
+                <li><Link to="/blog" className="hover:text-white">المدونة</Link></li>
               </ul>
             </nav>
             <div>
               <p className="mb-3 text-sm font-bold text-white">تواصل معنا</p>
               <ul className="space-y-2.5 text-sm">
-                <li><a href={`tel:${SITE.phone}`} className="inline-flex items-center gap-2 hover:text-white"><Phone className="h-4 w-4" /><span dir="ltr">{SITE.phone}</span></a></li>
+                <li><a href={`tel:${SITE.phone}`} className="inline-flex items-center gap-2 hover:text-white"><Phone className="h-4 w-4" /><span dir="ltr">{SITE.phoneLocal}</span></a></li>
+                <li><a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><MessageCircle className="h-4 w-4" /><span>واتساب: <span dir="ltr">{SITE.phoneLocal}</span></span></a></li>
                 <li><a href={`mailto:${SITE.email}`} className="inline-flex items-center gap-2 hover:text-white"><Mail className="h-4 w-4" />{SITE.email}</a></li>
                 <li className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />الرياض، المملكة العربية السعودية</li>
               </ul>
             </div>
           </div>
-          <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs sm:flex-row">
+          <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
+            <p className="text-sm font-bold text-white">ادفع بأمان عبر</p>
+            <PaymentBadges tone="dark" title="" />
+          </div>
+          <div className="mx-auto mt-6 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs sm:flex-row">
             <p>© {new Date().getFullYear()} فلسي Felsy. جميع الحقوق محفوظة.</p>
             <ul className="flex gap-5">
               <li><Link to="/about" className="hover:text-white">من نحن</Link></li>

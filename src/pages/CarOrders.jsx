@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 const STATUS = {
   pending:   { label: 'ينتظر', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  preparing: { label: 'يُحضَّر', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  preparing: { label: 'يُحضَّر', color: 'bg-sage-100 text-sage-700 border-sage-200' },
   ready:     { label: 'جاهز للتسليم', color: 'bg-green-100 text-green-700 border-green-200' },
   completed: { label: 'تم التسليم', color: 'bg-gray-100 text-gray-600 border-gray-200' },
   cancelled: { label: 'ملغي', color: 'bg-red-100 text-red-600 border-red-200' },
@@ -43,7 +43,7 @@ export default function CarOrders() {
     return matchSearch && matchFilter;
   });
 
-  const formatSAR = n => `${Number(n||0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n||0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-5">

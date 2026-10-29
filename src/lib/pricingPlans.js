@@ -1,3 +1,4 @@
+import { CONTACT } from '@/lib/contact';
 // ══════════════════════════════════════════════════════════════════
 // felsy — مصدر الحقيقة الوحيد للتسعير في كل التطبيق
 // أي تعديل على الأسعار أو المميزات يكون هنا فقط، ويظهر تلقائياً في:
@@ -77,7 +78,7 @@ export const PLANS = [
 
 // قائمة منسّقة للاستخدام في عناصر <select> (مثل نموذج التسجيل)
 export const PLAN_SELECT_OPTIONS = PLANS.map(p =>
-  p.price !== null ? `${p.name} — ${p.price} ر.س/شهر` : `${p.name} — حسب الطلب`
+  p.price !== null ? `${p.name} — ${p.price} ⃁/شهر` : `${p.name} — حسب الطلب`
 );
 
 export function getPlanByLabel(label) {
@@ -86,7 +87,9 @@ export function getPlanByLabel(label) {
 
 // معلومات التواصل الرسمية — تُستخدم في الفوتر وصفحات السياسات
 export const CONTACT_INFO = {
-  phone: '+966542432992',
+  phone: CONTACT.phoneLocal,
+  phoneIntl: CONTACT.phoneIntl,
+  whatsapp: CONTACT.whatsapp,
   email: 'INFO@FELSY.ORG',
   address: 'الرياض، المملكة العربية السعودية',
 };

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getDeviceId } from '@/integrations/supabase/client';
 import { Delete } from 'lucide-react';
 import { LogoMark } from '@/components/brand/Logo';
+import AccountNumber, { useMyAccount } from '@/components/AccountNumber';
 import Onboarding from '@/components/Onboarding';
 import { useNavigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '@/lib/security/session';
@@ -62,11 +63,11 @@ export default function AppPINGate({ children }) {
     }
   }
 
-  // حماية Brute Force: قفل بعد 5 محاولات فاشلة لمدة 2 دقيقة
+  // حماية Brute Force: السيرفر يقفل الجهاز بعد 10 محاولات خاطئة (30 دقيقة)
   const checkLock = () => {
     if (lockedUntil && new Date() < lockedUntil) {
-      const secs = Math.ceil((lockedUntil - new Date()) / 1000);
-      setError(`محاولات كثيرة — انتظر ${secs} ثانية`);
+      const mins = Math.ceil((lockedUntil - new Date()) / 60000);
+      setError(`الجهاز موقوف مؤقتاً — حاول بعد ${mins} دقيقة`);
       return true;
     }
     return false;
@@ -100,7 +101,7 @@ export default function AppPINGate({ children }) {
     try {
       const hashed = await hashPin(entered);
       // التحقق يتم في السيرفر — المتصفح لا يرى رموز PIN المخزنة إطلاقاً
-      const { data, error: e } = await supabase.rpc('verify_app_pin', { p_hash: hashed });
+      const { data, error: e } = await supabase.rpc('verify_app_pin_v2', { p_hash: hashed, p_device: getDeviceId() });
       if (e) throw e;
       result = Array.isArray(data) ? data[0] : data;
     } catch (err) {
@@ -125,16 +126,15 @@ export default function AppPINGate({ children }) {
       return;
     }
 
-    // فشل
-    const newAttempts = attempts + 1;
-    setAttempts(newAttempts);
-    if (newAttempts >= 5) {
-      const until = new Date(Date.now() + 2 * 60 * 1000);
+    // فشل — العدّاد الحقيقي في السيرفر (لكل جهاز)
+    setAttempts(a => a + 1);
+    if (result?.retry_after > 0) {
+      const until = new Date(Date.now() + result.retry_after * 1000);
       setLockedUntil(until);
-      setAttempts(0);
-      setError('تم قفل الجهاز لمدة دقيقتين بسبب محاولات متكررة');
+      setError(`تم إيقاف الدخول من هذا الجهاز بعد 10 محاولات خاطئة — حاول بعد ${Math.ceil(result.retry_after / 60)} دقيقة`);
     } else {
-      setError(`رمز PIN غير صحيح • ${5 - newAttempts} محاولات متبقية`);
+      const left = Number.isFinite(result?.remaining) ? result.remaining : null;
+      setError(left !== null ? `رمز PIN غير صحيح • باقي ${left} محاولة من هذا الجهاز` : 'رمز PIN غير صحيح');
     }
     triggerShake();
     setPin('');
@@ -244,8 +244,14 @@ export default function AppPINGate({ children }) {
       <div ref={shakeRef} className="w-full max-w-xs bg-card rounded-2xl shadow-xl p-8 space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center"><LogoMark size={64} /></div>
-          <h1 className="text-xl font-bold">فلسي POS</h1>
-          <p className="text-muted-foreground text-sm">أدخل رمز PIN للدخول</p>
+          {/* الدخول على خطوتين: ١) المنشأة (البريد وكلمة المرور) ✓  ٢) رمز الموظف */}
+          <ol className="flex items-center justify-center gap-2 text-[11px] font-bold" aria-label="خطوات الدخول">
+            <li className="flex items-center gap-1 text-primary"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">✓</span>دخول المنشأة</li>
+            <li aria-hidden className="h-px w-5 bg-border" />
+            <li className="flex items-center gap-1 text-foreground"><span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary">2</span>رمز الموظف</li>
+          </ol>
+          <AccountHeader />
+          <p className="text-muted-foreground text-sm">كل موظف يدخل برمزه — والصلاحيات حسب دوره</p>
         </div>
 
         {/* عرض الـ dots */}
@@ -260,15 +266,15 @@ export default function AppPINGate({ children }) {
         {/* لوحة الأرقام */}
         <div className="grid grid-cols-3 gap-3">
           {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, i) => {
-            if (k === '') return <div key={i} />;
+            if (k === '') return <div key={`slot-${i}`} />;
             if (k === '⌫') return (
-              <button key={i} onClick={handleDelete}
+              <button key="del" onClick={handleDelete}
                 className="h-14 rounded-xl bg-muted/60 flex items-center justify-center text-xl hover:bg-muted active:scale-95 transition-all">
                 <Delete className="w-5 h-5" />
               </button>
             );
             return (
-              <button key={k} onClick={() => handleKey(k)}
+              <button key={`d-${k}`} onClick={() => handleKey(k)}
                 className="h-14 rounded-xl bg-muted/60 text-xl font-medium hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all">
                 {k}
               </button>
@@ -288,6 +294,16 @@ export default function AppPINGate({ children }) {
         }
         .shake { animation: shake 0.4s ease; }
       `}</style>
+    </div>
+  );
+}
+
+function AccountHeader() {
+  const { data: acc } = useMyAccount();
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <h1 className="text-xl font-bold">{acc?.name || 'فلسي POS'}</h1>
+      <AccountNumber className="flex justify-center" />
     </div>
   );
 }

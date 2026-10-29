@@ -1,0 +1,80 @@
+name: felsy
+description: "فلسي — نقطة بيع ومحاسبة وفوترة إلكترونية (المرحلة الثانية) تشتغل بدون إنترنت."
+publish_to: 'none'
+
+# الإصدار: الاسم+رقم البناء. ارفع رقم البناء (+N) مع كل رفع للمتجر.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+# حزم قليلة ومعروفة فقط — التطبيق خفيف، والاتصال بالسيرفر بـ dart:io بدون مكتبات وسيطة.
+# بيانات العملاء لا تمر على أي طرف ثالث (لا Firebase ولا تحليلات).
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  path_provider: ^2.1.5
+  flutter_secure_storage: ^10.0.0
+  flutter_local_notifications: ^22.3.3
+  printing: ^5.14.2
+  pdf: ^3.11.3
+  barcode: ^2.2.8
+  crypto: ^3.0.7
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  msix: ^3.16.9
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Cairo-Black.ttf
+          weight: 900
+    - family: SaudiRiyal
+      fonts:
+        - asset: assets/fonts/SaudiRiyal-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/SaudiRiyal-Bold.ttf
+          weight: 700
+
+# ── حزمة ويندوز للمتجر (Microsoft Store) ──────────────────────────
+# dart run msix:create   (القيم الحقيقية للناشر من Partner Center — راجع docs/PUBLISHING.md)
+msix_config:
+  # ── ويندوز (MSIX) ──
+  # للنشر في Microsoft Store: غيّر store إلى true وانسخ القيم الثلاث من
+  # Partner Center ← المنتج ← Product identity:
+  #   identity_name  = Package/Identity/Name
+  #   publisher      = Package/Identity/Publisher  (CN=...)
+  #   publisher_display_name = Package/Properties/PublisherDisplayName
+  display_name: فلسي
+  publisher_display_name: Felsy
+  identity_name: Felsy.FelsyPOS
+  # publisher: CN=00000000-0000-0000-0000-000000000000
+  msix_version: 1.0.0.0
+  logo_path: assets/branding/app_logo_512.png
+  languages: ar-sa, en-us
+  # إنترنت + الطابعات على الشبكة المحلية فقط (أقل صلاحيات ممكنة)
+  capabilities: internetClient, privateNetworkClientServer
+  store: false
+  install_certificate: false
+  output_name: felsy
+  # إشعارات ويندوز (نفس guid في lib/services/alerts.dart)
+  toast_activator:
+    clsid: "6c1a7d52-4c1e-4f0a-9d1b-2f6a9e0b7c31"
+    arguments: "msix-args"
+    display_name: "فلسي"

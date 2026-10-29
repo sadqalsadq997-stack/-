@@ -144,3 +144,26 @@ export async function activateFromCheckout(sb: SupabaseClient, checkoutId: strin
 
   return { alreadyActive: false, subscription };
 }
+
+/**
+ * طلبات الاشتراك الجديدة (billing_orders): يتأكد أن دفعة موياسر تخص هذا الطلب
+ * وأنها "paid" وبنفس المبلغ بالهللة وبالريال السعودي، ثم يفعّل الاشتراك.
+ * آمن للتكرار (المتصفح + الـ webhook ممكن يستدعونه بنفس الوقت).
+ */
+export async function activateOrderFromPayment(sb: SupabaseClient, order: any, payment: any): Promise<{ ok: boolean; message?: string }> {
+  if (!payment || payment.status !== 'paid') {
+    return { ok: false, message: payment?.source?.message || 'لم تكتمل عملية الدفع' };
+  }
+  // الدفعة لازم تحمل رقم هذا الطلب نفسه (نضعه في metadata عند إنشاء نموذج الدفع)
+  if (payment.metadata?.order_id !== order.id) return { ok: false, message: 'الدفعة لا تخص هذا الطلب' };
+  if (payment.currency !== 'SAR' || Number(payment.amount) !== Math.round(Number(order.amount) * 100)) {
+    await sb.from('security_events').insert({
+      event_type: 'payment_amount_mismatch', success: false,
+      meta: { order: order.order_number, expected: Math.round(Number(order.amount) * 100), got: payment.amount, payment: payment.id },
+    });
+    return { ok: false, message: 'مبلغ الدفعة لا يطابق مبلغ الطلب — تواصل معنا' };
+  }
+  const { error } = await sb.rpc('billing_activate_order', { p_order: order.id, p_ref: payment.id, p_method: 'card' });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Palette, Save, RotateCcw, Eye, Loader2, CheckCircle2, Monitor, Smartphone, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { uploadImage } from '@/lib/images';
 
 // ══════════════════════════════════════════════════════
 // صفحة تخصيص الواجهة — Theme Editor
@@ -12,13 +13,13 @@ const PRESETS = [
     id: 'red',       label: 'أحمر فلسي',
     primary: '#dc2626', primaryFg: '#ffffff',
     bg: '#ffffff',  card: '#f9fafb',  fg: '#111827',
-    border: '#e5e7eb', radius: '12px', font: 'Tajawal',
+    border: '#e5e7eb', radius: '12px', font: 'Cairo',
   },
   {
     id: 'emerald',   label: 'أخضر طازج',
     primary: '#059669', primaryFg: '#ffffff',
     bg: '#ffffff',  card: '#f0fdf4',  fg: '#064e3b',
-    border: '#d1fae5', radius: '12px', font: 'Tajawal',
+    border: '#d1fae5', radius: '12px', font: 'Cairo',
   },
   {
     id: 'violet',    label: 'بنفسجي راقي',
@@ -30,13 +31,13 @@ const PRESETS = [
     id: 'amber',     label: 'ذهبي دافئ',
     primary: '#d97706', primaryFg: '#ffffff',
     bg: '#fffbeb',  card: '#ffffff',  fg: '#78350f',
-    border: '#fde68a', radius: '12px', font: 'Tajawal',
+    border: '#fde68a', radius: '12px', font: 'Cairo',
   },
   {
     id: 'dark',      label: 'داكن أنيق',
     primary: '#f97316', primaryFg: '#ffffff',
     bg: '#0f172a',  card: '#1e293b',  fg: '#f1f5f9',
-    border: '#334155', radius: '12px', font: 'Tajawal',
+    border: '#334155', radius: '12px', font: 'Cairo',
   },
   {
     id: 'rose',      label: 'وردي ناعم',
@@ -46,7 +47,7 @@ const PRESETS = [
   },
 ];
 
-const FONT_OPTIONS = ['Tajawal', 'Cairo', 'Noto Kufi Arabic', 'IBM Plex Sans Arabic'];
+const FONT_OPTIONS = ['Cairo']; // خط واحد مستضاف في سيرفر الموقع — بدون Google Fonts
 
 const DEFAULT_THEME = PRESETS[0];
 
@@ -86,12 +87,6 @@ export default function ThemeEditor() {
     root.style.setProperty('--theme-fg', t.fg);
     root.style.setProperty('--theme-border', t.border);
     root.style.setProperty('--theme-radius', t.radius);
-    // خط
-    const fontLink = document.getElementById('theme-font-link') || (() => {
-      const l = document.createElement('link'); l.id = 'theme-font-link'; l.rel = 'stylesheet';
-      document.head.appendChild(l); return l;
-    })();
-    fontLink.href = `https://fonts.googleapis.com/css2?family=${t.font?.replace(/ /g, '+')}:wght@400;500;700;900&display=swap`;
     root.style.setProperty('--theme-font', `'${t.font}', sans-serif`);
   }, []);
 
@@ -104,20 +99,17 @@ export default function ThemeEditor() {
   async function handleSave() {
     setSaving(true);
     try {
-      let logoUrl = logoPreview;
-
-      // رفع الشعار
+      // لا نحفظ صورة data: في قاعدة البيانات أبداً (تضخّم الحجم) — فقط رابط بعد الرفع
+      let logoUrl = /^https?:\/\//.test(logoPreview || '') ? logoPreview : null;
+      let logoChanged = false;
       if (logoFile) {
         setUploadingLogo(true);
-        const ext = logoFile.name.split('.').pop();
-        const path = `logos/brand-${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('uploads').upload(path, logoFile, { upsert: true });
-        if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(path);
-          logoUrl = publicUrl;
-          setLogoPreview(publicUrl);
+        try {
+          logoUrl = await uploadImage(logoFile, 'logos', { max: 512, quality: 0.85 });
+          logoChanged = true;
+          setLogoPreview(logoUrl);
           setLogoFile(null);
-        }
+        } catch (e) { toast.error(e.message || 'تعذر رفع الشعار'); }
         setUploadingLogo(false);
       }
 
@@ -131,7 +123,7 @@ export default function ThemeEditor() {
       }
 
       // تحديث شعار الفروع أيضاً
-      if (logoUrl && logoUrl !== logoPreview) {
+      if (logoUrl && logoChanged) {
         await supabase.from('branches').update({ logo_url: logoUrl }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
 
@@ -379,7 +371,7 @@ export default function ThemeEditor() {
                     <div className="p-2.5" style={{ background: theme.card }}>
                       <p className="text-xs font-bold truncate" style={{ color: theme.fg }}>{n}</p>
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs font-black" style={{ color: theme.primary }}>35 ر.س</span>
+                        <span className="text-xs font-black" style={{ color: theme.primary }}>35 ⃁</span>
                         <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold"
                           style={{ background: theme.primary, color: theme.primaryFg, borderRadius: theme.radius }}>+</div>
                       </div>
@@ -393,7 +385,7 @@ export default function ThemeEditor() {
                 style={{ background: theme.primary, color: theme.primaryFg, borderRadius: theme.radius }}>
                 <span className="bg-white/20 rounded-lg px-2 py-0.5 text-xs">3</span>
                 <span>عرض الطلب</span>
-                <span>105 ر.س</span>
+                <span>105 ⃁</span>
               </div>
             </div>
           </div>

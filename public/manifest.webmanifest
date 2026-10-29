@@ -1,0 +1,15 @@
+{
+  "name": "فلسي — نقاط البيع والمحاسبة",
+  "short_name": "فلسي",
+  "description": "نظام نقاط بيع ومحاسبة وبيجر إلكتروني للمطاعم والكافيهات والمحلات في السعودية",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/dashboard?app=1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#A3C1AD",
+  "icons": [
+    { "src": "/logo-square.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

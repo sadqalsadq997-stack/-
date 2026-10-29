@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CONTACT, whatsappLink } from '@/lib/contact';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import zatcaLogo from '@/assets/zatca-logo-wide.png';
@@ -107,7 +108,7 @@ function LivePOSDemo({ t, lang }) {
                     className={`flex h-[4.25rem] flex-col items-center justify-center gap-0.5 rounded-xl border p-1.5 transition-colors ${active ? 'border-sage-300 bg-sage-50' : 'border-slate-200 bg-white'}`}>
                     <span className="text-lg leading-none">{p.emoji}</span>
                     <span className="text-[10px] leading-tight text-slate-600">{label(p)}</span>
-                    <span className="text-[10px] font-bold leading-none text-sage-700">{p.price} {t('ر.س', 'SAR')}</span>
+                    <span className="text-[10px] font-bold leading-none text-sage-700">{p.price} {t('⃁', 'SAR')}</span>
                   </motion.div>
                 );
               })}
@@ -132,7 +133,7 @@ function LivePOSDemo({ t, lang }) {
               <div className="mb-2 flex items-center justify-between px-0.5">
                 <span className="text-[10px] text-slate-400">{t('الإجمالي', 'Total')}</span>
                 <motion.span key={total} initial={{ scale: 1.3, color: '#6A8F77' }} animate={{ scale: 1, color: '#2C3E50' }}
-                  className="text-xs font-black">{total} {t('ر.س', 'SAR')}</motion.span>
+                  className="text-xs font-black">{total} {t('⃁', 'SAR')}</motion.span>
               </div>
               <div className="flex h-8 items-center justify-center rounded-lg bg-sage-400 text-[11px] font-bold text-ink">
                 {t('دفع', 'Pay')}
@@ -215,7 +216,7 @@ const ALL_FEATURES = {
   tables:    { icon: UtensilsCrossed, ar: ['الطاولات', 'افتح طلباً على الطاولة وأضف عليه حتى يطلب العميل الحساب'], en: ['Tables', 'Open an order on a table and keep adding until the guest asks for the bill'] },
   kitchen:   { icon: ChefHat,  ar: ['شاشة المطبخ', 'الطلب يوصل للمطبخ لحظة إرساله، مرتّب حسب الوقت'], en: ['Kitchen display', 'Orders reach the kitchen the moment they are sent, in time order'] },
   inventory: { icon: Package,  ar: ['المخزون', 'ينقص تلقائياً مع كل بيعة، وينبهك قبل ما تخلص الكمية'], en: ['Inventory', 'Deducted with every sale, with an alert before you run out'] },
-  loyalty:   { icon: Gift,     ar: ['بطاقة الولاء', 'ختم رقمي في محفظة جوال العميل يرجّعه لك مرة ثانية'], en: ['Loyalty card', 'A digital stamp card in the customer’s phone wallet'] },
+  loyalty:   { icon: Gift,     ar: ['برنامج الولاء', 'بطاقة طوابع أو نقاط بلونك وحركتها في جوال عميلك — ترجّعه لك مرة ثانية'], en: ['Loyalty card', 'A digital stamp card in the customer’s phone wallet'] },
   store:     { icon: Globe,    ar: ['متجر إلكتروني', 'منيو وطلبات أونلاين على دومين باسم محلك'], en: ['Online store', 'Menu and online ordering on your own domain'] },
   cars:      { icon: Car,      ar: ['طلبات السيارات', 'استقبل طلب العميل وهو في سيارته وبلّغه لما يجهز'], en: ['Car orders', 'Take orders curbside and notify the customer when ready'] },
   reports:   { icon: BarChart3,ar: ['التقارير', 'مبيعات اليوم، أكثر المنتجات طلباً، وأداء كل موظف'], en: ['Reports', 'Daily sales, best sellers and per-employee performance'] },
@@ -227,7 +228,7 @@ const ALL_FEATURES = {
 };
 
 const INDUSTRIES = [
-  { id: 'restaurant', icon: UtensilsCrossed, ar: 'مطعم',   en: 'Restaurant', keys: ['pos', 'tables', 'kitchen', 'pager', 'inventory', 'store'] },
+  { id: 'restaurant', icon: UtensilsCrossed, ar: 'مطعم',   en: 'Restaurant', keys: ['pos', 'tables', 'kitchen', 'pager', 'loyalty', 'store'] },
   { id: 'cafe',       icon: Coffee,          ar: 'كافيه',  en: 'Café',       keys: ['pos', 'pager', 'loyalty', 'kitchen', 'inventory', 'cars'] },
   { id: 'retail',     icon: ShoppingBag,     ar: 'متجر',   en: 'Retail',     keys: ['pos', 'inventory', 'suppliers', 'store', 'loyalty', 'reports'] },
   { id: 'carwash',    icon: Car,             ar: 'مغسلة سيارات', en: 'Car wash', keys: ['pos', 'cars', 'pager', 'staff', 'loyalty', 'reports'] },
@@ -238,7 +239,7 @@ const SOLUTION_ICONS = { BellRing, Calculator, UtensilsCrossed, Coffee, Shopping
 const HIGHLIGHT_CARDS = [
   { Art: ChartCardVisual, title: 'مبيعات وتقارير واضحة', sub: 'نقطة البيع والمحاسبة', text: 'كل بيعة تنزل في التقارير والحسابات لحظياً، وتعرف ربحك الفعلي من جوالك.', to: '/accounting-software' },
   { Art: PhoneCardVisual, title: 'البيجر الإلكتروني', sub: 'بدون أجهزة', text: 'العميل يمسح الباركود ويرن جواله أول ما يجهز طلبه. متاح في كل الباقات.', to: '/electronic-pager' },
-  { Art: InvoiceCardVisual, title: 'فواتير معتمدة', sub: 'هيئة الزكاة — المرحلة الثانية', text: 'رمز QR وتوقيع إلكتروني وربط مع منصة فاتورة، بدون أي إجراء منك.', to: '/zatca-e-invoicing' },
+  { Art: InvoiceCardVisual, title: 'فواتير ضريبية', sub: 'برمز QR حسب متطلبات الهيئة', text: 'فاتورة لكل بيعة، إشعار دائن للمرتجع، وإقرار ضريبي جاهز في نهاية الربع.', to: '/zatca-e-invoicing' },
 ];
 
 const STEPS = [
@@ -409,10 +410,10 @@ export default function LandingPage() {
           <Reveal>
             <h2 className="text-4xl font-black leading-tight sm:text-5xl">الفاتورة تطلع صحيحة من أول مرة</h2>
             <p className="mt-5 max-w-lg text-lg leading-relaxed text-ink/65">
-              كل بيعة تطلع لها فاتورة ضريبية فيها رمز QR وتوقيع إلكتروني، وتنرسل لمنصة فاتورة تلقائياً.
+              كل بيعة تطلع لها فاتورة ضريبية مبسطة فيها رمز QR حسب مواصفات الهيئة، والمرتجع إشعار دائن، والإقرار الضريبي جاهز بخانات الهيئة.
             </p>
             <ul className="mt-8 space-y-3">
-              {[[QrCode, 'رمز QR حسب متطلبات الهيئة'], [Printer, 'طباعة على أي طابعة حرارية'], [CreditCard, 'ربط مباشر مع منصة فاتورة — المرحلة الثانية']].map(([Icon, txt]) => (
+              {[[QrCode, 'رمز QR حسب متطلبات الهيئة'], [Printer, 'طباعة على أي طابعة حرارية'], [CreditCard, 'فواتير المشتريات تنخصم ضريبتها تلقائياً']].map(([Icon, txt]) => (
                 <li key={txt} className="flex items-center gap-3 text-[15px]"><Icon className="h-5 w-5 flex-shrink-0 text-sage-700" strokeWidth={1.8} /> {txt}</li>
               ))}
             </ul>
@@ -495,7 +496,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_1.6fr]">
           <Reveal>
             <h2 className="text-4xl font-black text-ink sm:text-5xl">أسئلة تتكرر</h2>
-            <p className="mt-4 text-ink/65">ما لقيت جوابك؟ كلّمنا على <a href="tel:+966542432992" className="font-bold text-sage-700 hover:underline" dir="ltr">+966542432992</a></p>
+            <p className="mt-4 text-ink/65">ما لقيت جوابك؟ كلّمنا على <a href={whatsappLink()} target="_blank" rel="noopener noreferrer" className="font-bold text-sage-700 hover:underline" dir="ltr">{CONTACT.phoneLocal}</a> (واتساب)</p>
           </Reveal>
           <FAQList faqs={HOME_FAQS} />
         </div>

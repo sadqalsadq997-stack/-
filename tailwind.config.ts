@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Cairo', 'Noto Sans Arabic', 'sans-serif'],
+        sans: ['SaudiRiyal', 'Cairo', 'sans-serif'],
       },
       borderRadius: {
         lg: 'var(--radius)',

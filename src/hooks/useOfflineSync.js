@@ -15,17 +15,17 @@ export function useOfflineSync() {
 
     // عداد العمليات المعلقة
     const refresh = async () => {
-      const q = await getPending().catch(() => []);
-      setPending(q.length);
+      const n = await getPending().catch(() => 0);
+      setPending(Number(n) || 0);
     };
     refresh();
     const interval = setInterval(refresh, 30_000);
 
     // مستمع المزامنة
-    const stop = startSyncListener((result) => {
+    const stop = startSyncListener(async (result) => {
       setSyncing(false);
-      setPending(0);
-      if (result.synced > 0) {
+      await refresh();
+      if (result?.synced > 0) {
         toast.success(`✅ تمت مزامنة ${result.synced} عملية بنجاح`);
       }
     });

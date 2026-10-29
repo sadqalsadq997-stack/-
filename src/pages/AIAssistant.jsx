@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/integrations/supabase/client';
+import { callFunction } from '@/lib/api';
 import { Sparkles, Send, Loader2, Bot, User, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,7 +49,7 @@ export default function AIAssistant() {
       if (action.type === 'update_price') {
         const { error } = await supabase.from('products').update({ base_price: action.new_price }).eq('id', action.product_id);
         if (error) throw error;
-        toast.success(`تم تعديل سعر "${action.product_name}" إلى ${action.new_price} ر.س`);
+        toast.success(`تم تعديل سعر "${action.product_name}" إلى ${action.new_price} ⃁`);
       } else if (action.type === 'update_order_status') {
         const { error } = await supabase.from('orders').update({ status: action.new_status }).eq('id', action.order_id);
         if (error) throw error;
@@ -107,7 +108,7 @@ export default function AIAssistant() {
     try {
       const context = `
 بيانات النظام الحالية لهذا الحساب فقط (لا يمكنك رؤية أي حساب آخر):
-- عدد الطلبات: ${orders.length} | إجمالي المبيعات: ${orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)} ر.س
+- عدد الطلبات: ${orders.length} | إجمالي المبيعات: ${orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)} ⃁
 - المنتجات (id | الاسم | السعر | المخزون): ${products.slice(0, 40).map(p => `${p.id}|${p.name_ar || p.name}|${p.base_price}|${p.stock_quantity ?? 0}`).join(' ، ')}
 - آخر 10 طلبات (id | رقم | الحالة): ${orders.slice(0, 10).map(o => `${o.id}|${o.order_number}|${o.status}`).join(' ، ')}
 - عدد العملاء: ${customers.length}
@@ -135,28 +136,17 @@ export default function AIAssistant() {
 اكتب قبل البلوك جملة قصيرة توضح ما ستفعله. لا تخمّن أي id غير موجود في البيانات أعلاه — إذا لم تجد المنتج/الطلب المطلوب، اطلب توضيحاً من المستخدم بدلاً من تخمين بلوك action.
 لن يُنفَّذ أي إجراء إلا بعد موافقة المستخدم الصريحة بالضغط على زر التأكيد — هذا مضبوط من النظام تلقائياً، فلا تطلب من المستخدم تأكيداً نصياً بنفسك.`;
 
-      const key = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!key) {
-        setTimeout(() => {
-          setMessages(prev => [...prev, { role: 'assistant', content: `بناءً على بياناتك:\n\n${getLocalInsight(orders, products, customers)}\n\n(لتفعيل تنفيذ المهام والتحليل الكامل، أضف مفتاح Gemini API في متغيرات البيئة)` }]);
-          setLoading(false);
-        }, 600);
+      // الطلب يمر من السيرفر (ai-chat) — مفتاح Gemini لا يظهر في المتصفح
+      const { data, error: aiErr } = await callFunction('ai-chat', {
+        prompt: `${systemInstruction}\n\n${context}\n\nسؤال/طلب المستخدم: ${msg}\n\nأجب باللغة العربية.`,
+        max_tokens: 600,
+      });
+      if (aiErr || data?.configured === false) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `بناءً على بياناتك:\n\n${getLocalInsight(orders, products, customers)}${aiErr ? `\n\n(${aiErr})` : ''}` }]);
+        setLoading(false);
         return;
       }
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-goog-api-key': key },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `${systemInstruction}\n\n${context}\n\nسؤال/طلب المستخدم: ${msg}\n\nأجب باللغة العربية.` }] }],
-            generationConfig: { maxOutputTokens: 600, temperature: 0.4 },
-          }),
-        }
-      );
-      const data = await res.json();
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'لم أتمكن من الحصول على إجابة.';
+      const reply = data?.text || 'لم أتمكن من الحصول على إجابة.';
 
       const action = extractAction(reply);
       const cleanText = reply.replace(/```action[\s\S]*?```/i, '').trim();
@@ -172,11 +162,11 @@ export default function AIAssistant() {
   function getLocalInsight(orders, products, customers) {
     const total = orders.reduce((s, o) => s + (o.total || 0), 0);
     const avg = orders.length ? (total / orders.length).toFixed(2) : 0;
-    return `📊 ملخص بياناتك الحالية:\n\n• إجمالي المبيعات: ${total.toFixed(2)} ر.س\n• متوسط قيمة الطلب: ${avg} ر.س\n• عدد العملاء: ${customers.length}\n• عدد المنتجات: ${products.length}`;
+    return `📊 ملخص بياناتك الحالية:\n\n• إجمالي المبيعات: ${total.toFixed(2)} ⃁\n• متوسط قيمة الطلب: ${avg} ⃁\n• عدد العملاء: ${customers.length}\n• عدد المنتجات: ${products.length}`;
   }
 
   function actionLabel(action) {
-    if (action.type === 'update_price') return `تعديل سعر "${action.product_name}" من ${action.old_price} إلى ${action.new_price} ر.س`;
+    if (action.type === 'update_price') return `تعديل سعر "${action.product_name}" من ${action.old_price} إلى ${action.new_price} ⃁`;
     if (action.type === 'update_order_status') return `تحديث حالة الطلب #${action.order_number} من "${action.old_status}" إلى "${action.new_status}"`;
     if (action.type === 'adjust_stock') return `تعديل مخزون "${action.product_name}" من ${action.previous_quantity} إلى ${action.new_quantity}`;
     return 'إجراء غير معروف';

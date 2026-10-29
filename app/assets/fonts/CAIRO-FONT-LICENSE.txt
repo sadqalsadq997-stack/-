@@ -1,0 +1,3 @@
+Cairo — Copyright 2009 The Cairo Project Authors (https://github.com/Gue3bara/Cairo)
+Licensed under the SIL Open Font License, Version 1.1 — https://openfontlicense.org
+The font files in this folder are subsets of Cairo (Arabic + Latin) merged per weight for Felsy.

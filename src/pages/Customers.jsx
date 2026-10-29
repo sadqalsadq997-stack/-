@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 
 const fmt = (n) => Number(n || 0).toLocaleString('ar-SA');
-const fmtSAR = (n) => `${fmt(n)} ر.س`;
+const fmtSAR = (n) => `${fmt(n)} ⃁`;
 
 // ── زر إصدار بطاقة Google Wallet للعميل ─────────────────
 function WalletButton({ customer, tenantId }) {
@@ -45,7 +45,7 @@ function WalletButton({ customer, tenantId }) {
 
   return (
     <button onClick={issue} disabled={loading} title="إصدار بطاقة Google Wallet"
-      className="p-1.5 hover:bg-blue-50 rounded-lg text-muted-foreground hover:text-blue-600 disabled:opacity-50">
+      className="p-1.5 hover:bg-sage-50 rounded-lg text-muted-foreground hover:text-sage-600 disabled:opacity-50">
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
     </button>
   );
@@ -90,6 +90,26 @@ function CustomerForm({ initial, onSave, onCancel, branches }) {
           </select>
         </div>
       </div>
+      {form.customer_type === 'corporate' && (
+        <div className="space-y-3 rounded-2xl border border-border bg-muted/30 p-4">
+          <div>
+            <p className="text-sm font-bold">بيانات الفاتورة الضريبية (B2B)</p>
+            <p className="text-[11px] text-muted-foreground">مطلوبة لإصدار فاتورة ضريبية باسم المنشأة — من شهادة الضريبة والعنوان الوطني (سبل)</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[['legal_name','الاسم القانوني للمنشأة','text'],['vat_number','الرقم الضريبي (15 رقم)','ltr'],['cr_number','السجل التجاري (10 أرقام)','ltr'],
+              ['addr_street','الشارع','text'],['addr_building','رقم المبنى (4 أرقام)','ltr'],['addr_district','الحي','text'],
+              ['addr_city','المدينة','text'],['addr_postal','الرمز البريدي (5 أرقام)','ltr'],['addr_additional','الرقم الإضافي (اختياري)','ltr']].map(([k, l, t]) => (
+              <div key={k}>
+                <label className="text-xs text-muted-foreground mb-1 block">{l}</label>
+                <input value={form[k] || ''} dir={t === 'ltr' ? 'ltr' : undefined} inputMode={t === 'ltr' ? 'numeric' : undefined}
+                  onChange={e => set(k, t === 'ltr' ? e.target.value.replace(/[^\d]/g, '') : e.target.value)}
+                  className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">ملاحظات</label>
         <textarea value={form.notes||''} onChange={e => set('notes', e.target.value)} rows={2}
@@ -97,7 +117,14 @@ function CustomerForm({ initial, onSave, onCancel, branches }) {
       </div>
       <div className="flex gap-2 justify-end">
         <button onClick={onCancel} className="px-4 py-2 text-sm rounded-xl border border-border hover:bg-muted">إلغاء</button>
-        <button onClick={() => { if (!form.name) return toast.error('الاسم مطلوب'); onSave(form); }}
+        <button onClick={() => {
+            if (!form.name) return toast.error('الاسم مطلوب');
+            if (form.vat_number && !/^3\d{13}3$/.test(form.vat_number)) return toast.error('الرقم الضريبي 15 رقم يبدأ وينتهي بـ 3');
+            if (form.cr_number && !/^\d{10}$/.test(form.cr_number)) return toast.error('السجل التجاري 10 أرقام');
+            if (form.addr_building && !/^\d{4}$/.test(form.addr_building)) return toast.error('رقم المبنى 4 أرقام');
+            if (form.addr_postal && !/^\d{5}$/.test(form.addr_postal)) return toast.error('الرمز البريدي 5 أرقام');
+            onSave(form);
+          }}
           className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-xl hover:bg-primary/90">
           <Save className="w-4 h-4" />حفظ
         </button>
@@ -123,10 +150,10 @@ function PaymentsPanel({ customers }) {
       {/* إحصاءات */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: Users,     label: 'إجمالي العملاء',   value: fmt(customers.length),    color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' },
+          { icon: Users,     label: 'إجمالي العملاء',   value: fmt(customers.length),    color: 'bg-sage-50 text-sage-600 dark:bg-sage-900 dark:text-sage-400' },
           { icon: DollarSign,label: 'إجمالي المشتريات', value: fmtSAR(totalPurchase),    color: 'bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400' },
           { icon: Star,      label: 'نقاط الولاء',      value: fmt(totalPoints),         color: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400' },
-          { icon: TrendingUp,label: 'عملاء شركات',      value: fmt(corporate),           color: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400' },
+          { icon: TrendingUp,label: 'عملاء شركات',      value: fmt(corporate),           color: 'bg-peach-50 text-peach-600 dark:bg-peach-700 dark:text-peach-400' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-4">
             <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center mb-2`}>
@@ -324,12 +351,12 @@ export default function Customers() {
                           <td className="px-4 py-3 text-muted-foreground">{c.phone||'—'}</td>
                           <td className="px-4 py-3">
                             {branch ? (
-                              <span className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full">{branch.name}</span>
+                              <span className="bg-sage-50 text-sage-700 dark:bg-sage-900 dark:text-sage-300 text-xs px-2 py-0.5 rounded-full">{branch.name}</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              c.customer_type==='corporate' ? 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                              c.customer_type==='corporate' ? 'bg-peach-50 text-peach-700 dark:bg-peach-700 dark:text-peach-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                             }`}>{c.customer_type==='corporate' ? 'شركة' : 'فرد'}</span>
                           </td>
                           <td className="px-4 py-3">

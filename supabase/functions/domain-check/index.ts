@@ -1,5 +1,6 @@
 // Supabase Edge Function — التحقق من توفر الدومين عبر Namecheap
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { adminClient, requireTenantMember, HttpError } from '../_shared/auth.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -10,7 +11,14 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { domain } = await req.json();
+    // لازم مستخدم مسجّل (كانت مفتوحة لأي أحد على الإنترنت)
+    try { await requireTenantMember(req, adminClient(), null, false); }
+    catch (e) { return new Response(JSON.stringify({ error: (e as Error).message }), { status: e instanceof HttpError ? e.status : 401, headers: { ...CORS, 'Content-Type': 'application/json' } }); }
+    const { domain: rawDomain } = await req.json();
+    const domain = String(rawDomain || '').toLowerCase().trim();
+    if (!/^[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})*$/.test(domain)) {
+      return new Response(JSON.stringify({ error: 'اسم الدومين غير صحيح' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
     if (!domain) return new Response(JSON.stringify({ error: 'domain required' }), { status: 400, headers: CORS });
 
     const NC_USER    = Deno.env.get('NAMECHEAP_API_USER') || '';

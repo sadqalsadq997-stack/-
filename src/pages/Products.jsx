@@ -41,7 +41,7 @@ export default function Products() {
     !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.name_ar?.includes(search) || p.barcode?.includes(search)
   );
 
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ⃁`;
 
   if (showForm || editing) {
     return <ProductForm product={editing} onClose={() => { setShowForm(false); setEditing(null); qc.invalidateQueries({ queryKey: ['products'] }); }} />;

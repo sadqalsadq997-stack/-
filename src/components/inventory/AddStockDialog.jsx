@@ -13,21 +13,11 @@ export default function AddStockDialog({ product, onClose }) {
     mutationFn: async () => {
       const amount = Number(qty);
       if (!amount || amount <= 0) throw new Error('الكمية غير صحيحة');
-      const currentStock = product.stock_quantity || 0;
-      const newStock = type === 'add' ? currentStock + amount : Math.max(0, currentStock - amount);
-
-      const { error: updateError } = await supabase.from('products').update({ stock_quantity: newStock }).eq('id', product.id);
-      if (updateError) throw updateError;
-
-      const { error: logError } = await supabase.from('inventory_logs').insert({
-        product_id: product.id,
-        change_type: type,
-        quantity_change: type === 'add' ? amount : -amount,
-        quantity_before: currentStock,
-        quantity_after: newStock,
-        notes,
+      // ذري في السيرفر + سجل حركة (بدل اقرأ-عدّل-اكتب اللي يضيع حركات متزامنة)
+      const { error } = await supabase.rpc('adjust_stock', {
+        p_product: product.id, p_delta: type === 'add' ? amount : -amount, p_reason: notes || null,
       });
-      if (logError) console.warn('log error:', logError);
+      if (error) throw error;
     },
     onSuccess: () => { toast.success('تم تحديث المخزون'); onClose(); },
     onError: (e) => toast.error(e.message || 'فشل التحديث'),

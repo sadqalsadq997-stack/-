@@ -53,7 +53,7 @@ export default function ModifierDialog({ product, open, onClose, onConfirm }) {
                         onCheckedChange={() => toggleOption(gIdx, opt, true)}
                       />
                       <span className="text-sm flex-1">{opt.name_ar || opt.name}</span>
-                      {opt.price > 0 && <span className="text-xs text-gold font-bold">+{opt.price} ﷼</span>}
+                      {opt.price > 0 && <span className="text-xs text-gold font-bold">+{opt.price} ⃁</span>}
                       {opt.price === 0 && <span className="text-xs text-muted-foreground">مجاني</span>}
                     </label>
                   ))}
@@ -70,7 +70,7 @@ export default function ModifierDialog({ product, open, onClose, onConfirm }) {
                     <label key={oIdx} className="flex items-center gap-3 p-2.5 rounded-lg border hover:border-gold/50 cursor-pointer transition-colors">
                       <RadioGroupItem value={opt.name_ar || opt.name} />
                       <span className="text-sm flex-1">{opt.name_ar || opt.name}</span>
-                      {opt.price > 0 && <span className="text-xs text-gold font-bold">+{opt.price} ﷼</span>}
+                      {opt.price > 0 && <span className="text-xs text-gold font-bold">+{opt.price} ⃁</span>}
                     </label>
                   ))}
                 </RadioGroup>
@@ -82,7 +82,7 @@ export default function ModifierDialog({ product, open, onClose, onConfirm }) {
         <div className="flex items-center justify-between pt-4 border-t mt-4">
           <div>
             <p className="text-sm text-muted-foreground">السعر الإجمالي</p>
-            <p className="font-tajawal font-bold text-gold text-lg">{((product.base_price || 0) + totalExtra).toFixed(2)} ﷼</p>
+            <p className="font-tajawal font-bold text-gold text-lg">{((product.base_price || 0) + totalExtra).toFixed(2)} ⃁</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose}>إلغاء</Button>

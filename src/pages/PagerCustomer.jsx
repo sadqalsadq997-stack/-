@@ -1,17 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
-import { BellRing, Bell, Check, ChefHat, Clock, Loader2, Volume2, XCircle } from 'lucide-react';
+import { BellRing, Bell, Check, ChefHat, Loader2, Volume2, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { unlockAudio, startRinging, stopRinging } from '@/lib/pager/sound';
-import { LogoMark } from '@/components/brand/Logo';
+import MadeByFelsy from '@/components/MadeByFelsy';
 
 // ══════════════════════════════════════════════════════════════════
 // صفحة البيجر عند العميل — felsy.org/p/<token>
 // تفحص الحالة كل 3 ثواني، وعند "جاهز": نغمة + اهتزاز + إشعار + وميض
 // ══════════════════════════════════════════════════════════════════
 
-const POLL_MS = 3000;
+const POLL_MS = 4000;
 
 const STEPS = [
   { key: 'waiting', label: 'استلمنا طلبك', icon: Check },
@@ -111,6 +111,15 @@ export default function PagerCustomer() {
     if (pager?.status === 'ready' && !pager.acknowledged_at) startRinging();
   }
 
+  // أي لمسة على الصفحة تفعّل الصوت (المتصفحات تمنع الصوت قبل أول لمسة)
+  useEffect(() => {
+    if (armed) return;
+    const once = () => { arm(); };
+    window.addEventListener('pointerdown', once, { once: true });
+    window.addEventListener('keydown', once, { once: true });
+    return () => { window.removeEventListener('pointerdown', once); window.removeEventListener('keydown', once); };
+  }, [armed, pager?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // إعادة طلب إبقاء الشاشة مضاءة بعد الرجوع للصفحة
   useEffect(() => {
     const re = async () => {
@@ -167,7 +176,6 @@ export default function PagerCustomer() {
             className="mt-1 text-[7.5rem] font-black leading-none tracking-tight sm:text-[9rem]">
             {toArabicDigits(pager.display_number)}
           </motion.p>
-          {pager.label && <p className={`mt-2 text-lg ${isReady ? 'text-white/90' : 'text-slate-600'}`}>{pager.label}</p>}
 
           <AnimatePresence mode="wait">
             {isReady ? (
@@ -178,7 +186,13 @@ export default function PagerCustomer() {
                 </motion.div>
                 <h1 className="mt-5 text-3xl font-black">طلبك جاهز!</h1>
                 <p className="mt-2 text-lg text-white/90">تفضل للاستلام من الكاونتر</p>
-                {ringing && (
+                {ringing && !armed && (
+                  <motion.button onClick={arm} animate={{ scale: [1, 1.04, 1] }} transition={{ duration: 0.9, repeat: Infinity }}
+                    className="mt-8 flex h-14 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-white text-lg font-black text-sage-700 shadow-xl">
+                    <Volume2 className="h-5 w-5" /> اضغط لتشغيل الرنين
+                  </motion.button>
+                )}
+                {ringing && armed && (
                   <button onClick={acknowledge} className="mt-8 h-14 w-full max-w-xs rounded-2xl bg-white text-lg font-black text-sage-700 shadow-xl">
                     تمام، جاي أستلم
                   </button>
@@ -229,9 +243,7 @@ export default function PagerCustomer() {
               </p>
             )}
             {!armed && <p className="mt-3 text-center text-xs text-slate-400">بيرن جوالك ويهتز أول ما يجهز طلبك</p>}
-            <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] opacity-60">
-              <Clock className="h-3 w-3" /> بواسطة <LogoMark size={16} /> فلسي
-            </div>
+            <div className="mt-4 flex justify-center"><MadeByFelsy source="pager" tone={isReady ? 'light' : 'muted'} /></div>
           </footer>
         )}
       </div>

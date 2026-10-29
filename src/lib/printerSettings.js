@@ -25,7 +25,7 @@ export const DEFAULT_PRINTER = {
   paperWidth: '80mm',   // 80mm أو 58mm
   networkIp: '',
   networkPort: '9100',
-  autoPrint: false,
+  autoPrint: true,   // طباعة الفاتورة فور إتمام البيع
   copies: 1,
   cutPaper: true,
   openCashDrawer: false,

@@ -15,7 +15,8 @@ import PaymentGate from "@/pages/PaymentGate";
 
 // Auth pages
 import OwnerLogin    from "@/pages/auth/OwnerLogin";
-import OwnerSignup   from "@/pages/auth/OwnerSignup";
+import SubscribeWizard from "@/pages/subscribe/SubscribeWizard";
+import SubscribeReturn from "@/pages/subscribe/SubscribeReturn";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword  from "@/pages/auth/ResetPassword";
 import PagerCustomer  from "@/pages/PagerCustomer";
@@ -39,6 +40,8 @@ import Settings              from "@/pages/Settings";
 import AIAssistant           from "@/pages/AIAssistant";
 import EStore                from "@/pages/EStore";
 import LoyaltySettings       from "@/pages/LoyaltySettings";
+import BlogList from "@/pages/blog/BlogList";
+import BlogPost from "@/pages/blog/BlogPost";
 import PublicMenu            from "@/pages/PublicMenu";
 import KitchenDisplay        from "@/pages/KitchenDisplay";
 import KioskIntegration      from "@/pages/KioskIntegration";
@@ -58,10 +61,11 @@ import TermsConditions       from "@/pages/TermsConditions";
 import AboutUs                from "@/pages/AboutUs";
 import ThemeEditor           from "@/pages/ThemeEditor";
 import SuperAdmin            from "@/pages/SuperAdmin";
-import ZATCADashboard        from "@/pages/ZATCADashboard";
+import ZatcaCenter          from "@/pages/ZatcaCenter";
 import Accounting            from "@/pages/accounting";
-import ZATCASettings         from "@/pages/ZATCASettings";
 import PageNotFound          from "@/lib/PageNotFound";
+import { isAppMode }         from "@/lib/appMode";
+import { CONTACT, whatsappLink } from "@/lib/contact";
 
 // ══════════════════════════════════════════════════════════════════
 // طبقات الحماية (بالترتيب):
@@ -134,7 +138,27 @@ function RootGate() {
   const { session, loading, authChecked, isMissingEnv } = useAuth();
   if (!isMissingEnv && (loading || !authChecked)) return <FullScreenSpinner />;
   if (!isMissingEnv && session) return <Navigate to="/dashboard" replace />;
+  // داخل التطبيق: يفتح على شاشة الدخول مباشرة بدل صفحة الموقع التسويقية
+  if (isAppMode()) return <Navigate to="/auth/login" replace />;
   return <LandingPage />;
+}
+
+// إنشاء الحساب من الموقع فقط — داخل التطبيق نوجّه المستخدم للموقع أو للواتساب
+function SignupGate() {
+  if (!isAppMode()) return <SubscribeWizard />;
+  return (
+    <div dir="rtl" className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <h1 className="text-2xl font-black text-foreground">إنشاء حساب جديد</h1>
+        <p className="text-sm text-muted-foreground">إنشاء الحساب والاشتراك يكون من موقع فلسي الإلكتروني. بعدها ادخل هنا ببريدك وكلمة المرور.</p>
+        <a href={`${CONTACT.site}/auth/signup`} target="_blank" rel="noopener noreferrer"
+          className="block w-full rounded-full bg-primary py-3 font-bold text-primary-foreground">افتح الموقع وأنشئ حسابك</a>
+        <a href={whatsappLink()} target="_blank" rel="noopener noreferrer"
+          className="block w-full rounded-full bg-[#25D366] py-3 font-bold text-white">تواصل معنا على واتساب</a>
+        <a href="/auth/login" className="block text-sm font-bold text-primary">رجوع لتسجيل الدخول</a>
+      </div>
+    </div>
+  );
 }
 
 function AppRoutes() {
@@ -150,15 +174,20 @@ function AppRoutes() {
       <Route path="/privacy"       element={<PrivacyPolicy />} />
       <Route path="/terms"         element={<TermsConditions />} />
       <Route path="/about"         element={<AboutUs />} />
+      <Route path="/blog"          element={<BlogList />} />
+      <Route path="/blog/:slug"    element={<BlogPost />} />
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
+      <Route path="/m/:slug"       element={<PublicMenu />} />
       <Route path="/loyalty/:id"   element={<LoyaltyCard />} />
       <Route path="/wallet/:token" element={<LoyaltyQR />} />
       <Route path="/auth/login"    element={<OwnerLogin />} />
-      <Route path="/auth/signup"   element={<OwnerSignup />} />
+      <Route path="/auth/signup"   element={<SignupGate />} />
       <Route path="/auth/forgot"   element={<ForgotPassword />} />
       <Route path="/auth/reset"    element={<ResetPassword />} />
       <Route path="/p/:token"      element={<PagerCustomer />} />
+      <Route path="/subscribe"      element={<SignupGate />} />
+      <Route path="/subscribe/return" element={<RequireAuth><SubscribeReturn /></RequireAuth>} />
 
       <Route path="*" element={
         <RequireAuth>
@@ -194,8 +223,8 @@ function AppRoutes() {
                   <Route path="/support"            element={<Support />} />
                   <Route path="/domain"             element={<DomainManagement />} />
                   <Route path="/theme"              element={<ThemeEditor />} />
-                  <Route path="/zatca-admin"        element={<ZATCADashboard />} />
-                  <Route path="/zatca-settings"    element={<ZATCASettings />} />
+                  <Route path="/zatca-admin"        element={<div dir="rtl" className="space-y-4"><h1 className="text-2xl font-black">الفوترة الإلكترونية</h1><ZatcaCenter /></div>} />
+                  <Route path="/zatca-settings"    element={<Navigate to="/settings?tab=zatca" replace />} />
                   <Route path="/accounting"          element={<Accounting />} />
                   <Route path="*"                   element={<PageNotFound />} />
                 </Route>

@@ -41,17 +41,7 @@ export function protectContent(): void {
   });
 }
 
-// ── Content Security Policy header (يُضاف فعلياً من vercel.json/netlify.toml) ──
-export const CSP_HEADER = [
-  "default-src 'self'",
-  "script-src 'self' https://fonts.googleapis.com https://api.qrserver.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com",
-  "img-src 'self' data: https: blob:",
-  "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://generativelanguage.googleapis.com",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-].join('; ');
+// سياسة CSP الفعلية في vercel.json
 
 // ── Anti-iframe حقيقي وآمن (clickjacking) — لا يكسر التطبيق إذا فشلت المقارنة ──
 export function preventIframing(): void {

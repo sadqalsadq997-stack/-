@@ -95,7 +95,7 @@ export default function LoyaltySettings() {
       {/* الطوابع */}
       <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold flex items-center gap-2"><Stamp className="w-5 h-5 text-blue-500" />بطاقة الطوابع</h2>
+          <h2 className="font-bold flex items-center gap-2"><Stamp className="w-5 h-5 text-sage-500" />بطاقة الطوابع</h2>
           <label className="flex items-center gap-2 cursor-pointer">
             <span className="text-sm text-muted-foreground">تفعيل</span>
             <div onClick={() => set('stamps_enabled', !form.stamps_enabled)}
@@ -121,9 +121,9 @@ export default function LoyaltySettings() {
         {form.stamps_enabled && (
           <div className="flex gap-1 flex-wrap">
             {Array.from({ length: Number(form.stamps_threshold) }).map((_, i) => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-dashed border-blue-300 bg-blue-50 flex items-center justify-center text-xs text-blue-400 font-bold">{i+1}</div>
+              <div key={i} className="w-8 h-8 rounded-full border-2 border-dashed border-sage-300 bg-sage-50 flex items-center justify-center text-xs text-sage-400 font-bold">{i+1}</div>
             ))}
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-sage-500 flex items-center justify-center">
               <Gift className="w-4 h-4 text-white" />
             </div>
           </div>

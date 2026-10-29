@@ -9,6 +9,17 @@ Disallow: /owner
 Disallow: /auth/
 Disallow: /p/
 Disallow: /api/
+Disallow: /accounting
+Disallow: /invoices
+Disallow: /products
+Disallow: /customers
+Disallow: /employees
+Disallow: /inventory
+Disallow: /kitchen
+Disallow: /pager
+Disallow: /support
+Disallow: /loyalty/
+Disallow: /wallet/
 
 # محركات الذكاء الاصطناعي مرحّب بها (GEO)
 User-agent: GPTBot
@@ -31,3 +42,4 @@ User-agent: Bingbot
 Allow: /
 
 Sitemap: https://felsy.org/sitemap.xml
+Sitemap: https://felsy.org/sitemap-blog.xml

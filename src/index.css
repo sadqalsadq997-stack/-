@@ -5,45 +5,46 @@
 
 @layer base {
   :root {
+    /* ── نفس ألوان موقع الزوار: بيج دافئ + أخضر مريمي + خوخي + فحمي (#2C3E50) ── */
     --font-tajawal: 'Cairo', sans-serif;
-    --background: 0 0% 98%;
-    --foreground: 210 29% 24%;
+    --background: 42 31% 94%;          /* beige  #F4F1EA */
+    --foreground: 210 29% 24%;         /* ink    #2C3E50 */
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 10%;
+    --card-foreground: 210 29% 24%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
-    --primary: 148 19% 37%;
+    --popover-foreground: 210 29% 24%;
+    --primary: 148 19% 38%;            /* sage-700 #4F7360 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 30% 94%;
-    --secondary-foreground: 220 10% 25%;
-    --muted: 43 22% 93%;
-    --muted-foreground: 220 8% 50%;
-    --accent: 5 54% 68%;
+    --secondary: 140 22% 92%;          /* sage-100 #E6EFE9 */
+    --secondary-foreground: 148 19% 30%;
+    --muted: 40 29% 90%;               /* beige-200 */
+    --muted-foreground: 210 12% 45%;
+    --accent: 5 54% 68%;               /* peach-400 #D98880 */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 43 18% 87%;
-    --input: 43 18% 87%;
-    --ring: 141 19% 70%;
+    --border: 40 24% 86%;
+    --input: 40 24% 86%;
+    --ring: 140 19% 70%;               /* sage-400 #A3C1AD */
     --radius: 1rem;
     --gold: 38 95% 52%;
     --gold-light: 42 100% 65%;
     --gold-dark: 34 90% 38%;
-    --emerald: 158 60% 38%;
-    --ruby: 0 72% 51%;
-    --chart-1: 141 19% 50%;
-    --chart-2: 158 60% 38%;
-    --chart-3: 5 54% 68%;
-    --chart-4: 220 70% 55%;
-    --chart-5: 280 55% 55%;
-    --sidebar-background: 210 29% 20%;
-    --sidebar-ring: 141 19% 70%;
-    --sidebar-foreground: 210 20% 88%;
-    --sidebar-primary: 141 19% 70%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 26% 25%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 210 22% 28%;
+    --emerald: 148 19% 38%;
+    --ruby: 5 45% 55%;
+    --chart-1: 140 17% 59%;            /* sage-500 */
+    --chart-2: 148 19% 38%;            /* sage-700 */
+    --chart-3: 5 54% 68%;              /* peach-400 */
+    --chart-4: 210 29% 40%;            /* ink فاتح */
+    --chart-5: 40 30% 62%;             /* بيج غامق */
+    --sidebar-background: 210 29% 24%; /* ink — نفس فوتر الموقع */
+    --sidebar-ring: 140 19% 70%;
+    --sidebar-foreground: 40 25% 90%;
+    --sidebar-primary: 140 19% 70%;    /* sage-400 مثل أزرار الموقع */
+    --sidebar-primary-foreground: 210 29% 20%;
+    --sidebar-accent: 210 25% 30%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 210 22% 32%;
   }
 
   .dark {
@@ -89,11 +90,11 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  *, *::before, *::after { font-family: 'Cairo', sans-serif !important; }
+  *, *::before, *::after { font-family: 'SaudiRiyal', 'Cairo', sans-serif !important; }
   body {
     @apply bg-background text-foreground;
     direction: rtl;
-    font-family: 'Cairo', sans-serif !important;
+    font-family: 'SaudiRiyal', 'Cairo', sans-serif !important;
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -101,7 +102,7 @@
     -webkit-overflow-scrolling: touch;
   }
   input, button, select, textarea {
-    font-family: 'Cairo', sans-serif !important;
+    font-family: 'SaudiRiyal', 'Cairo', sans-serif !important;
   }
 }
 
@@ -211,12 +212,11 @@
 /* ═══════════════════════════════════════
    SAR Symbol
 ═══════════════════════════════════════ */
-/* رمز الريال U+FDFC — Noto Sans Arabic fallback لضمان العرض الصحيح */
-.sar-symbol::after { content: '\FDFC'; font-family: 'Cairo', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
-.sar { font-family: 'Cairo', 'Noto Sans Arabic', Arial Unicode MS, sans-serif; }
+/* رمز الريال السعودي الجديد */
+.sar-symbol::after { content: '\20C1'; font-family: 'SaudiRiyal', 'Cairo', sans-serif; }
 
-/* إصلاح عرض رمز ﷼ في كل مكان */
-:root { --font-sar: 'Cairo', 'Noto Sans Arabic', 'Arial Unicode MS', sans-serif; }
+/* خط رمز الريال */
+:root { --font-sar: 'SaudiRiyal', 'Cairo', sans-serif; }
 
 /* ═══════════════════════════════════════
    Touch-friendly tap highlight
@@ -225,18 +225,23 @@
 button, [role="button"] { touch-action: manipulation; }
 
 /* ═══════════════════════════════════════
-   Unicode U+FDFC ﷼ — Force Noto Arabic
+   رمز الريال السعودي الجديد (U+20C1) — خط محلي من سيرفرات الموقع
+   (unicode-range يقصره على الرمز فقط، فما يأثر على باقي الحروف)
 ═══════════════════════════════════════ */
 @font-face {
-  font-family: 'SARSymbol';
-  src: url('https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfly_ufnI.woff2') format('woff2');
-  unicode-range: U+FDFC, U+FDF0-FDFF;
-  font-display: swap;
+  font-family: 'SaudiRiyal';
+  src: url('/fonts/saudi-riyal-400.woff2') format('woff2');
+  font-weight: 100 600; unicode-range: U+20C1, U+E900; font-display: block;
 }
+@font-face {
+  font-family: 'SaudiRiyal';
+  src: url('/fonts/saudi-riyal-700.woff2') format('woff2');
+  font-weight: 700 900; unicode-range: U+20C1, U+E900; font-display: block;
+}
+.sar { font-family: 'SaudiRiyal', 'Cairo', sans-serif; font-weight: inherit; }
 
-/* تطبيق الفونت على كل عناصر تحتوي ﷼ */
 body {
-  font-family: 'SARSymbol', 'Cairo', 'Noto Sans Arabic', sans-serif !important;
+  font-family: 'SaudiRiyal', 'Cairo', sans-serif !important;
 }
 
 /* ═══════════════════════════════════════
@@ -367,3 +372,73 @@ body {
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+/* ═══════════════════════════════════════
+   حركات بطاقة الولاء
+═══════════════════════════════════════ */
+.loyalty-card { background: linear-gradient(135deg, var(--lc-bg) 0%, var(--lc-bg2) 100%); transition: transform .25s ease; will-change: transform; }
+.loyalty-anim-none { background: var(--lc-bg); }
+
+.loyalty-anim-shine::after {
+  content: ''; position: absolute; inset: -50% -60%; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.28) 50%, transparent 60%);
+  transform: translateX(-60%); animation: lc-shine 3.6s ease-in-out infinite;
+}
+@keyframes lc-shine { 0%, 15% { transform: translateX(-60%); } 60%, 100% { transform: translateX(60%); } }
+
+.loyalty-anim-gradient { background: linear-gradient(120deg, var(--lc-bg2), var(--lc-bg), var(--lc-bg3), var(--lc-bg)); background-size: 300% 300%; animation: lc-gradient 8s ease infinite; }
+@keyframes lc-gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+.loyalty-anim-glow { animation: lc-glow 2.8s ease-in-out infinite; }
+@keyframes lc-glow { 0%, 100% { box-shadow: 0 10px 30px -10px var(--lc-bg); } 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--lc-bg3) 45%, transparent), 0 18px 50px -8px var(--lc-bg); } }
+
+.loyalty-anim-float { animation: lc-float 4.5s ease-in-out infinite; }
+@keyframes lc-float { 0%, 100% { transform: translateY(0) rotate(-.4deg); } 50% { transform: translateY(-8px) rotate(.4deg); } }
+
+.loyalty-anim-pulse .lc-on { animation: lc-pop 2.4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes lc-pop { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.14); } }
+
+.lc-sparkles { position: absolute; inset: 0; pointer-events: none; }
+.lc-sparkles span {
+  position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: var(--lc-fg);
+  opacity: 0; animation: lc-twinkle 2.6s ease-in-out infinite; animation-delay: calc(var(--i) * .31s);
+  box-shadow: 0 0 8px var(--lc-fg);
+}
+@keyframes lc-twinkle { 0%, 100% { opacity: 0; transform: scale(.3); } 50% { opacity: .85; transform: scale(1); } }
+
+.lc-complete { animation: lc-celebrate 1.6s ease-in-out infinite; }
+@keyframes lc-celebrate { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .loyalty-card, .loyalty-card *, .loyalty-card::after { animation: none !important; transition: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   المدونة — تنسيق المقالات
+═══════════════════════════════════════ */
+.prose-felsy { color: #334155; font-size: 1.075rem; line-height: 2; }
+.prose-felsy > * + * { margin-top: 1.1em; }
+.prose-felsy h2 { margin-top: 2em; font-size: 1.6rem; font-weight: 900; line-height: 1.4; color: #2C3E50; scroll-margin-top: 90px; }
+.prose-felsy h3 { margin-top: 1.6em; font-size: 1.25rem; font-weight: 800; color: #2C3E50; scroll-margin-top: 90px; }
+.prose-felsy h4 { margin-top: 1.4em; font-weight: 800; color: #2C3E50; }
+.prose-felsy a { color: #4F7360; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.prose-felsy strong { color: #1e293b; font-weight: 800; }
+.prose-felsy ul, .prose-felsy ol { padding-right: 1.4em; }
+.prose-felsy ul { list-style: disc; } .prose-felsy ol { list-style: decimal; }
+.prose-felsy li + li { margin-top: .35em; }
+.prose-felsy li::marker { color: #6A8F77; font-weight: 700; }
+.prose-felsy blockquote { border-right: 4px solid #86A992; background: #F3F7F4; padding: .9em 1.2em; border-radius: 14px; color: #3A5747; }
+.prose-felsy code { background: #f1f5f9; padding: .1em .4em; border-radius: 6px; font-size: .9em; direction: ltr; unicode-bidi: embed; }
+.prose-felsy img { width: 100%; border-radius: 20px; }
+.prose-felsy figure { margin: 1.8em 0; }
+.prose-felsy hr { border: 0; border-top: 1px solid #e2e8f0; margin: 2.2em 0; }
+.prose-felsy .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 16px; }
+.prose-felsy table { width: 100%; border-collapse: collapse; font-size: .95rem; line-height: 1.7; }
+.prose-felsy th { background: #F3F7F4; font-weight: 800; color: #2C3E50; text-align: right; }
+.prose-felsy th, .prose-felsy td { padding: .7em 1em; border-bottom: 1px solid #e2e8f0; }
+.prose-felsy .callout { border-radius: 16px; padding: 1em 1.2em; border: 1px solid; }
+.prose-felsy .callout > strong { display: block; margin-bottom: .2em; }
+.prose-felsy .callout p { margin: 0; }
+.prose-felsy .callout-note { background: #F3F7F4; border-color: #CFE0D5; }
+.prose-felsy .callout-tip { background: #eff6ff; border-color: #bfdbfe; }
+.prose-felsy .callout-warning { background: #fffbeb; border-color: #fde68a; color: #78350f; }

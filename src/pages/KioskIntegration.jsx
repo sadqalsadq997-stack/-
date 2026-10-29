@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadImage } from '@/lib/images';
 import { toast } from 'sonner';
 import {
   Plug, Wifi, WifiOff, RefreshCw, Bell, CheckCircle2,
@@ -230,7 +231,7 @@ function PagerPanel({ settings, onSave }) {
         <Bell className="w-5 h-5 text-primary" />
         <h3 className="font-bold text-lg">جهاز البيجر</h3>
         {detected && (
-          <span className="mr-auto flex items-center gap-1 text-xs text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">
+          <span className="mr-auto flex items-center gap-1 text-xs text-sage-500 bg-sage-500/10 px-2 py-0.5 rounded-full">
             <HardDrive className="w-3 h-3" />
             {settings.pager_device_name || 'متصل'}
           </span>
@@ -251,7 +252,7 @@ function PagerPanel({ settings, onSave }) {
       </button>
 
       {port && (
-        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-500/10 rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-sage-600 bg-sage-500/10 rounded-xl px-3 py-2">
           <CheckCircle2 className="w-4 h-4" />
           تم اكتشاف: {port.label}
         </div>
@@ -303,17 +304,11 @@ function ProductSyncPanel({ apiKey }) {
     toast.success(`✅ تم تحديث سعر ${product.name}`);
   }
 
-  async function uploadImage(product, file) {
+  async function uploadProductImage(product, file) {
     if (!file) return;
     setSyncing(s => ({ ...s, [product.id]: true }));
     try {
-      const ext  = file.name.split('.').pop();
-      const path = `products/${product.id}.${ext}`;
-
-      const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path);
+      const publicUrl = await uploadImage(file, 'products');
       await supabase.from('products').update({ image_url: publicUrl }).eq('id', product.id);
 
       // دفع الصورة للكشك
@@ -387,7 +382,7 @@ function ProductSyncPanel({ apiKey }) {
                   className="w-24 h-7 bg-muted/50 border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"
                   dir="ltr"
                 />
-                <span className="text-xs text-muted-foreground">ر.س</span>
+                <span className="text-xs text-muted-foreground">⃁</span>
               </div>
             </div>
 
@@ -398,7 +393,7 @@ function ProductSyncPanel({ apiKey }) {
                 accept="image/*"
                 ref={el => fileRefs.current[p.id] = el}
                 className="hidden"
-                onChange={e => uploadImage(p, e.target.files[0])}
+                onChange={e => uploadProductImage(p, e.target.files[0])}
               />
               <button
                 onClick={() => fileRefs.current[p.id]?.click()}

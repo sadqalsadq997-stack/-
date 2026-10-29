@@ -7,6 +7,8 @@ import {
   Sparkles, Smartphone, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { uploadImage } from '@/lib/images';
+import LoyaltyCardView, { LOYALTY_ANIMATIONS, LOYALTY_COLORS } from '@/components/loyalty/LoyaltyCardView';
 
 // ══════════════════════════════════════════════════════
 // صفحة تصميم بطاقة الولاء — Google Wallet
@@ -16,8 +18,10 @@ import { toast } from 'sonner';
 
 const DEFAULT_DESIGN = {
   program_name: 'برنامج الولاء',
-  background_color: '#dc2626',
+  background_color: '#4F7360',
   text_color: '#ffffff',
+  accent_color: '#ffffff',
+  animation: 'shine',
   program_type: 'stamps',
   stamps_required: 10,
   reward_description: 'مكافأة مجانية',
@@ -26,9 +30,6 @@ const DEFAULT_DESIGN = {
   completion_message: '🎉 تهانينا! اطلب مكافأتك الآن',
 };
 
-const COLOR_PRESETS = [
-  '#dc2626', '#059669', '#7c3aed', '#d97706', '#0f172a', '#e11d48', '#0ea5e9', '#16a34a',
-];
 
 function ImageUploadBox({ label, value, onChange, aspectHint }) {
   const [uploading, setUploading] = useState(false);
@@ -38,12 +39,7 @@ function ImageUploadBox({ label, value, onChange, aspectHint }) {
     if (!file) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `loyalty-cards/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(path);
-      onChange(publicUrl);
+      onChange(await uploadImage(file, 'loyalty', { max: 900, quality: 0.85 }));
       toast.success('تم رفع الصورة');
     } catch (err) {
       toast.error('فشل رفع الصورة: ' + (err.message || ''));
@@ -81,56 +77,15 @@ function ImageUploadBox({ label, value, onChange, aspectHint }) {
 }
 
 function CardPreview({ design }) {
-  const isStamps = design.program_type === 'stamps';
-  const filledStamps = Math.min(3, design.stamps_required || 10);
-
   return (
     <div className="sticky top-4">
       <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
         <Smartphone className="w-3.5 h-3.5" /> معاينة كما تظهر في جوال العميل
       </p>
-      <div
-        className="rounded-2xl p-5 shadow-xl w-full max-w-[320px] mx-auto"
-        style={{ backgroundColor: design.background_color, color: design.text_color }}
-      >
-        <div className="flex items-center justify-between mb-6">
-          {design.logo_url ? (
-            <img src={design.logo_url} alt="logo" className="w-10 h-10 rounded-lg object-contain bg-white/10 p-1" />
-          ) : (
-            <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center">
-              <Wallet className="w-5 h-5" style={{ color: design.text_color }} />
-            </div>
-          )}
-          <span className="text-[11px] opacity-80">Google Wallet</span>
-        </div>
-        <p className="text-sm opacity-80 mb-1">{design.program_name || 'برنامج الولاء'}</p>
-        <p className="text-2xl font-black mb-4">عبدالله العتيبي</p>
-
-        {isStamps ? (
-          <div>
-            <div className="flex gap-1.5 flex-wrap mb-2">
-              {Array.from({ length: design.stamps_required || 10 }).map((_, i) => (
-                <div key={i}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-                  style={{
-                    backgroundColor: i < filledStamps ? design.text_color : 'transparent',
-                    border: `1.5px ${i < filledStamps ? 'solid' : 'dashed'} ${design.text_color}`,
-                    color: i < filledStamps ? design.background_color : design.text_color,
-                    opacity: i < filledStamps ? 1 : 0.5,
-                  }}>
-                  {i < filledStamps ? '★' : i + 1}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs opacity-80">{filledStamps} من {design.stamps_required || 10} — {design.reward_description}</p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-3xl font-black">240 نقطة</p>
-            <p className="text-xs opacity-80 mt-1">الحد الأدنى للاستبدال: {design.min_redeem_points} نقطة</p>
-          </div>
-        )}
+      <div className="mx-auto w-full max-w-[320px]">
+        <LoyaltyCardView design={design} customerName="عبدالله" stamps={Math.min(3, Number(design.stamps_required) || 10)} points={240} />
       </div>
+      <p className="mt-3 text-center text-[11px] text-muted-foreground">البطاقة خاصة بمحلك وعملائك فقط — ما تظهر لأي منشأة ثانية.</p>
     </div>
   );
 }
@@ -255,9 +210,9 @@ export default function LoyaltyCardDesigner() {
             <ImageUploadBox label="شعار المحل (Logo)" value={design.logo_url} onChange={v => set('logo_url', v)}
               aspectHint="يفضّل صورة مربعة بخلفية شفافة" />
             <div>
-              <label className="text-xs text-muted-foreground mb-2 block">لون خلفية البطاقة</label>
+              <label className="text-xs text-muted-foreground mb-2 block">لونك المفضل (خلفية البطاقة)</label>
               <div className="flex items-center gap-2 flex-wrap">
-                {COLOR_PRESETS.map(c => (
+                {LOYALTY_COLORS.map(c => (
                   <button key={c} onClick={() => set('background_color', c)}
                     className={`w-8 h-8 rounded-full border-2 ${design.background_color === c ? 'border-foreground' : 'border-transparent'}`}
                     style={{ backgroundColor: c }} />
@@ -274,6 +229,35 @@ export default function LoyaltyCardDesigner() {
                     className={`w-8 h-8 rounded-full border-2 ${design.text_color === c ? 'border-primary' : 'border-border'}`}
                     style={{ backgroundColor: c }} />
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* الحركة */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h2 className="font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" />حركة البطاقة</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {LOYALTY_ANIMATIONS.map(a => {
+                const on = design.animation === a.id;
+                return (
+                  <button key={a.id} type="button" onClick={() => set('animation', a.id)} aria-pressed={on}
+                    className={`rounded-2xl border p-2 text-right transition ${on ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'}`}>
+                    <LoyaltyCardView compact design={{ ...design, animation: a.id, stamps_required: 5 }} customerName="عميل" stamps={3} className="pointer-events-none !rounded-xl !shadow-md" />
+                    <p className="mt-2 text-xs font-bold text-foreground">{a.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{a.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">لون الطوابع المكتملة</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {['#ffffff', '#FDE68A', '#F5D0C5', '#CFE0D5', '#111827'].map(c => (
+                  <button key={c} type="button" onClick={() => set('accent_color', c)} aria-label={c}
+                    className={`w-8 h-8 rounded-full border-2 ${design.accent_color === c ? 'border-primary' : 'border-border'}`} style={{ backgroundColor: c }} />
+                ))}
+                <input type="color" value={design.accent_color || '#ffffff'} onChange={e => set('accent_color', e.target.value)}
+                  className="w-8 h-8 rounded-full overflow-hidden border border-border cursor-pointer" aria-label="لون مخصص" />
               </div>
             </div>
           </div>

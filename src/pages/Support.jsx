@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { callFunction } from '@/lib/api';
+import { CONTACT, whatsappLink } from '@/lib/contact';
 import {
   MessageCircle, Send, Phone, Mail, Globe, Clock,
   CheckCheck, Check, Loader2, Paperclip, X, Smile,
@@ -20,10 +22,10 @@ const QUICK_REPLIES = [
 ];
 
 const CONTACT_INFO = [
-  { icon: Phone, label: 'اتصل بنا', value: '+966 50 000 0000', href: 'tel:+966500000000', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  { icon: MessageCircle, label: 'واتساب', value: '+966 50 000 0000', href: 'https://wa.me/966500000000', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
-  { icon: Mail, label: 'البريد الإلكتروني', value: 'support@felsy.sa', href: 'mailto:support@felsy.sa', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
-  { icon: Globe, label: 'الموقع الإلكتروني', value: 'www.felsy.sa', href: 'https://felsy.sa', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
+  { icon: Phone, label: 'اتصل بنا', value: CONTACT.phoneLocal, href: `tel:${CONTACT.phoneIntl}`, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  { icon: MessageCircle, label: 'واتساب', value: CONTACT.phoneLocal, href: whatsappLink(), color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+  { icon: Mail, label: 'البريد الإلكتروني', value: CONTACT.email, href: `mailto:${CONTACT.email}`, color: 'text-sage-400', bg: 'bg-sage-500/10 border-sage-500/20' },
+  { icon: Globe, label: 'الموقع الإلكتروني', value: 'felsy.org', href: CONTACT.site, color: 'text-peach-400', bg: 'bg-peach-500/10 border-peach-500/20' },
 ];
 
 async function getUser() {
@@ -213,33 +215,18 @@ export default function Support() {
   }
 
   async function getAIReply(userMessage) {
-    try {
-      const key = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!key) return getFallbackReply(userMessage);
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `أنت مساعد دعم فني لنظام فلسي (Felsy POS) — نظام نقطة بيع سعودي. 
+    // الذكاء الاصطناعي يمر من السيرفر (ai-chat) — المفتاح لا يظهر في المتصفح
+    const { data, error } = await callFunction('ai-chat', {
+      prompt: `أنت مساعد دعم فني لنظام فلسي (Felsy POS) — نظام نقطة بيع سعودي.
 أجب على السؤال التالي باختصار ووضوح باللغة العربية (3-5 جمل):
 السؤال: ${userMessage}
 
-النظام يدعم: إدارة المنتجات، الطلبات، الفواتير (ZATCA)، المخزون، الموظفين، التقارير، المطبخ، الدفع الإلكتروني، دمج الدومين.`
-              }]
-            }]
-          })
-        }
-      );
-      const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || getFallbackReply(userMessage);
-    } catch {
-      return getFallbackReply(userMessage);
-    }
+النظام يدعم: إدارة المنتجات، الطلبات، الفواتير (ZATCA)، المخزون، الموظفين، التقارير، المطبخ، الدفع الإلكتروني، دمج الدومين.
+إذا احتاج العميل تواصل مباشر: واتساب ${CONTACT.phoneLocal}.`,
+      max_tokens: 400,
+    });
+    if (error || !data?.text) return getFallbackReply(userMessage);
+    return data.text;
   }
 
   function getFallbackReply(msg) {
@@ -249,7 +236,7 @@ export default function Support() {
     if (lower.includes('طباعة') || lower.includes('طابع'))
       return 'للإعداد: الإعدادات ← إعدادات الطابعة. نحن ندعم طابعات الشبكة وUSB والمتصفح. إذا استمرت المشكلة، تواصل معنا على الواتساب.';
     if (lower.includes('فاتور'))
-      return 'فلسي يدعم فواتير ZATCA المرحلة الثانية. اذهب إلى الفواتير ← إنشاء فاتورة. تأكد من إدخال رقم VAT في الإعدادات أولاً.';
+      return 'كل بيعة تطلع فاتورة ضريبية مبسطة برمز QR. للمرتجع: الطلبات ← افتح الطلب ← مرتجع (إشعار دائن). للإقرار: المحاسبة ← الإقرار الضريبي. تأكد من إدخال الرقم الضريبي في الإعدادات ← بيانات المنشأة.';
     if (lower.includes('دخول') || lower.includes('login') || lower.includes('pin'))
       return 'لمشاكل تسجيل الدخول: تأكد من إدخال PIN الصحيح. إذا نسيته، تواصل مع المدير لإعادة ضبطه من إعدادات النظام.';
     return 'شكراً على تواصلك! سيرد عليك أحد أفراد فريق الدعم خلال دقائق. للمساعدة الفورية، تواصل معنا عبر الواتساب.';

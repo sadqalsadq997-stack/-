@@ -13,6 +13,23 @@ export default defineConfig(({ mode, isSsrBuild }) => {
     server: {
       port: 8080,
       host: true,
+      // نفس وكيل /api/db الموجود في Vercel — للتشغيل المحلي (npm run dev)
+      // القيم من .env بدون بادئة VITE_ فلا تدخل في كود المتصفح
+      proxy: env.SUPABASE_URL ? {
+        '/api/db': {
+          target: env.SUPABASE_URL,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/db/, ''),
+          configure: (proxy) => {
+            proxy.on('proxyReq', (req) => {
+              const key = env.SUPABASE_ANON_KEY || env.SUPABASE_PUBLISHABLE_KEY || '';
+              req.setHeader('apikey', key);
+              const auth = req.getHeader('authorization');
+              if (!auth || auth === 'Bearer felsy-public') req.setHeader('authorization', `Bearer ${key}`);
+            });
+          },
+        },
+      } : undefined,
       headers: {
         'X-Frame-Options': 'DENY',
         'X-Content-Type-Options': 'nosniff',

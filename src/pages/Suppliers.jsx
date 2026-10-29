@@ -66,7 +66,7 @@ export default function Suppliers() {
   });
 
   const filtered = suppliers.filter(s => !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.phone?.includes(search));
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-5">

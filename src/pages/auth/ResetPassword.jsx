@@ -12,12 +12,21 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // رابط فلسي: /auth/reset?token_hash=...&type=recovery  (بدون ظهور رابط Supabase للعميل)
+    const qs = new URLSearchParams(window.location.search);
+    const tokenHash = qs.get('token_hash');
+    if (tokenHash && /^[a-f0-9]{20,128}$/i.test(tokenHash)) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error: e }) => {
+        window.history.replaceState({}, '', '/auth/reset');
+        setReady(e ? 'expired' : true);
+      });
+    }
     // رابط الاستعادة ينشئ جلسة مؤقتة — ننتظرها
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || session) setReady(true);
     });
     supabase.auth.getSession().then(({ data }) => { if (data.session) setReady(true); });
-    const t = setTimeout(() => setReady(r => r || 'expired'), 6000);
+    const t = setTimeout(() => setReady(r => r || 'expired'), 9000);
     return () => { subscription.unsubscribe(); clearTimeout(t); };
   }, []);
 

@@ -13,7 +13,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { CORS, json, adminClient } from '../_shared/auth.ts';
-import { moyasarFetchPayment, activateFromCheckout } from '../_shared/billing.ts';
+import { moyasarFetchPayment, activateFromCheckout, activateOrderFromPayment } from '../_shared/billing.ts';
 
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -50,6 +50,15 @@ serve(async (req) => {
 
     // المصدر الموثوق: موياسر نفسه
     const payment = await moyasarFetchPayment(String(paymentId));
+
+    // 0) طلب اشتراك من صفحة التسجيل (بطاقة / Apple Pay / STC Pay)
+    const orderId = payment.metadata?.order_id;
+    if (typeof orderId === 'string' && /^[0-9a-f-]{36}$/i.test(orderId)) {
+      const { data: order } = await sb.from('billing_orders').select('*').eq('id', orderId).maybeSingle();
+      if (order && order.status !== 'paid' && payment.status === 'paid') {
+        await activateOrderFromPayment(sb, order, payment);
+      }
+    }
 
     // 1) دفعة اشتراك جديد (بعد 3DS) لم يكمل العميل الرجوع للموقع
     const { data: checkout } = await sb.from('billing_checkouts')

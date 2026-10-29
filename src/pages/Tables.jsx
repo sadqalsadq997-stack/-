@@ -6,12 +6,15 @@ import {
   ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { printReceipt as printOrderReceipt, loadSeller } from '@/lib/receipt';
+import { issueEinvoice } from '@/lib/einvoice';
+import { unitParts, cartTotals, fromH } from '@/lib/pricing';
 
 const STATUS = {
   available: { label: 'متاح',   color: 'bg-green-100 border-green-300 text-green-700' },
   occupied:  { label: 'مشغول',  color: 'bg-red-100 border-red-300 text-red-700' },
   reserved:  { label: 'محجوز',  color: 'bg-yellow-100 border-yellow-300 text-yellow-700' },
-  cleaning:  { label: 'تنظيف', color: 'bg-blue-100 border-blue-300 text-blue-700' },
+  cleaning:  { label: 'تنظيف', color: 'bg-sage-100 border-sage-300 text-sage-700' },
 };
 
 // ── مودال إضافة طلب ──────────────────────────────────────────────
@@ -25,14 +28,15 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
   const addItem = (p) => {
     setCart(c => {
       const ex = c.find(i => i.id === p.id);
-      return ex ? c.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i) : [...c, { id: p.id, name: p.name_ar || p.name, price: p.price, qty: 1 }];
+      if (ex) return c.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
+      const unit = unitParts(p);
+      return [...c, { id: p.id, name: p.name_ar || p.name, unit, price: fromH(unit.gross), qty: 1 }];
     });
   };
   const removeItem = (id) => setCart(c => c.filter(i => i.id !== id));
   const changeQty = (id, delta) => setCart(c => c.map(i => i.id === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i));
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const tax = +(subtotal * 0.15).toFixed(2);
-  const total = +(subtotal + tax).toFixed(2);
+  // نفس حساب الكاشير والقاعدة (يحترم "السعر شامل الضريبة" لكل منتج)
+  const { subtotal, vat: tax, total } = cartTotals(cart);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -44,7 +48,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
         table_number: table.table_number,
         order_type: 'dine_in',
         status: 'pending',
-        items: cart,
+        items: cart.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty, quantity: i.qty, total: fromH(i.unit.gross * i.qty) })),
         subtotal,
         tax_amount: tax,
         total,
@@ -86,7 +90,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
                 <button key={p.id} onClick={() => addItem(p)}
                   className="text-right p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all">
                   <p className="text-sm font-bold truncate">{p.name_ar || p.name}</p>
-                  <p className="text-xs text-primary font-bold mt-1">{p.price?.toFixed(2)} ر.س</p>
+                  <p className="text-xs text-primary font-bold mt-1">{(unitParts(p).gross / 100).toFixed(2)} ⃁</p>
                 </button>
               ))}
             </div>
@@ -119,10 +123,10 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
               <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات الطلب..." rows={2}
                 className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 resize-none focus:outline-none focus:border-primary" />
               <div className="text-xs text-muted-foreground space-y-0.5">
-                <div className="flex justify-between"><span>المجموع</span><span>{subtotal.toFixed(2)} ر.س</span></div>
-                <div className="flex justify-between"><span>ضريبة 15%</span><span>{tax.toFixed(2)} ر.س</span></div>
+                <div className="flex justify-between"><span>المجموع</span><span>{subtotal.toFixed(2)} ⃁</span></div>
+                <div className="flex justify-between"><span>ضريبة 15%</span><span>{tax.toFixed(2)} ⃁</span></div>
                 <div className="flex justify-between font-black text-foreground text-sm pt-1 border-t border-border">
-                  <span>الإجمالي</span><span>{total.toFixed(2)} ر.س</span>
+                  <span>الإجمالي</span><span>{total.toFixed(2)} ⃁</span>
                 </div>
               </div>
               <button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || !cart.length}
@@ -152,13 +156,18 @@ function CheckoutModal({ table, order, onClose, onDone }) {
       const paid = payMethod === 'cash' ? +(+amountPaid).toFixed(2) : order.total;
       if (payMethod === 'cash' && paid < order.total) throw new Error('المبلغ المدفوع أقل من الإجمالي');
       // إغلاق الطلب
-      const { error: oe } = await supabase.from('orders').update({
+      // الإغلاق = إصدار الفاتورة (رقم تسلسلي من السيرفر)
+      const { data: closed, error: oe } = await supabase.from('orders').update({
         status: 'completed',
         payment_method: payMethod,
         amount_paid: paid,
         change_due: change,
-      }).eq('id', order.id);
+      }).eq('id', order.id).select('*').single();
       if (oe) throw oe;
+      // توقيع وإرسال للهيئة ثم طباعة الفاتورة بـ QR المرحلة الثانية
+      const ez = closed?.invoice_no ? await issueEinvoice('invoice', closed.id) : {};
+      const seller = await loadSeller(supabase).catch(() => ({}));
+      printOrderReceipt({ ...closed, order_type: 'dine_in', ...(ez.qr ? { zatca_qr: ez.qr } : {}) }, seller).catch(() => {});
       // إعادة الطاولة للمتاح
       const { error: te } = await supabase.from('tables_map').update({ status: 'available', current_order_id: null }).eq('id', table.id);
       if (te) throw te;
@@ -172,22 +181,15 @@ function CheckoutModal({ table, order, onClose, onDone }) {
     onError: (e) => toast.error(e.message || 'فشل الإغلاق'),
   });
 
-  const printReceipt = () => {
-    const win = window.open('', '_blank', 'width=400,height=600');
-    win.document.write(`<html dir="rtl"><head><title>فاتورة</title>
-    <style>body{font-family:monospace;padding:20px;text-align:center}
-    hr{border:1px dashed #000}.row{display:flex;justify-content:space-between;margin:4px 0}
-    .total{font-size:1.4em;font-weight:bold}</style></head><body>
-    <h2>فاتورة - طاولة #${table.table_number}</h2>
-    <p style="font-size:0.8em">${new Date().toLocaleString('ar-SA')}</p>
-    <hr/>
-    ${(order?.items || []).map(i => `<div class="row"><span>${i.name} × ${i.qty}</span><span>${(i.price * i.qty).toFixed(2)} ر.س</span></div>`).join('')}
-    <hr/>
-    <div class="row"><span>المجموع</span><span>${order?.subtotal?.toFixed(2)} ر.س</span></div>
-    <div class="row"><span>ضريبة 15%</span><span>${order?.tax_amount?.toFixed(2)} ر.س</span></div>
-    <div class="row total"><span>الإجمالي</span><span>${order?.total?.toFixed(2)} ر.س</span></div>
-    <hr/><p>شكراً لزيارتكم</p></body></html>`);
-    win.print();
+  const printReceipt = async () => {
+    const { data: st } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
+    await printOrderReceipt({
+      ...order,
+      doc_type: order?.invoice_no ? undefined : 'proforma',
+      order_number: order?.invoice_no || order?.order_number || `T${table.table_number}`,
+      order_type: 'dine_in',
+      items: (order?.items || []).map(i => ({ name: i.name, quantity: i.qty ?? i.quantity, price: i.price, total: i.total })),
+    }, { name: st?.business_name, vat_number: st?.vat_number, address: st?.address, phone: st?.phone, logo_url: st?.logo_url });
   };
 
   return (
@@ -207,18 +209,18 @@ function CheckoutModal({ table, order, onClose, onDone }) {
             {(order?.items || []).map((item, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span>{item.name} × {item.qty}</span>
-                <span>{(item.price * item.qty).toFixed(2)} ر.س</span>
+                <span>{(item.price * item.qty).toFixed(2)} ⃁</span>
               </div>
             ))}
             <div className="border-t border-border pt-2 mt-2 space-y-1">
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>المجموع</span><span>{order?.subtotal?.toFixed(2)} ر.س</span>
+                <span>المجموع</span><span>{order?.subtotal?.toFixed(2)} ⃁</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>ضريبة 15%</span><span>{order?.tax_amount?.toFixed(2)} ر.س</span>
+                <span>ضريبة 15%</span><span>{order?.tax_amount?.toFixed(2)} ⃁</span>
               </div>
               <div className="flex justify-between font-black text-lg text-primary">
-                <span>الإجمالي</span><span>{order?.total?.toFixed(2)} ر.س</span>
+                <span>الإجمالي</span><span>{order?.total?.toFixed(2)} ⃁</span>
               </div>
             </div>
           </div>
@@ -243,7 +245,7 @@ function CheckoutModal({ table, order, onClose, onDone }) {
                 className="w-full h-11 bg-background border border-border rounded-xl px-3 text-lg font-black text-center focus:outline-none focus:border-primary" />
               {+amountPaid > 0 && (
                 <div className="flex justify-between text-sm mt-2 font-bold">
-                  <span>الباقي</span><span className="text-green-600">{change.toFixed(2)} ر.س</span>
+                  <span>الباقي</span><span className="text-green-600">{change.toFixed(2)} ⃁</span>
                 </div>
               )}
             </div>
@@ -288,7 +290,7 @@ export default function Tables() {
   const { data: products = [] } = useQuery({
     queryKey: ['products-for-order'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('id,name,name_ar,price').eq('is_active', true).order('name_ar');
+      const { data, error } = await supabase.from('products').select('id,name,name_ar,base_price,tax_inclusive,tax_rate,vat_category,vat_exemption_code').eq('is_active', true).order('name_ar');
       if (error) return [];
       return data || [];
     },

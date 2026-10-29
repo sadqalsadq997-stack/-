@@ -7,9 +7,9 @@ import {
   X, Save, ToggleLeft, ToggleRight, ShieldCheck, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ROLE_LABELS } from '@/lib/permissions';
+import { ROLE_LABELS, ASSIGNABLE_ROLES } from '@/lib/permissions';
 
-const ROLES = ['admin','branch_manager','cashier','waiter','kitchen','employee','support_agent'];
+const ROLES = ASSIGNABLE_ROLES;
 
 // الصفحات المتاحة لمنح/سحب الصلاحيات
 const ALL_PAGES = [
@@ -36,13 +36,13 @@ const ALL_PAGES = [
 ];
 
 const ROLE_COLORS = {
-  admin:          'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-  branch_manager: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  admin:          'bg-peach-100 text-peach-700 dark:bg-peach-700 dark:text-peach-300',
+  branch_manager: 'bg-sage-100 text-sage-700 dark:bg-sage-900 dark:text-sage-300',
   cashier:        'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
   waiter:         'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
   kitchen:        'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
   employee:       'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  support_agent:  'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
+  support_agent:  'bg-sage-100 text-sage-700 dark:bg-sage-900 dark:text-sage-300',
 };
 
 // ── لوحة الصلاحيات المخصصة ────────────────────────────────
@@ -86,7 +86,7 @@ function PermissionsPanel({ perms, onChange }) {
 
 function EmployeeForm({ initial, onSave, onCancel, branches }) {
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', role: 'cashier', pin: '',
+    name: '', phone: '', email: '', role: 'cashier',
     salary: '', notes: '', branch_id: '', ...initial,
     pin: '', // لا نعرض الرمز المحفوظ — اتركه فارغاً للإبقاء عليه
     permissions: initial?.permissions || {},
@@ -120,7 +120,7 @@ function EmployeeForm({ initial, onSave, onCancel, branches }) {
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">الراتب (ر.س)</label>
+          <label className="text-xs text-muted-foreground mb-1 block">الراتب (⃁)</label>
           <input type="number" value={form.salary||''} onChange={e => set('salary', e.target.value)}
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
@@ -264,7 +264,7 @@ export default function Employees() {
                       <td className="px-4 py-3 text-muted-foreground text-xs">{branch?.name||'—'}</td>
                       <td className="px-4 py-3">
                         {customPerms > 0 ? (
-                          <span className="bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 text-xs px-2 py-0.5 rounded-full">
+                          <span className="bg-sage-50 text-sage-700 dark:bg-sage-900 dark:text-sage-300 text-xs px-2 py-0.5 rounded-full">
                             {customPerms} صلاحية مخصصة
                           </span>
                         ) : <span className="text-muted-foreground text-xs">—</span>}

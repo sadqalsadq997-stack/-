@@ -19,11 +19,11 @@ initSecurityLayer();
 setupPrivacyCleanup();
 injectPrivacyOverlay();
 
-// ضمان ظهور رمز الريال ﷼ (U+FDFC) في كل المتصفحات
-// نضع الرمز في DOM مخفي عشان المتصفح يحمّل الـ glyph من الفونت
+// تحميل خط رمز الريال الجديد ⃁ (U+20C1) مبكراً من سيرفرات الموقع
 const sarPreload = document.createElement('span');
-sarPreload.style.cssText = 'position:absolute;opacity:0;pointer-events:none;font-family:"Noto Sans Arabic","Cairo",sans-serif;';
-sarPreload.textContent = '\uFDFC';
+sarPreload.setAttribute('aria-hidden', 'true');
+sarPreload.style.cssText = 'position:absolute;opacity:0;pointer-events:none;font-family:"SaudiRiyal",sans-serif;';
+sarPreload.textContent = '\u20C1';
 document.body.appendChild(sarPreload);
 
 createRoot(document.getElementById('root')).render(<App />);

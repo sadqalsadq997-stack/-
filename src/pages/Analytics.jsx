@@ -64,7 +64,7 @@ export default function Analytics() {
     return { totalRevenue, totalTax, avgOrder, dailyChart, methodChart, topProducts };
   }, [orders]);
 
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-6">
@@ -87,8 +87,8 @@ export default function Analytics() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'إجمالي المبيعات', value: formatSAR(stats.totalRevenue), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-              { label: 'عدد الطلبات', value: orders.length, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
-              { label: 'متوسط الطلب', value: formatSAR(stats.avgOrder), icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: 'عدد الطلبات', value: orders.length, icon: ShoppingCart, color: 'text-sage-600', bg: 'bg-sage-50' },
+              { label: 'متوسط الطلب', value: formatSAR(stats.avgOrder), icon: BarChart3, color: 'text-peach-600', bg: 'bg-peach-50' },
               { label: 'إجمالي الضريبة', value: formatSAR(stats.totalTax), icon: ArrowUpRight, color: 'text-amber-600', bg: 'bg-amber-50' },
             ].map(s => (
               <div key={s.label} className="bg-card border border-border rounded-2xl p-4">

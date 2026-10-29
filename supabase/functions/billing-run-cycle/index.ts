@@ -67,7 +67,8 @@ serve(async (req) => {
       .from('tenant_subscriptions')
       .select('*, billing_plans(price_monthly, plan_code, name_ar)')
       .lte('current_period_end', new Date().toISOString())
-      .in('status', ['trialing', 'active', 'past_due']);
+      .in('status', ['trialing', 'active', 'past_due'])
+      .neq('billing_mode', 'prepaid'); // المدفوع مقدماً (شهر/6/12) لا يُخصم تلقائياً
 
     if (fetchErr) throw new Error(`فشل جلب الاشتراكات المستحقة: ${fetchErr.message}`);
 
@@ -76,7 +77,14 @@ serve(async (req) => {
     for (const sub of dueSubscriptions || []) {
       results.processed++;
       try {
-        if (!sub.moyasar_token) {
+        // المالك ألغى الاشتراك من الإعدادات ⇒ لا خصم، ينتهي بنهاية المدة
+        if (sub.cancel_at_period_end) {
+          await supabase.from('tenant_subscriptions').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', sub.id);
+          continue;
+        }
+        // التوكن مخزّن مشفّراً (AES-256) — يُفك هنا فقط داخل السيرفر
+        const { data: cardToken } = await supabase.rpc('billing_card_token', { p_subscription: sub.id });
+        if (!cardToken) {
           results.failed++;
           results.errors.push(`الاشتراك ${sub.id}: لا يوجد رمز بطاقة محفوظ`);
           continue;
@@ -92,7 +100,7 @@ serve(async (req) => {
             amount: Math.round(chargeAmount * 100),
             currency: 'SAR',
             description: `تجديد اشتراك ${sub.billing_plans?.name_ar || sub.billing_plans?.plan_code}`,
-            source: { type: 'token', token: sub.moyasar_token, '3ds': false }, // خصم تلقائي بدون حضور العميل (MIT)
+            source: { type: 'token', token: cardToken, '3ds': false }, // خصم تلقائي بدون حضور العميل (MIT)
             metadata: { tenant_id: sub.tenant_id, subscription_id: sub.id },
           }),
         });
@@ -171,7 +179,7 @@ serve(async (req) => {
         }
       } catch (innerErr) {
         results.failed++;
-        results.errors.push(`الاشتراك ${sub.id}: ${String(innerErr?.message || innerErr)}`);
+        results.errors.push(`الاشتراك ${sub.id}: ${String((innerErr as Error)?.message || innerErr)}`);
       }
     }
 
@@ -181,7 +189,7 @@ serve(async (req) => {
 
   } catch (err) {
     console.error('[billing-run-cycle]', err);
-    return new Response(JSON.stringify({ error: String(err?.message || err) }), {
+    return new Response(JSON.stringify({ error: String((err as Error)?.message || err) }), {
       status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }

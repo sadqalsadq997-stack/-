@@ -98,7 +98,7 @@ export default function Invoices() {
       )
     : [];
 
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-5">
@@ -215,7 +215,7 @@ export default function Invoices() {
                     <td className="p-3 font-mono text-xs font-bold">{zi.invoice_number}</td>
                     <td className="p-3">
                       <span className={`text-xs px-2 py-0.5 rounded-md ${
-                        zi.invoice_type === 'simplified' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
+                        zi.invoice_type === 'simplified' ? 'bg-sage-50 text-sage-700' : 'bg-peach-50 text-peach-700'
                       }`}>
                         {zi.invoice_type === 'simplified' ? 'مبسّطة' : 'معيارية'}
                       </span>

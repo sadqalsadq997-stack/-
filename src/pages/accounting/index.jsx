@@ -5,6 +5,8 @@ import { getTrialBalance, getIncomeStatement, getAgingReport, createVoucher, DEF
 import { AuditHelper } from '@/lib/audit';
 import { exportToExcel } from '@/lib/exportExcel';
 import { toast } from 'sonner';
+import { VatReturnTab, PurchasesTab } from './VatTabs';
+import { Landmark, ShoppingBag } from 'lucide-react';
 import {
   BookOpen, TrendingUp, BarChart3, FileText, Scale,
   DollarSign, AlertCircle, Plus, Download, RefreshCw,
@@ -12,7 +14,7 @@ import {
 } from 'lucide-react';
 
 const fmt    = n => Number(n||0).toLocaleString('ar-SA', { minimumFractionDigits: 2 });
-const fmtSAR = n => `${fmt(n)} ر.س`;
+const fmtSAR = n => `${fmt(n)} ⃁`;
 
 // ── تبويب دليل الحسابات ──────────────────────────────────────────
 function COATab() {
@@ -20,14 +22,14 @@ function COATab() {
     queryKey: ['coa'],
     queryFn: async () => {
       const { data } = await supabase.from('chart_of_accounts').select('*').order('code');
-      return data || DEFAULT_COA;
+      return data?.length ? data : DEFAULT_COA; // مصفوفة فاضية = منشأة جديدة → الدليل الافتراضي
     },
   });
 
   const TYPE_COLORS = {
-    asset:     'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+    asset:     'bg-sage-100 text-sage-700 dark:bg-sage-900 dark:text-sage-300',
     liability: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-    equity:    'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
+    equity:    'bg-peach-100 text-peach-700 dark:bg-peach-700 dark:text-peach-300',
     revenue:   'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
     expense:   'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
   };
@@ -123,7 +125,7 @@ function TrialBalanceTab() {
                   <tr key={a.code} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{a.code}</td>
                     <td className="px-4 py-2.5 font-medium text-foreground">{a.name}</td>
-                    <td className="px-4 py-2.5 text-blue-600">{a.debit > 0 ? fmtSAR(a.debit) : '—'}</td>
+                    <td className="px-4 py-2.5 text-sage-600">{a.debit > 0 ? fmtSAR(a.debit) : '—'}</td>
                     <td className="px-4 py-2.5 text-green-600">{a.credit > 0 ? fmtSAR(a.credit) : '—'}</td>
                     <td className={`px-4 py-2.5 font-bold ${a.balance > 0 ? 'text-green-600' : a.balance < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
                       {fmtSAR(Math.abs(a.balance))}
@@ -132,7 +134,7 @@ function TrialBalanceTab() {
                 ))}
                 <tr className="border-t-2 border-border bg-muted/20 font-bold">
                   <td className="px-4 py-3" colSpan={2}>الإجمالي</td>
-                  <td className="px-4 py-3 text-blue-600">{fmtSAR(data.totalDebit)}</td>
+                  <td className="px-4 py-3 text-sage-600">{fmtSAR(data.totalDebit)}</td>
                   <td className="px-4 py-3 text-green-600">{fmtSAR(data.totalCredit)}</td>
                   <td className={`px-4 py-3 ${Math.abs(data.totalDebit - data.totalCredit) < 0.01 ? 'text-green-600' : 'text-red-500'}`}>
                     {Math.abs(data.totalDebit - data.totalCredit) < 0.01 ? (
@@ -166,7 +168,7 @@ function IncomeStatementTab() {
   const rows = data ? [
     { label: 'إجمالي الإيرادات',        value: data.revenue,     color: 'text-green-600', bold: true },
     { label: 'تكلفة البضاعة المباعة',  value: -data.cogs,       color: 'text-red-500' },
-    { label: 'إجمالي الربح',            value: data.grossProfit, color: 'text-blue-600', bold: true, border: true },
+    { label: 'إجمالي الربح',            value: data.grossProfit, color: 'text-sage-600', bold: true, border: true },
     { label: 'المصروفات التشغيلية',     value: -data.expenses,   color: 'text-orange-500' },
     { label: 'صافي الربح',              value: data.netProfit,   color: data.netProfit >= 0 ? 'text-green-600' : 'text-red-500', bold: true, border: true },
   ] : [];
@@ -230,7 +232,7 @@ function VouchersTab() {
   const VOUCHER_TYPES = [
     { id: 'receipt', label: 'سند قبض',  color: 'text-green-600' },
     { id: 'payment', label: 'سند صرف',  color: 'text-red-500' },
-    { id: 'journal', label: 'سند قيد',  color: 'text-blue-600' },
+    { id: 'journal', label: 'سند قيد',  color: 'text-sage-600' },
   ];
 
   return (
@@ -245,7 +247,7 @@ function VouchersTab() {
       </div>
       <div className="space-y-3 bg-card border border-border rounded-2xl p-4">
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">المبلغ (ر.س)</label>
+          <label className="text-xs text-muted-foreground mb-1 block">المبلغ (⃁)</label>
           <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
@@ -273,6 +275,8 @@ export default function Accounting() {
     { id: 'trial',    label: 'ميزان المراجعة',   icon: Scale       },
     { id: 'income',   label: 'قائمة الدخل',      icon: TrendingUp  },
     { id: 'vouchers', label: 'السندات',           icon: FileText    },
+    { id: 'vat',      label: 'الإقرار الضريبي',   icon: Landmark    },
+    { id: 'purchases',label: 'فواتير المشتريات',  icon: ShoppingBag },
   ];
 
   return (
@@ -298,6 +302,8 @@ export default function Accounting() {
       {tab === 'trial'    && <TrialBalanceTab />}
       {tab === 'income'   && <IncomeStatementTab />}
       {tab === 'vouchers' && <VouchersTab />}
+      {tab === 'vat'      && <VatReturnTab />}
+      {tab === 'purchases'&& <PurchasesTab />}
     </div>
   );
 }

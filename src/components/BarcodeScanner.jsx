@@ -39,11 +39,16 @@ export default function BarcodeScanner({ onScan, disabled = false }) {
         return;
       }
 
+      // لوحة المفاتيح العربية تحوّل حروف الباركود لحروف عربية — نقرأ الزر الفعلي بدلها
+      const fromCode = /^Digit(\d)$/.exec(e.code)?.[1] ?? /^Numpad(\d)$/.exec(e.code)?.[1]
+        ?? /^Key([A-Z])$/.exec(e.code)?.[1] ?? (e.code === 'Minus' ? '-' : null);
+      const ch = e.key.length === 1 && /[\x20-\x7E]/.test(e.key) ? e.key : fromCode;
+
       // تجميع الأحرف القابلة للطباعة فقط
-      if (e.key.length === 1) {
+      if (ch) {
         // إذا كان الوقت بين الضغطات صغير جداً — قارئ ليزر
         if (bufferRef.current.length === 0 || timeSinceLast < 80) {
-          bufferRef.current += e.key;
+          bufferRef.current += ch;
           lastKeyTime.current = now;
           clearTimeout(timerRef.current);
           // تنظيف البفّر إذا لم يصل Enter خلال 500ms
@@ -53,7 +58,7 @@ export default function BarcodeScanner({ onScan, disabled = false }) {
           }, 500);
         } else {
           // كتابة يدوية عادية — أعد ضبط البفّر
-          bufferRef.current = e.key;
+          bufferRef.current = ch;
           lastKeyTime.current = now;
         }
       }

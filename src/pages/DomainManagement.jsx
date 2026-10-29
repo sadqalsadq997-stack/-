@@ -324,7 +324,7 @@ export default function DomainManagement() {
                         ? <span className="text-xs text-emerald-500 font-medium flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />متاح</span>
                         : <span className="text-xs text-red-500 font-medium flex items-center gap-1"><XCircle className="w-3 h-3" />غير متاح</span>
                       }
-                      <span className="text-xs text-muted-foreground">· {r.price} ر.س/سنة</span>
+                      <span className="text-xs text-muted-foreground">· {r.price} ⃁/سنة</span>
                     </div>
                   </div>
                   {r.available && (
@@ -369,7 +369,7 @@ export default function DomainManagement() {
               { type: 'CNAME', name: 'menu', value: APP_CNAME, ttl: '3600' },
             ].map((r, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl font-mono text-sm">
-                <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${r.type === 'A' ? 'bg-blue-500/10 text-blue-500' : 'bg-violet-500/10 text-violet-500'}`}>{r.type}</span>
+                <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${r.type === 'A' ? 'bg-sage-500/10 text-sage-500' : 'bg-peach-500/10 text-peach-500'}`}>{r.type}</span>
                 <span className="text-muted-foreground">{r.name}</span>
                 <ChevronRight className="w-3 h-3 text-muted-foreground" />
                 <span className="flex-1 text-foreground truncate" dir="ltr">{r.value}</span>
@@ -475,7 +475,7 @@ export default function DomainManagement() {
                     <tr key={i} className="border-t border-border/50 hover:bg-muted/20">
                       <td className="px-4 py-3">
                         <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold font-mono ${
-                          r.type === 'A' ? 'bg-blue-500/10 text-blue-500' : r.type === 'CNAME' ? 'bg-violet-500/10 text-violet-500' : 'bg-amber-500/10 text-amber-600'
+                          r.type === 'A' ? 'bg-sage-500/10 text-sage-500' : r.type === 'CNAME' ? 'bg-peach-500/10 text-peach-500' : 'bg-amber-500/10 text-amber-600'
                         }`}>{r.type}</span>
                       </td>
                       <td className="px-4 py-3 font-mono text-muted-foreground">{r.name}</td>

@@ -14,9 +14,9 @@ export default function AboutUs() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.from('system_settings').select('value').eq('key', 'about_us_content').maybeSingle()
+    supabase.rpc('public_site_setting', { p_key: 'about_us_content' })
       .then(({ data }) => {
-        setContent(data?.value || FALLBACK_CONTENT);
+        setContent(data || FALLBACK_CONTENT);
         setLoading(false);
       })
       .catch(() => { setContent(FALLBACK_CONTENT); setLoading(false); });

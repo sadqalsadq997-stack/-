@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Wallet, Loader2, Smartphone, AlertTriangle, Stamp, Star, Apple } from 'lucide-react';
+import { Wallet, Loader2, Smartphone, AlertTriangle, Apple } from 'lucide-react';
+import LoyaltyCardView from '@/components/loyalty/LoyaltyCardView';
 
 // ══════════════════════════════════════════════════════
 // صفحة QR العامة لبطاقة الولاء — /wallet/:token
@@ -65,58 +66,12 @@ export default function LoyaltyQR() {
     );
   }
 
-  const isStamps = pass.program_type === 'stamps';
-  const bg = pass.background_color || '#dc2626';
-  const fg = pass.text_color || '#ffffff';
-  const completed = isStamps && pass.stamps >= pass.stamps_required;
 
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col items-center justify-center p-4 gap-6">
       {/* بطاقة المعاينة */}
-      <div className="rounded-3xl p-6 shadow-2xl w-full max-w-sm" style={{ backgroundColor: bg, color: fg }}>
-        <div className="flex items-center justify-between mb-6">
-          {pass.logo_url ? (
-            <img src={pass.logo_url} alt="logo" className="w-12 h-12 rounded-xl object-contain bg-white/10 p-1" />
-          ) : (
-            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
-            </div>
-          )}
-          <span className="text-xs opacity-80">{pass.program_name}</span>
-        </div>
-
-        <p className="text-sm opacity-80 mb-1">عزيزي العميل</p>
-        <p className="text-2xl font-black mb-5">{pass.customer_name || 'عميل'}</p>
-
-        {isStamps ? (
-          <div>
-            <div className="grid grid-cols-5 gap-2 mb-3">
-              {Array.from({ length: pass.stamps_required || 10 }).map((_, i) => (
-                <div key={i}
-                  className="aspect-square rounded-xl flex items-center justify-center"
-                  style={{
-                    backgroundColor: i < pass.stamps ? fg : 'transparent',
-                    border: `1.5px ${i < pass.stamps ? 'solid' : 'dashed'} ${fg}`,
-                    opacity: i < pass.stamps ? 1 : 0.5,
-                  }}>
-                  <Stamp className="w-4 h-4" style={{ color: i < pass.stamps ? bg : fg }} />
-                </div>
-              ))}
-            </div>
-            <p className="text-sm opacity-90">{pass.stamps} من {pass.stamps_required} طابع</p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-4xl font-black">{pass.points}</p>
-            <p className="text-sm opacity-80 mt-1">نقطة</p>
-          </div>
-        )}
-
-        {completed && (
-          <div className="mt-4 bg-white/15 rounded-xl p-3 text-sm font-bold text-center">
-            {pass.completion_message || '🎉 تهانينا! اطلب مكافأتك الآن'}
-          </div>
-        )}
+      <div className="w-full max-w-sm">
+        <LoyaltyCardView design={pass} customerName={pass.customer_name || 'عميلنا العزيز'} stamps={pass.stamps} points={pass.points} businessName={pass.business_name} />
       </div>
 
       {/* أزرار الإضافة للمحفظة */}

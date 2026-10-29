@@ -9,7 +9,7 @@
 - دعم خطط: مبتدئ، احترافي، مؤسسي
 
 ### 2. 💬 الدعم الفني بالشات
-- شات مباشر مع ذكاء اصطناعي (Gemini)
+- شات مباشر مع ذكاء اصطناعي (Gemini عبر دالة ai-chat في السيرفر)
 - تذاكر دعم مرتبطة بـ Supabase Realtime
 - لوحة تحكم للمدير لعرض كل التذاكر والرد عليها
 - معلومات تواصل + ساعات العمل + حالة النظام
@@ -51,12 +51,13 @@ npm install
 
 ### الخطوة 3 — تعديل `.env`
 ```env
-VITE_SUPABASE_URL=https://xxxxx.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbG...
-VITE_GEMINI_API_KEY=AIzaSy...           # اختياري
-VITE_PAYMENT_SECRET=your-secret-key     # غيّره!
-VITE_APP_HOST=app.yoursite.com
+# تُقرأ في السيرفر فقط (وكيل /api/db) — بدون VITE_ عمداً
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJhbG...
+VITE_MOYASAR_PUBLISHABLE_KEY=pk_live_...
 ```
+> مفتاح Gemini وكل الأسرار مكانها **Supabase → Edge Functions → Secrets** فقط.
+> تفاصيل تحديث الحماية: `SECURITY_UPDATE_v21.md`.
 
 ### الخطوة 4 — نشر Edge Functions
 ```bash

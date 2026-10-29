@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowRight, Save, Loader2 } from 'lucide-react';
+import { ArrowRight, Save, Loader2, ImagePlus, X } from 'lucide-react';
+import { uploadImage } from '@/lib/images';
+import { VAT_CATEGORIES, VAT_EXEMPTIONS, vatCategoryOf } from '@/lib/vat';
 import { toast } from 'sonner';
 
 export default function ProductForm({ product, onClose }) {
@@ -21,12 +23,16 @@ export default function ProductForm({ product, onClose }) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const cat = vatCategoryOf(form);
+      if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
       const payload = {
         ...form,
         base_price: form.base_price ? Number(form.base_price) : null,
         cost_price: form.cost_price ? Number(form.cost_price) : null,
         min_stock_alert: Number(form.min_stock_alert),
-        tax_rate: Number(form.tax_rate),
+        vat_category: cat,
+        vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
+        tax_rate: cat === 'S' ? 15 : 0,
       };
       if (isEdit) { const { error } = await supabase.from('products').update(payload).eq('id', product.id); if (error) throw error; }
       else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; }
@@ -54,12 +60,12 @@ export default function ProductForm({ product, onClose }) {
             </div>
           ))}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">سعر البيع (ر.س)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">سعر البيع (⃁)</label>
             <input type="number" step="0.01" value={form.base_price||''} onChange={e => set('base_price', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">سعر التكلفة (ر.س)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">سعر التكلفة (⃁)</label>
             <input type="number" step="0.01" value={form.cost_price||''} onChange={e => set('cost_price', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
@@ -79,6 +85,10 @@ export default function ProductForm({ product, onClose }) {
             </select>
           </div>
         </div>
+
+        <ImagePicker value={form.image_url} onChange={(url) => set('image_url', url)} />
+
+        <VatPicker form={form} set={set} />
 
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -105,6 +115,65 @@ export default function ProductForm({ product, onClose }) {
           className="flex items-center gap-2 px-5 py-2.5 text-sm bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50">
           {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}حفظ
         </button>
+      </div>
+    </div>
+  );
+}
+
+// الضريبة: أغلب الأصناف 15%. الأدوية والتصدير صفرية، والخدمات المالية معفاة —
+// الرمز يطلع في الفاتورة الإلكترونية والإقرار (الهيئة تشترطه)
+function VatPicker({ form, set }) {
+  const cat = vatCategoryOf(form);
+  const codes = VAT_EXEMPTIONS[cat] || [];
+  return (
+    <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/30 p-4">
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">ضريبة القيمة المضافة</label>
+        <select value={cat}
+          onChange={e => { const c = e.target.value; set('vat_category', c); set('vat_exemption_code', c === 'S' ? null : (VAT_EXEMPTIONS[c]?.[0]?.code ?? null)); }}
+          className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
+          {VAT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+      </div>
+      {cat !== 'S' && (
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">السبب (رمز الهيئة)<span className="text-red-500">*</span></label>
+          <select value={form.vat_exemption_code || ''} onChange={e => set('vat_exemption_code', e.target.value)}
+            className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
+            {codes.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+          </select>
+        </div>
+      )}
+      {cat !== 'S' && <p className="col-span-2 text-[11px] leading-relaxed text-amber-700">تأكد إن الصنف فعلاً يستحق هذا الإعفاء — اختيار خاطئ يعرّض المنشأة لغرامات. المطاعم والمحلات العادية: كل أصنافها 15%.</p>}
+    </div>
+  );
+}
+
+// صورة المنتج: تُضغط في الجهاز (WebP ≤ 800px) قبل الرفع — توفّر المساحة وتسرّع المنيو
+function ImagePicker({ value, onChange }) {
+  const [busy, setBusy] = useState(false);
+  async function pick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try { onChange(await uploadImage(file, 'products')); toast.success('تم رفع الصورة'); }
+    catch (err) { toast.error(err.message || 'تعذر رفع الصورة'); }
+    setBusy(false);
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-border bg-muted/40">
+        {value ? <img src={value} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-3xl">🍽️</div>}
+        {busy && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>}
+      </div>
+      <div className="space-y-1.5">
+        <label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-border px-3 text-sm font-bold hover:bg-muted">
+          <ImagePlus className="h-4 w-4" /> {value ? 'تغيير الصورة' : 'إضافة صورة'}
+          <input type="file" accept="image/*" onChange={pick} className="hidden" disabled={busy} />
+        </label>
+        {value && <button type="button" onClick={() => onChange(null)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"><X className="h-3 w-3" />إزالة</button>}
+        <p className="text-[11px] text-muted-foreground">صورة واضحة للطبق تفتح النفس — تُضغط تلقائياً</p>
       </div>
     </div>
   );

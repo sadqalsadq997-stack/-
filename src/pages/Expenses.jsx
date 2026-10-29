@@ -20,7 +20,7 @@ function ExpenseForm({ initial, onSave, onCancel }) {
         <div className="col-span-2"><label className="text-xs text-muted-foreground mb-1 block">العنوان <span className="text-red-500">*</span></label>
           <input value={form.title} onChange={e => set('title', e.target.value)}
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" /></div>
-        <div><label className="text-xs text-muted-foreground mb-1 block">المبلغ (ر.س)</label>
+        <div><label className="text-xs text-muted-foreground mb-1 block">المبلغ (⃁)</label>
           <input type="number" value={form.amount} onChange={e => set('amount', e.target.value)}
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" /></div>
         <div><label className="text-xs text-muted-foreground mb-1 block">التصنيف</label>
@@ -92,7 +92,7 @@ export default function Expenses() {
 
   const filtered = expenses.filter(e => !search || e.title?.toLowerCase().includes(search.toLowerCase()) || e.category?.includes(search));
   const total = filtered.reduce((s, e) => s + (e.amount || 0), 0);
-  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ر.س`;
+  const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ⃁`;
 
   return (
     <div dir="rtl" className="space-y-5">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { PLANS } from '@/lib/pricingPlans';
-import { hmacSign, sha256, maskSensitive } from '@/lib/security/crypto';
+import { sha256, maskSensitive } from '@/lib/security/crypto';
+import { callFunction } from '@/lib/api';
 import {
   Users, Globe, BarChart3, DollarSign, Calendar,
   Shield, Bell, Search, RefreshCw, Loader2, CheckCircle2,
@@ -9,13 +9,15 @@ import {
   LogOut, FileText, Activity, Server, Database, Pencil, Trash2,
   Send, Plus, Settings, Tag, BadgeDollarSign, Megaphone,
   Wifi, WifiOff, AlertCircle, Newspaper, Bot, Check, X,
-  CreditCard, Sparkles, TrendingUp, Copy, UserCog
+  CreditCard, Sparkles, TrendingUp, Copy, UserCog, Landmark, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LogoMark } from '@/components/brand/Logo';
+import SubscribersTab from '@/components/owner/SubscribersTab';
+import BlogManager from '@/components/owner/BlogManager';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('ar-SA');
-const fmtSAR = (n) => `${fmt(n)} ر.س`;
+const fmtSAR = (n) => `${fmt(n)} ⃁`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('ar-SA') : '—';
 
 // ── اسم مساعد الدعم الذكي — قابل للتغيير من المدير ────────────
@@ -23,8 +25,6 @@ const DEFAULT_AI_NAME = 'فلسي مساعد';
 
 const SESSION_KEY  = '_sa_tok';
 const SESSION_MAX  = 4 * 60 * 60 * 1000;
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS   = 15 * 60 * 1000;
 
 // ── استدعاء دالة owner-admin-api — تتجاوز RLS بأمان فقط لجلسة صاحب
 // النظام الموثَّقة (لا تتأثر بعزل tenant_id الخاص بالعملاء العاديين) ──
@@ -34,11 +34,12 @@ async function callOwnerApi(action, payload) {
     const raw = JSON.parse(atob(sessionStorage.getItem(SESSION_KEY) || ''));
     ownerToken = raw?.token || '';
   } catch { /* لا توجد جلسة صالحة */ }
-  const { data, error } = await supabase.functions.invoke('owner-admin-api', {
-    body: { ownerToken, action, payload },
-  });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
+  const { data, error, status } = await callFunction('owner-admin-api', { ownerToken, action, payload });
+  if (status === 401) {
+    sessionStorage.removeItem(SESSION_KEY);
+    window.location.reload();
+  }
+  if (error) throw new Error(error);
   return data?.data;
 }
 
@@ -50,7 +51,7 @@ function StatCard({ icon: Icon, label, value, sub, color }) {
       </div>
       <p className="text-2xl font-black text-gray-900">{value}</p>
       <p className="text-sm text-gray-400 mt-0.5">{label}</p>
-      {sub && <p className="text-xs text-green-400 font-bold mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-green-700 font-bold mt-1">{sub}</p>}
     </div>
   );
 }
@@ -61,45 +62,24 @@ function OwnerLogin({ onLogin }) {
   const [show, setShow]     = useState(false);
   const [err, setErr]       = useState('');
   const [loading, setLoading] = useState(false);
-  const [lockedUntil, setLockedUntil] = useState(() => parseInt(localStorage.getItem('_sa_lock')||'0'));
-  const [attempts, setAttempts]       = useState(() => parseInt(sessionStorage.getItem('_sa_att')||'0'));
-  const [tick, setTick] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
 
-  useEffect(() => {
-    const t = setInterval(() => setTick(p => p+1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const remaining = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
-  const isLocked  = lockedUntil > Date.now();
-
+  // المحاولات تُحسب في السيرفر: 10 خاطئة لكل جهاز ثم قفل 30 دقيقة
   async function handleLogin() {
     if (isLocked || loading || !pin) return;
     setLoading(true); setErr('');
-    try {
-      const pinHash = await sha256(pin + ':felsy-owner');
-      const nonce   = Date.now().toString(36);
-      const sig     = await hmacSign(`${pinHash}:${nonce}`, pin);
-      const { data, error } = await supabase.functions.invoke('verify-owner-pin', { body: { hash: pinHash, nonce, sig } });
-      if (error || !data?.token) throw new Error('فشل');
+    const hash = await sha256(pin + ':felsy-owner');
+    const { data, error, status } = await callFunction('verify-owner-pin', { hash });
+    if (!error && data?.token) {
       sessionStorage.setItem(SESSION_KEY, btoa(JSON.stringify({ token: data.token, exp: Date.now() + SESSION_MAX })));
-      sessionStorage.removeItem('_sa_att');
-      localStorage.removeItem('_sa_lock');
-      onLogin();
-    } catch {
-      const na = attempts + 1;
-      setAttempts(na);
-      sessionStorage.setItem('_sa_att', na.toString());
-      if (na >= MAX_ATTEMPTS) {
-        const t = Date.now() + LOCKOUT_MS;
-        localStorage.setItem('_sa_lock', t.toString());
-        setLockedUntil(t);
-        setErr(`الحساب مقفول ${Math.ceil(LOCKOUT_MS/60000)} دقيقة`);
-      } else {
-        setErr(`رمز خاطئ — ${MAX_ATTEMPTS - na} محاولة متبقية`);
-      }
       setPin('');
+      setLoading(false);
+      onLogin();
+      return;
     }
+    if (status === 429) setIsLocked(true);
+    setErr(data?.code === 'invalid' ? `رمز خاطئ — باقي ${data.remaining} محاولة من هذا الجهاز` : (error || 'تعذر الدخول'));
+    setPin('');
     setLoading(false);
   }
 
@@ -114,8 +94,8 @@ function OwnerLogin({ onLogin }) {
         {isLocked ? (
           <div className="text-center py-6">
             <Lock className="w-10 h-10 text-red-500 mx-auto mb-3" />
-            <p className="text-red-400 font-bold">الحساب مقفول</p>
-            <p className="text-gray-400 text-sm mt-1">انتظر {remaining} ثانية</p>
+            <p className="text-red-700 font-bold">الحساب مقفول</p>
+            <p className="text-gray-400 text-sm mt-1">{err || 'حاول لاحقاً'}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -128,7 +108,7 @@ function OwnerLogin({ onLogin }) {
                 {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {err && <p className="text-red-400 text-sm text-center">{err}</p>}
+            {err && <p className="text-red-700 text-sm text-center">{err}</p>}
             <button onClick={handleLogin} disabled={loading || !pin}
               className="w-full h-12 bg-red-600 hover:bg-red-700 text-gray-900 rounded-xl font-black text-base transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
@@ -171,17 +151,17 @@ function OverviewTab({ stats, clients }) {
       {/* إحصاءات */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Users}       label="إجمالي العملاء"  value={fmt(stats.totalClients)}   color="bg-blue-900 text-blue-400" />
-          <StatCard icon={CheckCircle2}label="نشطون"           value={fmt(stats.activeClients)}  color="bg-green-900 text-green-400" />
-          <StatCard icon={DollarSign}  label="الإيرادات"       value={fmtSAR(stats.totalRevenue)}color="bg-amber-900 text-amber-400" />
-          <StatCard icon={MessageSquare} label="تذاكر مفتوحة"  value={fmt(stats.openTickets)}   color="bg-red-900 text-red-400" />
+          <StatCard icon={Users}       label="إجمالي العملاء"  value={fmt(stats.totalClients)}   color="bg-blue-100 text-blue-700" />
+          <StatCard icon={CheckCircle2}label="نشطون"           value={fmt(stats.activeClients)}  color="bg-green-100 text-green-700" />
+          <StatCard icon={DollarSign}  label="الإيرادات"       value={fmtSAR(stats.totalRevenue)}color="bg-amber-100 text-amber-700" />
+          <StatCard icon={MessageSquare} label="تذاكر مفتوحة"  value={fmt(stats.openTickets)}   color="bg-red-100 text-red-700" />
         </div>
       )}
 
       {/* مراقبة الفروع */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-gray-200 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-green-400" />
+          <Activity className="w-4 h-4 text-green-700" />
           <h3 className="font-bold text-gray-900 text-sm">مراقبة الفروع — حالة اليوم</h3>
         </div>
         {loadingB ? (
@@ -208,16 +188,16 @@ function OverviewTab({ stats, clients }) {
                   </div>
                   <div className="flex items-center gap-2">
                     {hasIssue ? (
-                      <span className="flex items-center gap-1 text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded-lg">
+                      <span className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg">
                         <AlertCircle className="w-3 h-3" /> خلل مكتشف
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs bg-green-900/50 text-green-300 px-2 py-1 rounded-lg">
+                      <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
                         <Wifi className="w-3 h-3" /> يعمل
                       </span>
                     )}
                     {owner && (
-                      <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded-lg">نشط</span>
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">نشط</span>
                     )}
                   </div>
                 </div>
@@ -237,23 +217,22 @@ function PricingTab() {
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    supabase.from('subscription_plans').select('*').order('sort_order')
-      .then(({ data }) => { setPlans(data||[]); setLoading(false); });
+    callOwnerApi('list_subscription_plans')
+      .then((data) => { setPlans(data||[]); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   async function savePlan(plan) {
-    const { id, ...rest } = plan;
-    if (id) { await supabase.from('subscription_plans').update(rest).eq('id', id); }
-    else     { await supabase.from('subscription_plans').insert(rest); }
-    const { data } = await supabase.from('subscription_plans').select('*').order('sort_order');
-    setPlans(data||[]);
+    try { await callOwnerApi('save_subscription_plan', plan); }
+    catch (e) { toast.error('فشل الحفظ: ' + e.message); return; }
+    setPlans(await callOwnerApi('list_subscription_plans') || []);
     setEditing(null);
     toast.success('تم حفظ الخطة');
   }
 
   async function deletePlan(id) {
     if (!confirm('حذف الخطة؟')) return;
-    await supabase.from('subscription_plans').delete().eq('id', id);
+    await callOwnerApi('delete_subscription_plan', { id });
     setPlans(p => p.filter(x => x.id !== id));
     toast.success('تم الحذف');
   }
@@ -287,7 +266,7 @@ function PricingTab() {
                   <button onClick={() => setEditing(p)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => deletePlan(p.id)} className="p-1.5 hover:bg-red-900/50 rounded-lg text-gray-500 hover:text-red-400">
+                  <button onClick={() => deletePlan(p.id)} className="p-1.5 hover:bg-red-100 rounded-lg text-gray-500 hover:text-red-700">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -295,18 +274,18 @@ function PricingTab() {
               <div className="flex gap-3">
                 <div className="flex-1 bg-white rounded-xl p-3 text-center">
                   <p className="text-xs text-gray-400">شهري</p>
-                  <p className="text-lg font-black text-amber-400">{fmtSAR(p.price_monthly)}</p>
+                  <p className="text-lg font-black text-amber-700">{fmtSAR(p.price_monthly)}</p>
                 </div>
                 <div className="flex-1 bg-white rounded-xl p-3 text-center">
                   <p className="text-xs text-gray-400">سنوي</p>
-                  <p className="text-lg font-black text-green-400">{fmtSAR(p.price_yearly)}</p>
+                  <p className="text-lg font-black text-green-700">{fmtSAR(p.price_yearly)}</p>
                 </div>
               </div>
               {p.features?.length > 0 && (
                 <ul className="space-y-1">
                   {p.features.slice(0,4).map((f,i) => (
                     <li key={i} className="flex items-center gap-2 text-xs text-gray-500">
-                      <Check className="w-3 h-3 text-green-400 flex-shrink-0" />{f}
+                      <Check className="w-3 h-3 text-green-700 flex-shrink-0" />{f}
                     </li>
                   ))}
                 </ul>
@@ -334,7 +313,7 @@ function PlanForm({ plan, onSave, onCancel }) {
         ))}
         {[['price_monthly','السعر الشهري'],['price_yearly','السعر السنوي']].map(([k,l]) => (
           <div key={k}>
-            <label className="text-xs text-gray-500 mb-1 block">{l} (ر.س)</label>
+            <label className="text-xs text-gray-500 mb-1 block">{l} (⃁)</label>
             <input type="number" value={form[k]||0} onChange={e => set(k, Number(e.target.value))}
               className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
           </div>
@@ -378,8 +357,7 @@ function BroadcastTab({ clients }) {
         sent_at: new Date().toISOString(),
         type: 'broadcast',
       }));
-      const { error } = await supabase.from('owner_notifications').insert(msgs);
-      if (error) throw error;
+      await callOwnerApi('send_owner_notifications', { messages: msgs });
       setSent(msgs);
       toast.success(`تم الإرسال لـ ${msgs.length} مالك`);
       setSubject(''); setBody('');
@@ -393,7 +371,7 @@ function BroadcastTab({ clients }) {
     <div className="space-y-5">
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
         <h3 className="font-bold text-gray-900 flex items-center gap-2">
-          <Megaphone className="w-4 h-4 text-amber-400" /> إرسال رسالة جماعية
+          <Megaphone className="w-4 h-4 text-amber-700" /> إرسال رسالة جماعية
         </h3>
         {/* اختيار المستهدفين */}
         <div className="flex gap-2">
@@ -420,8 +398,8 @@ function BroadcastTab({ clients }) {
         </div>
       </div>
       {sent.length > 0 && (
-        <div className="bg-green-900/20 border border-green-800/50 rounded-2xl p-4">
-          <p className="text-green-400 text-sm font-bold flex items-center gap-2">
+        <div className="bg-green-100 border border-green-800/50 rounded-2xl p-4">
+          <p className="text-green-700 text-sm font-bold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" /> تم الإرسال لـ {sent.length} مالك بنجاح
           </p>
         </div>
@@ -431,204 +409,6 @@ function BroadcastTab({ clients }) {
 }
 
 // ── ٤. المدونة والأخبار مع SEO ───────────────────────────────
-function BlogTab() {
-  const [posts, setPosts]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase.from('blog_posts').select('*').order('published_at', { ascending: false });
-    setPosts(data||[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function savePost(post) {
-    const { id, ...rest } = post;
-    // توليد slug تلقائي من العنوان
-    if (!rest.slug) {
-      rest.slug = rest.title.toLowerCase().replace(/\s+/g,'-').replace(/[^\w-]/g,'').slice(0,80);
-    }
-    if (id) { await supabase.from('blog_posts').update(rest).eq('id', id); }
-    else     { await supabase.from('blog_posts').insert({ ...rest, published_at: new Date().toISOString() }); }
-    await load();
-    setEditing(null);
-    toast.success('تم حفظ المقالة');
-  }
-
-  async function deletePost(id) {
-    if (!confirm('حذف المقالة؟')) return;
-    await supabase.from('blog_posts').delete().eq('id', id);
-    await load();
-  }
-
-  async function togglePublish(p) {
-    await supabase.from('blog_posts').update({ published: !p.published }).eq('id', p.id);
-    await load();
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-gray-900 flex items-center gap-2">
-          <Newspaper className="w-4 h-4 text-blue-400" /> المدونة والأخبار
-        </h3>
-        <button onClick={() => setEditing({ title:'', content:'', excerpt:'', slug:'', category:'news', seo_title:'', seo_description:'', published:false })}
-          className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-gray-900 rounded-xl text-sm">
-          <Plus className="w-4 h-4" /> مقالة جديدة
-        </button>
-      </div>
-
-      {editing && (
-        <BlogForm post={editing} onSave={savePost} onCancel={() => setEditing(null)} />
-      )}
-
-      {loading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
-      ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">لا توجد مقالات — أنشئ أول مقالة</div>
-      ) : (
-        <div className="space-y-3">
-          {posts.map(p => (
-            <div key={p.id} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    p.category==='news' ? 'bg-blue-900/50 text-blue-300' : 'bg-violet-900/50 text-violet-300'
-                  }`}>{p.category==='news'?'خبر':'مقالة'}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${p.published ? 'bg-green-900/50 text-green-300' : 'bg-gray-50 text-gray-400'}`}>
-                    {p.published ? 'منشور' : 'مسودة'}
-                  </span>
-                  {p.slug && <span className="text-xs text-gray-500 font-mono">/{p.slug}</span>}
-                </div>
-                <h4 className="font-bold text-gray-900 text-sm">{p.title}</h4>
-                {p.excerpt && <p className="text-xs text-gray-400 line-clamp-2">{p.excerpt}</p>}
-                <p className="text-xs text-gray-500">{fmtDate(p.published_at)}</p>
-                {/* SEO */}
-                {p.seo_title && (
-                  <div className="mt-2 bg-gray-50 rounded-xl p-2.5 space-y-0.5">
-                    <p className="text-xs text-blue-400 font-medium">SEO: {p.seo_title}</p>
-                    <p className="text-xs text-gray-400 line-clamp-1">{p.seo_description}</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => setEditing(p)} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => togglePublish(p)} className={`p-1.5 rounded-lg ${p.published?'text-green-400 hover:bg-green-900/20':'text-gray-400 hover:bg-gray-50'}`}>
-                  {p.published ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                </button>
-                <button onClick={() => deletePost(p.id)} className="p-1.5 hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-400">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BlogForm({ post, onSave, onCancel }) {
-  const [form, setForm] = useState({ ...post });
-  const set = (k,v) => setForm(f => ({ ...f, [k]: v }));
-  const [tab, setTab] = useState('content'); // content | seo
-
-  return (
-    <div className="bg-gray-50 border border-gray-300 rounded-2xl p-5 space-y-4">
-      <div className="flex gap-1 bg-white p-1 rounded-xl">
-        {[['content','المحتوى'],['seo','SEO']].map(([id,label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              tab===id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-700'
-            }`}>{label}</button>
-        ))}
-      </div>
-
-      {tab === 'content' && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">العنوان <span className="text-red-500">*</span></label>
-              <input value={form.title||''} onChange={e => set('title',e.target.value)}
-                className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">التصنيف</label>
-              <select value={form.category||'news'} onChange={e => set('category',e.target.value)}
-                className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500">
-                <option value="news">خبر</option>
-                <option value="article">مقالة</option>
-                <option value="update">تحديث</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">ملخص قصير</label>
-            <textarea value={form.excerpt||''} onChange={e => set('excerpt',e.target.value)} rows={2}
-              className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-red-500 resize-none" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">المحتوى الكامل</label>
-            <textarea value={form.content||''} onChange={e => set('content',e.target.value)} rows={8}
-              className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-red-500 resize-none font-mono" />
-          </div>
-        </div>
-      )}
-
-      {tab === 'seo' && (
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Slug (رابط المقالة)</label>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 text-sm">/blog/</span>
-              <input value={form.slug||''} onChange={e => set('slug',e.target.value.toLowerCase().replace(/\s+/g,'-'))}
-                placeholder="my-article-title"
-                className="flex-1 h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500 font-mono" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">عنوان SEO (meta title) — أقل من 60 حرف</label>
-            <input value={form.seo_title||''} onChange={e => set('seo_title',e.target.value.slice(0,60))}
-              className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
-            <p className="text-xs text-gray-500 mt-1">{(form.seo_title||'').length}/60 حرف</p>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">وصف SEO (meta description) — أقل من 160 حرف</label>
-            <textarea value={form.seo_description||''} onChange={e => set('seo_description',e.target.value.slice(0,160))} rows={3}
-              className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-red-500 resize-none" />
-            <p className="text-xs text-gray-500 mt-1">{(form.seo_description||'').length}/160 حرف</p>
-          </div>
-          {/* معاينة Google */}
-          {(form.seo_title||form.title) && (
-            <div className="bg-white rounded-xl p-3 space-y-1">
-              <p className="text-xs text-gray-400 mb-2">معاينة Google</p>
-              <p className="text-blue-400 text-sm">felsy.sa › blog › {form.slug||'slug'}</p>
-              <p className="text-gray-900 text-sm font-medium">{form.seo_title||form.title}</p>
-              <p className="text-gray-500 text-xs line-clamp-2">{form.seo_description||form.excerpt||'وصف المقالة...'}</p>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="pub" checked={form.published||false} onChange={e => set('published',e.target.checked)} />
-            <label htmlFor="pub" className="text-sm text-gray-700">نشر مباشرة</label>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900">إلغاء</button>
-        <button onClick={() => { if (!form.title) return toast.error('العنوان مطلوب'); onSave(form); }}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-gray-900 rounded-xl text-sm">حفظ</button>
-      </div>
-    </div>
-  );
-}
-
-// ── ٥. إعدادات مساعد الذكاء الاصطناعي ───────────────────────
 function AISettingsTab() {
   const [name, setName]       = useState('');
   const [persona, setPersona] = useState('');
@@ -636,10 +416,10 @@ function AISettingsTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('system_settings').select('value').eq('key','ai_assistant').maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) {
-          const v = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    callOwnerApi('get_setting', { key: 'ai_assistant' }).catch(() => null)
+      .then((value) => {
+        if (value) {
+          const v = typeof value === 'string' ? JSON.parse(value) : value;
           setName(v.name || DEFAULT_AI_NAME);
           setPersona(v.persona || '');
         } else {
@@ -650,11 +430,8 @@ function AISettingsTab() {
   }, []);
 
   async function save() {
-    const { error } = await supabase.from('system_settings').upsert({
-      key: 'ai_assistant',
-      value: JSON.stringify({ name, persona }),
-    }, { onConflict: 'key' });
-    if (error) { toast.error('فشل الحفظ'); return; }
+    try { await callOwnerApi('save_ai_settings', { name, persona }); }
+    catch { toast.error('فشل الحفظ'); return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
     toast.success('تم حفظ إعدادات المساعد');
@@ -666,7 +443,7 @@ function AISettingsTab() {
     <div className="max-w-xl space-y-4">
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
         <h3 className="font-bold text-gray-900 flex items-center gap-2">
-          <Bot className="w-4 h-4 text-violet-400" /> إعدادات مساعد الدعم الذكي
+          <Bot className="w-4 h-4 text-violet-700" /> إعدادات مساعد الدعم الذكي
         </h3>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">اسم المساعد</label>
@@ -694,7 +471,7 @@ function AISettingsTab() {
 // اللوحة الرئيسية
 // ── ٩. الفوترة الدورية الحقيقية (Moyasar) — خطط مرنة + عروض زمنية ──
 function NewPlanVersionForm({ planCode, onSaved, onCancel }) {
-  const [form, setForm] = useState({ plan_code: planCode || '', name_ar: '', price_monthly: 0, features: '' });
+  const [form, setForm] = useState({ plan_code: planCode || '', name_ar: '', price_monthly: 0, features: '', included_branches: '', extra_branch_price: '' });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -704,24 +481,15 @@ function NewPlanVersionForm({ planCode, onSaved, onCancel }) {
     }
     setSaving(true);
     try {
-      // جلب أعلى نسخة حالية لنفس الخطة لتحديد النسخة التالية
-      const { data: existing } = await supabase.from('billing_plans')
-        .select('version').eq('plan_code', form.plan_code).order('version', { ascending: false }).limit(1);
-      const nextVersion = (existing?.[0]?.version || 0) + 1;
-
-      // تعطيل النسخة القديمة (لا حذف، فقط is_active = false) — العقود
-      // القائمة تستمر بالعمل لأنها مرتبطة بـ billing_plan_id ثابت
-      await supabase.from('billing_plans').update({ is_active: false }).eq('plan_code', form.plan_code);
-
-      const { error } = await supabase.from('billing_plans').insert({
+      // نسخة سعر جديدة (السيرفر يعطّل القديمة بدون حذف — المشتركون الحاليون لا يتأثرون)
+      const { version: nextVersion } = await callOwnerApi('publish_billing_plan', {
         plan_code: form.plan_code,
-        version: nextVersion,
         name_ar: form.name_ar,
         price_monthly: Number(form.price_monthly),
         features: form.features.split('\n').filter(Boolean),
-        is_active: true,
+        ...(form.included_branches !== '' ? { included_branches: Number(form.included_branches) } : {}),
+        ...(form.extra_branch_price !== '' ? { extra_branch_price: Number(form.extra_branch_price) } : {}),
       });
-      if (error) throw error;
       toast.success(`تم نشر السعر الجديد كنسخة #${nextVersion} — المشتركون الحاليون لن يتأثروا`);
       onSaved?.();
     } catch (err) {
@@ -732,7 +500,7 @@ function NewPlanVersionForm({ planCode, onSaved, onCancel }) {
 
   return (
     <div className="bg-gray-50 border border-gray-300 rounded-2xl p-5 space-y-3">
-      <p className="text-xs text-amber-400 bg-amber-950/40 border border-amber-900/50 rounded-xl p-2.5">
+      <p className="text-xs text-amber-700 bg-amber-950/40 border border-amber-900/50 rounded-xl p-2.5">
         تغيير السعر هنا ينشر نسخة جديدة فقط — لن يؤثر على المشتركين الحاليين بأي شكل، وسيُطبَّق فقط على المشتركين الجدد من الآن فصاعداً.
       </p>
       <div className="grid grid-cols-2 gap-3">
@@ -748,8 +516,18 @@ function NewPlanVersionForm({ planCode, onSaved, onCancel }) {
             className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">السعر الشهري الجديد (ر.س)</label>
+          <label className="text-xs text-gray-500 mb-1 block">السعر الشهري الجديد (⃁)</label>
           <input type="number" value={form.price_monthly} onChange={e => set('price_monthly', e.target.value)}
+            className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">فروع مشمولة (999 = غير محدود) — فارغ = بدون تغيير</label>
+          <input type="number" min={1} value={form.included_branches} onChange={e => set('included_branches', e.target.value)}
+            className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">سعر الفرع الإضافي شهرياً — فارغ = بدون تغيير</label>
+          <input type="number" min={0} value={form.extra_branch_price} onChange={e => set('extra_branch_price', e.target.value)}
             className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
         </div>
       </div>
@@ -781,7 +559,7 @@ function NewPromotionForm({ onSaved, onCancel }) {
   async function save() {
     setSaving(true);
     try {
-      const { error } = await supabase.from('billing_promotions').insert({
+      await callOwnerApi('create_billing_promotion', {
         code: form.code.trim() || null,
         name_ar: form.name_ar,
         plan_code: form.plan_code,
@@ -792,7 +570,6 @@ function NewPromotionForm({ onSaved, onCancel }) {
         valid_until: form.valid_until || null,
         is_active: true,
       });
-      if (error) throw error;
       toast.success('تم تفعيل العرض الترويجي');
       onSaved?.();
     } catch (err) {
@@ -822,7 +599,7 @@ function NewPromotionForm({ onSaved, onCancel }) {
             className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">سعر فترة العرض (ر.س)</label>
+          <label className="text-xs text-gray-500 mb-1 block">سعر فترة العرض (⃁)</label>
           <input type="number" step="0.01" value={form.trial_price} onChange={e => set('trial_price', e.target.value)}
             className="w-full h-9 bg-white border border-gray-300 rounded-xl px-3 text-gray-900 text-sm focus:outline-none focus:border-red-500" />
         </div>
@@ -877,8 +654,8 @@ function BillingTab() {
   async function loadAll() {
     setLoading(true);
     const [{ data: plans }, { data: promos }, subs, invs] = await Promise.all([
-      supabase.from('billing_plans').select('*').order('plan_code').order('version', { ascending: false }),
-      supabase.from('billing_promotions').select('*').order('created_at', { ascending: false }),
+      callOwnerApi('list_billing_plans').then(data => ({ data })).catch(() => ({ data: [] })),
+      callOwnerApi('list_billing_promotions').then(data => ({ data })).catch(() => ({ data: [] })),
       callOwnerApi('list_tenant_subscriptions').catch(() => []),
       callOwnerApi('list_billing_invoices').catch(() => []),
     ]);
@@ -904,8 +681,8 @@ function BillingTab() {
 
   const statusLabel = { trialing: 'بفترة العرض', active: 'فعّال', past_due: 'متأخر بالدفع', suspended: 'معلّق', cancelled: 'ملغي' };
   const statusColor = {
-    trialing: 'bg-blue-950 text-blue-300', active: 'bg-emerald-950 text-emerald-300',
-    past_due: 'bg-amber-950 text-amber-300', suspended: 'bg-red-950 text-red-300', cancelled: 'bg-gray-50 text-gray-500',
+    trialing: 'bg-blue-950 text-blue-700', active: 'bg-emerald-950 text-emerald-700',
+    past_due: 'bg-amber-950 text-amber-700', suspended: 'bg-red-950 text-red-700', cancelled: 'bg-gray-50 text-gray-500',
   };
 
   return (
@@ -913,7 +690,7 @@ function BillingTab() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-gray-50 border border-gray-300 rounded-2xl p-4">
           <p className="text-xs text-gray-400 mb-1">إيراد شهري متكرر متوقع (MRR)</p>
-          <p className="text-xl font-black text-emerald-400">{fmtSAR(totalMRR)}</p>
+          <p className="text-xl font-black text-emerald-700">{fmtSAR(totalMRR)}</p>
         </div>
         <div className="bg-gray-50 border border-gray-300 rounded-2xl p-4">
           <p className="text-xs text-gray-400 mb-1">اشتراكات نشطة</p>
@@ -921,7 +698,7 @@ function BillingTab() {
         </div>
         <div className="bg-gray-50 border border-gray-300 rounded-2xl p-4">
           <p className="text-xs text-gray-400 mb-1">متأخرة/معلّقة</p>
-          <p className="text-xl font-black text-amber-400">{subscriptions.filter(s => ['past_due','suspended'].includes(s.status)).length}</p>
+          <p className="text-xl font-black text-amber-700">{subscriptions.filter(s => ['past_due','suspended'].includes(s.status)).length}</p>
         </div>
       </div>
 
@@ -959,7 +736,7 @@ function BillingTab() {
                   <h4 className="font-bold text-gray-900">{p.name_ar}</h4>
                   <span className="text-[10px] text-gray-400">نسخة #{p.version}</span>
                 </div>
-                <p className="text-2xl font-black text-amber-400 mb-1">{fmtSAR(p.price_monthly)}<span className="text-xs text-gray-400"> / شهر</span></p>
+                <p className="text-2xl font-black text-amber-700 mb-1">{fmtSAR(p.price_monthly)}<span className="text-xs text-gray-400"> / شهر</span></p>
                 <p className="text-[11px] text-gray-400 font-mono">{p.plan_code}</p>
               </div>
             ))}
@@ -993,13 +770,13 @@ function BillingTab() {
             ) : promotions.map(p => (
               <div key={p.id} className="bg-gray-50 border border-gray-300 rounded-2xl p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-gray-900 text-sm">{p.name_ar} {p.code && <span className="font-mono text-amber-400 text-xs">({p.code})</span>}</p>
+                  <p className="font-bold text-gray-900 text-sm">{p.name_ar} {p.code && <span className="font-mono text-amber-700 text-xs">({p.code})</span>}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {p.plan_code} — {fmtSAR(p.trial_price)} لأول {p.trial_period_count} {p.trial_period_unit === 'day' ? 'يوم' : 'شهر'}
                     {p.max_redemptions ? ` — ${p.redemptions_count}/${p.max_redemptions} مستخدَم` : ` — ${p.redemptions_count} مستخدَم`}
                   </p>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${p.is_active ? 'bg-emerald-950 text-emerald-300' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`text-xs px-2 py-1 rounded-full ${p.is_active ? 'bg-emerald-950 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                   {p.is_active ? 'فعّال' : 'متوقف'}
                 </span>
               </div>
@@ -1029,7 +806,7 @@ function BillingTab() {
                         {statusLabel[s.status] || s.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-amber-400 font-bold">{fmtSAR(s.next_charge_amount)}</td>
+                    <td className="px-4 py-3 text-amber-700 font-bold">{fmtSAR(s.next_charge_amount)}</td>
                     <td className="px-4 py-3 text-gray-500">{fmtDate(s.current_period_end)}</td>
                     <td className="px-4 py-3 text-gray-500">{s.failed_attempts || 0}</td>
                     <td className="px-4 py-3">
@@ -1072,7 +849,6 @@ export default function SuperAdmin() {
   const [tickets, setTickets] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch]   = useState('');
   const [tab, setTab]         = useState('overview');
 
   useEffect(() => {
@@ -1104,6 +880,7 @@ export default function SuperAdmin() {
   }
 
   function logout() {
+    callOwnerApi('logout').catch(() => {});
     sessionStorage.removeItem(SESSION_KEY);
     setAuthed(false);
     toast('تم تسجيل الخروج');
@@ -1113,7 +890,8 @@ export default function SuperAdmin() {
 
   const TABS = [
     { id: 'overview',  label: 'نظرة عامة',    icon: BarChart3    },
-    { id: 'clients',   label: 'العملاء',       icon: Users        },
+    { id: 'clients',   label: 'المشتركين',     icon: Users        },
+    { id: 'orders',    label: 'طلبات الاشتراك', icon: Landmark     },
     { id: 'tickets',   label: 'التذاكر',       icon: MessageSquare},
     { id: 'pricing',   label: 'أسعار الخطط',   icon: BadgeDollarSign },
     { id: 'billing',   label: 'الفوترة الدورية', icon: CreditCard },
@@ -1123,12 +901,8 @@ export default function SuperAdmin() {
     { id: 'team',      label: 'الفريق والمحتوى', icon: UserCog     },
   ];
 
-  const filtered = clients.filter(c =>
-    !search || c.client_name?.toLowerCase().includes(search.toLowerCase()) || c.client_id?.includes(search)
-  );
-
   return (
-    <div dir="rtl" className="min-h-screen bg-gray-100 text-gray-100 p-6">
+    <div dir="rtl" className="min-h-screen bg-gray-100 p-3 text-gray-900 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* رأس */}
         <div className="flex items-center justify-between">
@@ -1162,48 +936,14 @@ export default function SuperAdmin() {
         ) : (
           <>
             {tab === 'overview'  && <OverviewTab stats={stats} clients={clients} />}
+            {tab === 'orders'    && <OrdersTab />}
             {tab === 'pricing'   && <PricingTab />}
             {tab === 'billing'   && <BillingTab />}
             {tab === 'broadcast' && <BroadcastTab clients={clients} />}
-            {tab === 'blog'      && <BlogTab />}
+            {tab === 'blog'      && <BlogManager api={callOwnerApi} />}
             {tab === 'ai'        && <AISettingsTab />}
 
-            {tab === 'clients' && (
-              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-                  <div className="relative flex-1 max-w-xs">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث..."
-                      className="w-full h-9 bg-gray-50 border border-gray-300 rounded-xl pr-9 pl-3 text-sm text-gray-900 focus:outline-none focus:border-gray-500" />
-                  </div>
-                  <button onClick={loadAll} className="p-2 hover:bg-gray-50 rounded-xl">
-                    <RefreshCw className="w-4 h-4 text-gray-500" />
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-gray-200 text-gray-400">
-                      {['العميل','الخطة','الحالة','المبلغ','الانتهاء'].map(h => (
-                        <th key={h} className="text-right px-4 py-3 font-medium">{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>{filtered.map(c => (
-                      <tr key={c.id} className="border-b border-gray-200/50 hover:bg-gray-50/30">
-                        <td className="px-4 py-3 font-medium text-gray-900">{c.client_name||maskSensitive(c.client_id||'',6)}</td>
-                        <td className="px-4 py-3"><span className="bg-violet-900/50 text-violet-300 text-xs px-2 py-0.5 rounded-full">{c.plan}</span></td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${c.status==='active'?'bg-green-900/50 text-green-300':'bg-gray-50 text-gray-500'}`}>
-                            {c.status==='active'?'نشط':'منتهي'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-bold text-amber-400">{fmtSAR(c.amount_paid)}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(c.expires_at)}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
 
             {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
             {tab === 'team' && <TeamAndContentTab />}
@@ -1215,6 +955,136 @@ export default function SuperAdmin() {
 }
 
 // ── تبويب الدعم الفني — شات كامل بين صاحب النظام والعملاء ──────
+// ── طلبات الاشتراك + اعتماد التحويلات البنكية ──────────────────────
+const ORDER_STATUS = {
+  pending_review:   { label: 'بانتظار المراجعة', cls: 'bg-amber-100 text-amber-800' },
+  awaiting_payment: { label: 'بانتظار الدفع',    cls: 'bg-gray-100 text-gray-600' },
+  paid:             { label: 'مدفوع ومفعّل',      cls: 'bg-green-100 text-green-800' },
+  rejected:         { label: 'مرفوض',            cls: 'bg-red-100 text-red-700' },
+  cancelled:        { label: 'ملغي',             cls: 'bg-gray-100 text-gray-400' },
+};
+
+function OrdersTab() {
+  const [status, setStatus] = useState('pending_review');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [rejecting, setRejecting] = useState(null);
+  const [reason, setReason] = useState('');
+  const [terms, setTerms] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setOrders(await callOwnerApi('list_billing_orders', { status }) || []); } catch (e) { toast.error(e.message); }
+    setLoading(false);
+  }, [status]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { callOwnerApi('list_billing_terms').then(t => setTerms(t || [])).catch(() => {}); }, []);
+
+  async function openReceipt(o) {
+    try { const url = await callOwnerApi('receipt_url', { id: o.id }); window.open(url, '_blank', 'noopener'); }
+    catch (e) { toast.error(e.message); }
+  }
+  async function approve(o) {
+    if (!confirm(`تأكيد استلام ${fmtSAR(o.amount)} وتفعيل اشتراك "${o.tenants?.name || ''}"؟`)) return;
+    setBusyId(o.id);
+    try { await callOwnerApi('approve_order', { id: o.id }); toast.success('تم تفعيل الاشتراك'); await load(); }
+    catch (e) { toast.error(e.message); }
+    setBusyId(null);
+  }
+  async function reject(o) {
+    setBusyId(o.id);
+    try { await callOwnerApi('reject_order', { id: o.id, note: reason }); toast.success('تم رفض الإيصال وإبلاغ العميل في صفحته'); setRejecting(null); setReason(''); await load(); }
+    catch (e) { toast.error(e.message); }
+    setBusyId(null);
+  }
+  async function saveTerm(t, discount) {
+    try { await callOwnerApi('save_billing_term', { ...t, discount_pct: Number(discount) }); toast.success('تم الحفظ'); setTerms(await callOwnerApi('list_billing_terms') || []); }
+    catch (e) { toast.error(e.message); }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(ORDER_STATUS).map(([k, v]) => (
+          <button key={k} onClick={() => setStatus(k)}
+            className={`h-9 px-4 rounded-xl text-sm font-bold ${status === k ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>{v.label}</button>
+        ))}
+      </div>
+
+      {loading ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> : (
+        <div className="space-y-3">
+          {orders.length === 0 && <p className="text-center text-gray-400 py-10">لا توجد طلبات</p>}
+          {orders.map(o => (
+            <div key={o.id} className="bg-white border border-gray-200 rounded-2xl p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-gray-900">{o.tenants?.name || '—'} <span className="text-xs font-mono text-gray-400" dir="ltr">{o.order_number}</span></p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {o.quote?.plan_name} · {o.quote?.unlimited_branches ? 'فروع غير محدودة' : `${o.branches} فرع`} · {o.months} شهر · {o.method === 'transfer' ? 'تحويل بنكي' : o.method === 'card' ? 'بطاقة' : '—'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1" dir="ltr">{o.tenants?.contact_phone || ''} {o.tenants?.contact_email ? `· ${o.tenants.contact_email}` : ''}</p>
+                  {(o.transfer_sender || o.transfer_date || o.transfer_note) && (
+                    <p className="text-xs text-gray-600 mt-1">المحوّل: {o.transfer_sender || '—'} · {o.transfer_date || ''} {o.transfer_note ? `· ${o.transfer_note}` : ''}</p>
+                  )}
+                  {o.review_note && <p className="text-xs text-red-600 mt-1">ملاحظة: {o.review_note}</p>}
+                </div>
+                <div className="text-left">
+                  <p className="text-xl font-black text-gray-900">{fmtSAR(o.amount)}</p>
+                  <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${ORDER_STATUS[o.status]?.cls}`}>{ORDER_STATUS[o.status]?.label}</span>
+                  <p className="text-[11px] text-gray-400 mt-1">{fmtDate(o.submitted_at || o.created_at)}</p>
+                </div>
+              </div>
+              {o.status === 'pending_review' && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                  {o.receipt_path && (
+                    <button onClick={() => openReceipt(o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 text-sm"><ExternalLink className="w-4 h-4" />عرض الإيصال</button>
+                  )}
+                  <button onClick={() => approve(o)} disabled={busyId === o.id}
+                    className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-green-600 text-white text-sm font-bold disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />تأكيد الاستلام وتفعيل</button>
+                  <button onClick={() => setRejecting(rejecting === o.id ? null : o.id)}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-red-200 text-red-600 text-sm"><XCircle className="w-4 h-4" />رفض</button>
+                  {rejecting === o.id && (
+                    <div className="flex w-full gap-2">
+                      <input value={reason} onChange={e => setReason(e.target.value)} placeholder="سبب الرفض (يظهر للعميل) — مثال: المبلغ ناقص"
+                        className="flex-1 h-9 rounded-xl border border-gray-300 px-3 text-sm" />
+                      <button onClick={() => reject(o)} disabled={busyId === o.id} className="h-9 px-4 rounded-xl bg-red-600 text-white text-sm font-bold">إرسال</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+        <p className="font-bold text-gray-900 mb-3">مدد الاشتراك والخصم</p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {terms.map(t => (
+            <TermEditor key={t.months} term={t} onSave={saveTerm} />
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 mt-3">الضريبة 15% تُضاف تلقائياً. سعر الفرع الإضافي يُضبط من تبويب "الفوترة الدورية" عند نشر نسخة سعر.</p>
+      </div>
+    </div>
+  );
+}
+
+function TermEditor({ term, onSave }) {
+  const [d, setD] = useState(term.discount_pct);
+  return (
+    <div className="border border-gray-200 rounded-xl p-3">
+      <p className="text-sm font-bold">{term.label_ar || `${term.months} شهر`}</p>
+      <div className="flex items-center gap-2 mt-2">
+        <input type="number" min={0} max={90} value={d} onChange={e => setD(e.target.value)} className="w-20 h-8 rounded-lg border border-gray-300 px-2 text-sm" />
+        <span className="text-xs text-gray-500">% خصم</span>
+        <button onClick={() => onSave(term, d)} className="ms-auto h-8 px-3 rounded-lg bg-gray-900 text-white text-xs">حفظ</button>
+      </div>
+    </div>
+  );
+}
+
 function TicketsTab({ tickets, onRefresh }) {
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -1270,7 +1140,7 @@ function TicketsTab({ tickets, onRefresh }) {
                 <p className="font-medium text-gray-900 text-sm truncate">{t.subject || 'بدون عنوان'}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{t.user_name || t.user_id} • {fmtDate(t.created_at)}</p>
               </div>
-              {t.priority === 'high' && <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-300 flex-shrink-0">عاجل</span>}
+              {t.priority === 'high' && <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 flex-shrink-0">عاجل</span>}
             </div>
           </button>
         ))}
@@ -1336,8 +1206,8 @@ function TeamAndContentTab() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.from('system_settings').select('value').eq('key', 'about_us_content').maybeSingle()
-      .then(({ data }) => { setAboutContent(data?.value || ''); setLoadingAbout(false); })
+    callOwnerApi('get_setting', { key: 'about_us_content' })
+      .then((value) => { setAboutContent(value || ''); setLoadingAbout(false); })
       .catch(() => setLoadingAbout(false));
     loadTeam();
     callOwnerApi('db_overview').then(d => { setDbStats(d || {}); setLoadingDb(false); }).catch(() => setLoadingDb(false));
@@ -1475,7 +1345,7 @@ function TeamAndContentTab() {
                   <button onClick={() => toggleActive(m)} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-600">
                     {m.is_active ? 'إيقاف' : 'تفعيل'}
                   </button>
-                  <button onClick={() => removeMember(m.id)} className="text-xs px-3 py-1.5 bg-red-900/40 text-red-300 rounded-lg hover:bg-red-900/60">
+                  <button onClick={() => removeMember(m.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-100">
                     حذف
                   </button>
                 </div>

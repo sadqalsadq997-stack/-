@@ -46,18 +46,18 @@ export default function SmartNotifications() {
     // New store orders
     const newStoreOrders = storeOrders.filter(o => o.status === 'new');
     if (newStoreOrders.length > 0) {
-      notifs.push({ id: 'store-new', type: 'info', icon: ShoppingBag, title: 'طلبات متجر جديدة', body: `${newStoreOrders.length} طلب ينتظر التأكيد`, color: 'text-blue-600' });
+      notifs.push({ id: 'store-new', type: 'info', icon: ShoppingBag, title: 'طلبات متجر جديدة', body: `${newStoreOrders.length} طلب ينتظر التأكيد`, color: 'text-sage-600' });
     }
 
     // Pending POS orders
     const pendingOrders = orders.filter(o => o.status === 'preparing' || o.status === 'pending');
     if (pendingOrders.length > 0) {
-      notifs.push({ id: 'pending-orders', type: 'info', icon: Clock, title: 'طلبات قيد التنفيذ', body: `${pendingOrders.length} طلب قيد التنفيذ الآن`, color: 'text-blue-600' });
+      notifs.push({ id: 'pending-orders', type: 'info', icon: Clock, title: 'طلبات قيد التنفيذ', body: `${pendingOrders.length} طلب قيد التنفيذ الآن`, color: 'text-sage-600' });
     }
 
     // Supplier balances
     suppliers.filter(s => (s.balance_due || 0) > 5000).forEach(s => {
-      notifs.push({ id: `supplier-${s.id}`, type: 'warning', icon: TrendingUp, title: 'رصيد مورد مستحق', body: `${s.name}: ${s.balance_due?.toFixed(0)} ﷼ مستحقة`, color: 'text-amber-600' });
+      notifs.push({ id: `supplier-${s.id}`, type: 'warning', icon: TrendingUp, title: 'رصيد مورد مستحق', body: `${s.name}: ${s.balance_due?.toFixed(0)} ⃁ مستحقة`, color: 'text-amber-600' });
     });
 
     return notifs.filter(n => !dismissed.includes(n.id));

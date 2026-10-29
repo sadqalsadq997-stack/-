@@ -53,7 +53,7 @@ export function PricingCards() {
               <h3 className="text-xl font-black">{p.ui.name}</h3>
               <p className="mt-4 flex items-baseline gap-1.5">
                 <span className="text-6xl font-black tracking-tight">{p.price}</span>
-                <span className={hot ? 'text-slate-400' : 'text-slate-500'}>ريال / شهرياً</span>
+                <span className={hot ? 'text-slate-400' : 'text-slate-500'}><span className="sar">⃁</span> / شهرياً</span>
               </p>
               <p className={`mt-1 text-sm font-bold ${hot ? 'text-peach-300' : 'text-peach-600'}`}>{p.ui.perDay}</p>
               <ul className="mt-7 flex-1 space-y-3">

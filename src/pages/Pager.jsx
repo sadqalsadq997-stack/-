@@ -10,7 +10,7 @@ import { PagerTicketDialog, printPagerTicket } from '@/components/pager/PagerTic
 
 const COLUMNS = [
   { key: 'waiting', title: 'بانتظار التحضير', tone: 'bg-amber-50 border-amber-200' },
-  { key: 'preparing', title: 'قيد التحضير', tone: 'bg-blue-50 border-blue-200' },
+  { key: 'preparing', title: 'قيد التحضير', tone: 'bg-sage-50 border-sage-200' },
   { key: 'ready', title: 'جاهز — العميل يتم تنبيهه', tone: 'bg-emerald-50 border-emerald-200' },
 ];
 
@@ -23,7 +23,6 @@ export default function Pager() {
   const [pagers, setPagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [label, setLabel] = useState('');
   const [show, setShow] = useState(null);
   const [business, setBusiness] = useState('');
   const [, tick] = useState(0);
@@ -53,10 +52,9 @@ export default function Pager() {
   async function create(e) {
     e?.preventDefault();
     setCreating(true);
-    const { data, error } = await supabase.rpc('create_pager', { p_order_id: null, p_branch_id: branchId, p_label: label || null });
+    const { data, error } = await supabase.rpc('create_pager', { p_order_id: null, p_branch_id: branchId, p_label: null });
     setCreating(false);
     if (error) return toast.error(error.message);
-    setLabel('');
     setShow(data);
     load();
   }
@@ -68,22 +66,31 @@ export default function Pager() {
     if (status === 'ready') toast.success(`تم تنبيه العميل — طلب ${p.display_number}`);
   }
 
-  const grouped = useMemo(() => Object.fromEntries(COLUMNS.map(c => [c.key, pagers.filter(p => p.status === c.key)])), [pagers]);
+  // الجاهز اللي ما شافه العميل يطلع أول — والباقي حسب الأقدم
+  const grouped = useMemo(() => Object.fromEntries(COLUMNS.map(c => [c.key,
+    pagers.filter(p => p.status === c.key).sort((a, b) =>
+      (c.key === 'ready' ? (a.acknowledged_at ? 1 : 0) - (b.acknowledged_at ? 1 : 0) : 0)
+      || new Date(a.created_at) - new Date(b.created_at))])), [pagers]);
 
   return (
     <div dir="rtl" className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-black"><BellRing className="h-6 w-6 text-primary" /> البيجر الإلكتروني</h1>
-          <p className="mt-1 text-sm text-muted-foreground">العميل يمسح الباركود، وأول ما تضغط "جاهز" يرن جواله ويوصله إشعار.</p>
+          <p className="mt-1 text-sm text-muted-foreground">العميل يمسح الباركود ويُنادى برقم الطلب — أول ما المطبخ يضغط "جاهز" يرن جواله تلقائياً بدون الكاشير.</p>
         </div>
-        <form onSubmit={create} className="flex gap-2">
-          <input value={label} onChange={e => setLabel(e.target.value)} maxLength={40} placeholder="اسم العميل (اختياري)"
-            className="h-11 w-48 rounded-xl border border-border bg-card px-3 text-sm focus:border-primary focus:outline-none" />
-          <button disabled={creating} className="flex h-11 items-center gap-2 rounded-xl bg-primary px-5 font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
+        <form onSubmit={create} className="flex w-full gap-2 md:w-auto">
+          <button disabled={creating} className="flex h-11 flex-shrink-0 items-center gap-2 rounded-xl bg-primary px-5 font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} بيجر جديد
           </button>
         </form>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        {COLUMNS.map(c => (
+          <span key={c.key} className={`rounded-full border px-3 py-1 font-bold ${c.tone}`}>{c.title.split(' — ')[0]}: {grouped[c.key].length}</span>
+        ))}
+        <span className="rounded-full border border-border bg-card px-3 py-1 text-muted-foreground">يتحدث تلقائياً كل 4 ثواني</span>
       </div>
 
       {loading ? (
@@ -102,7 +109,7 @@ export default function Pager() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-3xl font-black leading-none">{p.display_number}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{p.label || 'بدون اسم'} · {minutesSince(p.created_at)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{minutesSince(p.created_at)}</p>
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => setShow(p)} title="عرض الباركود" className="rounded-lg p-2 hover:bg-muted"><QrCode className="h-4 w-4" /></button>
@@ -115,7 +122,7 @@ export default function Pager() {
                       </p>
                     )}
                     <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-                      {p.status === 'waiting' && <button onClick={() => setStatus(p, 'preparing')} className="h-9 rounded-lg bg-blue-600 text-sm font-bold text-white">بدأ التحضير</button>}
+                      {p.status === 'waiting' && <button onClick={() => setStatus(p, 'preparing')} className="h-9 rounded-lg bg-sage-600 text-sm font-bold text-white">بدأ التحضير</button>}
                       {p.status === 'preparing' && <button onClick={() => setStatus(p, 'ready')} className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 text-sm font-bold text-white"><BellRing className="h-4 w-4" /> جاهز — نبّه العميل</button>}
                       {p.status === 'ready' && <button onClick={() => setStatus(p, 'collected')} className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-800 text-sm font-bold text-white"><Check className="h-4 w-4" /> تم الاستلام</button>}
                       <button onClick={() => setStatus(p, 'cancelled')} title="إلغاء" className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
