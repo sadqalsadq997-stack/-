@@ -59,7 +59,8 @@ jobs:
           channel: stable
           cache: true
       - id: v
-        run: echo "version=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')" >> "$GITHUB_OUTPUT"
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
