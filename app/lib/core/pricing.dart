@@ -13,8 +13,9 @@ int toHalala(num sar) => (sar * 100 + (sar >= 0 ? 1e-9 : -1e-9)).round();
 /// هللة ⇐ ريال
 double fromHalala(int h) => h / 100;
 
-/// قسمة صحيحة مقرّبة نصف لأعلى (للأعداد غير السالبة)
+/// قسمة صحيحة مقرّبة نصفاً بعيداً عن الصفر (مثل round() في Postgres: 2.5 ⇐ 3 و -2.5 ⇐ -3)
 int rdiv(int num, int den) {
+  if (num < 0) return -rdiv(-num, den);
   final q = num ~/ den;
   final r = num - q * den;
   return 2 * r >= den ? q + 1 : q;
