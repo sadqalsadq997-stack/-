@@ -30,8 +30,9 @@ jobs:
       - name: تجهيز الملفات
         run: |
           mkdir -p rel
-          cp out/felsy-android/app-release.apk rel/felsy-android.apk
-          cp out/felsy-windows/felsy-windows.zip rel/felsy-windows.zip
+          find out -type f
+          cp "$(find out -name app-release.apk | head -1)" rel/felsy-android.apk
+          cp "$(find out -name felsy-windows.zip | head -1)" rel/felsy-windows.zip
           ls -la rel
       - name: نشر Release
         env:
