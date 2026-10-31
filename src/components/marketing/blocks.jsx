@@ -20,24 +20,44 @@ const CODE_ALIASES = { starter: 'basic', basic: 'basic', pro: 'pro', enterprise:
 
 /** الأسعار من قاعدة البيانات (نفس المبلغ اللي يُخصم) مع بديل ثابت */
 export function usePlans() {
-  const [plans, setPlans] = useState(() => PLANS.map(p => ({ code: p.code, price: p.price, ui: p })));
+  const includedFallback = { basic: 1, pro: 3, enterprise: 999 };
+  const [plans, setPlans] = useState(() => PLANS.map(p => ({
+    code: p.code,
+    price: p.price,
+    ui: p,
+    includedBranches: includedFallback[p.code] ?? 1,
+    extraBranchPrice: p.code === 'enterprise' ? 0 : p.price,
+  })));
   useEffect(() => {
-    supabase.from('billing_plans').select('plan_code, price_monthly, version').eq('is_active', true)
+    supabase.from('billing_plans')
+      .select('plan_code, price_monthly, version, included_branches, extra_branch_price')
+      .eq('is_active', true)
       .then(({ data }) => {
         if (!data?.length) return;
         const latest = {};
-        data.forEach(p => { if (!latest[p.plan_code] || p.version > latest[p.plan_code].version) latest[p.plan_code] = p; });
+        data.forEach(p => {
+          if (!latest[p.plan_code] || p.version > latest[p.plan_code].version) latest[p.plan_code] = p;
+        });
         const merged = Object.values(latest)
-          .map(p => ({ code: p.plan_code, price: Number(p.price_monthly), ui: PLANS.find(x => x.code === CODE_ALIASES[p.plan_code]) }))
-          .filter(p => p.ui).sort((a, b) => a.price - b.price);
+          .map(p => {
+            const code = CODE_ALIASES[p.plan_code];
+            return {
+              code,
+              price: Number(p.price_monthly),
+              ui: PLANS.find(x => x.code === code),
+              includedBranches: Number(p.included_branches ?? includedFallback[code] ?? 1),
+              extraBranchPrice: Number(p.extra_branch_price ?? p.price_monthly),
+            };
+          })
+          .filter(p => p.ui)
+          .sort((a, b) => a.price - b.price);
         if (merged.length) setPlans(merged);
       }, () => {});
   }, []);
   return plans;
 }
 
-export function PricingCards() {
-  const plans = usePlans();
+function PricingCardsView({ plans }) {
   const featured = plans.find(p => p.ui?.popular)?.code;
   return (
     <>
@@ -76,6 +96,15 @@ export function PricingCards() {
       </p>
     </>
   );
+}
+
+function ConnectedPricingCards() {
+  const plans = usePlans();
+  return <PricingCardsView plans={plans} />;
+}
+
+export function PricingCards({ plans }) {
+  return plans ? <PricingCardsView plans={plans} /> : <ConnectedPricingCards />;
 }
 
 export function FAQList({ faqs, defaultOpen = 0 }) {
