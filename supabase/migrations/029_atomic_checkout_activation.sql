@@ -42,15 +42,15 @@ BEGIN
     RAISE EXCEPTION 'عملية الدفع ليست معلقة';
   END IF;
 
-  IF p_payment_status <> 'paid' THEN
+  IF p_payment_status IS DISTINCT FROM 'paid' THEN
     RAISE EXCEPTION 'لم تكتمل عملية الدفع';
   END IF;
 
-  IF c.moyasar_payment_id IS NULL OR c.moyasar_payment_id <> p_payment_id THEN
+  IF p_payment_id IS NULL OR p_payment_id = '' OR c.moyasar_payment_id IS NULL OR c.moyasar_payment_id <> p_payment_id THEN
     RAISE EXCEPTION 'الدفعة لا تخص هذه العملية';
   END IF;
 
-  IF p_currency <> 'SAR' OR p_amount_minor <> round(c.amount * 100)::BIGINT THEN
+  IF p_currency IS DISTINCT FROM 'SAR' OR p_amount_minor IS NULL OR p_amount_minor <> round(c.amount * 100)::BIGINT THEN
     UPDATE public.billing_checkouts
     SET status = 'amount_mismatch'
     WHERE id = c.id;
