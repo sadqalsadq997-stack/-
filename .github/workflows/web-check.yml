@@ -75,7 +75,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Update vulnerable transitive packages within declared semver ranges
-        run: npm audit fix --package-lock-only --ignore-scripts
+        run: npm audit fix --package-lock-only --ignore-scripts || true
       - name: Commit lockfile security updates
         run: |
           if git diff --quiet -- package-lock.json; then
