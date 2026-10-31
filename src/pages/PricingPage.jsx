@@ -1,8 +1,8 @@
 import React from 'react';
 import { Check, Minus } from 'lucide-react';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
-import { Reveal, PricingCards, FAQList, CTABand } from '@/components/marketing/blocks';
-import { PRICES, PRICING_FAQS as FAQS, CUSTOM_APP_PRICE } from '@/content/seo';
+import { Reveal, PricingCards, FAQList, CTABand, usePlans } from '@/components/marketing/blocks';
+import { PRICING_FAQS as FAQS, CUSTOM_APP_PRICE } from '@/content/seo';
 import { whatsappLink } from '@/lib/contact';
 import { Smartphone, MessageCircle } from 'lucide-react';
 
@@ -30,6 +30,17 @@ function Cell({ v }) {
 }
 
 export default function PricingPage() {
+  const plans = usePlans();
+  const compareRows = COMPARE.map(row => {
+    if (row[0] === 'الفروع المشمولة') {
+      return [row[0], ...plans.map(p => p.includedBranches >= 999 ? 'بلا حد' : String(p.includedBranches))];
+    }
+    if (row[0] === 'كل فرع إضافي') {
+      return [row[0], ...plans.map(p => p.includedBranches >= 999 ? '—' : `+${p.extraBranchPrice} ⃁`)];
+    }
+    return row;
+  });
+
   return (
     <MarketingLayout path="/pricing">
       <section className="bg-gradient-to-b from-beige to-paper px-4 pb-24 pt-28 sm:px-6 lg:pt-36">
@@ -37,10 +48,10 @@ export default function PricingPage() {
           <Reveal className="mx-auto max-w-2xl text-center">
             <h1 className="text-4xl font-black leading-tight sm:text-6xl">أسعار نظام نقاط البيع فلسي</h1>
             <p className="mt-5 text-lg text-slate-600">
-              من {PRICES[0].price} ريال بالشهر — أقل من ريال باليوم. كل الباقات فيها الفوترة الإلكترونية والبيجر الإلكتروني، بدون عقود ولا رسوم تركيب.
+              تبدأ الباقات من {plans[0]?.price ?? 29} ريال شهرياً. كل الباقات فيها الفوترة الإلكترونية والبيجر الإلكتروني، بدون عقود ولا رسوم تركيب.
             </p>
           </Reveal>
-          <div className="mt-16"><PricingCards /></div>
+          <div className="mt-16"><PricingCards plans={plans} /></div>
         </div>
       </section>
 
@@ -52,11 +63,11 @@ export default function PricingPage() {
               <thead className="bg-slate-50">
                 <tr>
                   <th scope="col" className="p-4 text-start font-bold text-slate-500">الميزة</th>
-                  {PRICES.map(p => <th key={p.code} scope="col" className="p-4 font-black">{p.name}<span className="block text-sm font-bold text-sage-700">{p.price} ⃁</span></th>)}
+                  {plans.map(p => <th key={p.code} scope="col" className="p-4 font-black">{p.ui.name}<span className="block text-sm font-bold text-sage-700">{p.price} ⃁</span></th>)}
                 </tr>
               </thead>
               <tbody>
-                {COMPARE.map(([name, ...vals]) => (
+                {compareRows.map(([name, ...vals]) => (
                   <tr key={name} className="border-t border-slate-100">
                     <th scope="row" className="p-4 text-start font-medium text-slate-700">{name}</th>
                     {vals.map((v, i) => <td key={i} className="p-4"><Cell v={v} /></td>)}
@@ -66,7 +77,7 @@ export default function PricingPage() {
             </table>
           </div>
 
-          <p className="mt-3 text-sm text-slate-500">مثال: الأساسي بفرعين = 29 × 2 = 58 ⃁ شهرياً. خصم 10% على 6 أشهر و20% على سنة. الأسعار قبل ضريبة القيمة المضافة.</p>
+          <p className="mt-3 text-sm text-slate-500">مثال: تكلفة فرعين في الباقة الأساسية = سعر الفرع × 2. خصم 10% على 6 أشهر و20% على سنة. الأسعار قبل ضريبة القيمة المضافة.</p>
 
           {/* تطبيق خاص بالمنشأة */}
           <Reveal>
