@@ -61,6 +61,33 @@ jobs:
           node -e "const a=require('./npm-audit-production.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable}))},null,2))"
       - run: npm run build
 
+  dependency-lock-sync:
+    if: github.event_name == 'pull_request' && github.head_ref == 'audit/seo-billing-security-20261031'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/seo-billing-security-20261031
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Synchronize lockfile with package.json
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Commit synchronized lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile already synchronized."
+          else
+            git commit -m "chore: synchronize dependency lockfile"
+            git push origin HEAD:audit/seo-billing-security-20261031
+          fi
+
   edge-functions:
     runs-on: ubuntu-latest
     timeout-minutes: 20
