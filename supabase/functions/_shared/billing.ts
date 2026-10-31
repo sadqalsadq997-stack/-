@@ -68,81 +68,23 @@ export async function resolvePricing(sb: SupabaseClient, planCode: string, promo
  * يطابق ما حسبه السيرفر. آمن للاستدعاء أكثر من مرة (idempotent).
  */
 export async function activateFromCheckout(sb: SupabaseClient, checkoutId: string, payment: any) {
-  const { data: checkout } = await sb.from('billing_checkouts').select('*').eq('id', checkoutId).maybeSingle();
-  if (!checkout) throw new HttpError(404, 'عملية الدفع غير موجودة');
-  if (checkout.status === 'completed') return { alreadyActive: true, checkout };
-
   if (payment?.status !== 'paid') throw new HttpError(402, 'لم تكتمل عملية الدفع');
-  if (payment.id !== checkout.moyasar_payment_id) throw new HttpError(400, 'الدفعة لا تخص هذه العملية');
-  if (Number(payment.amount) !== Math.round(Number(checkout.amount) * 100) || payment.currency !== 'SAR') {
-    await sb.from('billing_checkouts').update({ status: 'amount_mismatch' }).eq('id', checkout.id);
-    throw new HttpError(400, 'مبلغ الدفعة لا يطابق سعر الخطة');
-  }
 
-  // قفل تفاؤلي: فقط عملية واحدة تنقل الحالة من pending إلى completed
-  const { data: locked } = await sb.from('billing_checkouts')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
-    .eq('id', checkout.id).eq('status', 'pending')
-    .select('id');
-  if (!locked?.length) return { alreadyActive: true, checkout };
-
-  const { data: plan } = await sb.from('billing_plans').select('*').eq('id', checkout.billing_plan_id).single();
-  const { data: promotion } = checkout.promotion_id
-    ? await sb.from('billing_promotions').select('*').eq('id', checkout.promotion_id).maybeSingle()
-    : { data: null };
-
-  const periodStart = new Date();
-  const periodEnd = new Date(periodStart);
-  let trialPeriodsRemaining = 0;
-  let nextChargeAmount = Number(plan.price_monthly);
-
-  if (promotion) {
-    if (promotion.trial_period_unit === 'day') periodEnd.setDate(periodEnd.getDate() + promotion.trial_period_count);
-    else periodEnd.setMonth(periodEnd.getMonth() + 1);
-    trialPeriodsRemaining = Math.max(0, promotion.trial_period_count - 1);
-    nextChargeAmount = trialPeriodsRemaining > 0 ? Number(promotion.trial_price) : Number(plan.price_monthly);
-  } else {
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
-  }
-
-  const { data: subscription, error: subErr } = await sb.from('tenant_subscriptions').upsert({
-    tenant_id: checkout.tenant_id,
-    billing_plan_id: plan.id,
-    promotion_id: promotion?.id || null,
-    status: trialPeriodsRemaining > 0 ? 'trialing' : 'active',
-    current_period_start: periodStart.toISOString(),
-    current_period_end: periodEnd.toISOString(),
-    next_charge_amount: nextChargeAmount,
-    trial_periods_remaining: trialPeriodsRemaining,
-    moyasar_token: checkout.moyasar_token,
-    moyasar_card_brand: payment.source?.company || null,
-    moyasar_card_last_four: payment.source?.number?.slice(-4) || null,
-    failed_attempts: 0,
-    last_payment_id: payment.id,
-    cancelled_at: null,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'tenant_id' }).select().single();
-  if (subErr) throw new Error(`فشل حفظ الاشتراك: ${subErr.message}`);
-
-  await sb.from('billing_invoices').insert({
-    tenant_id: checkout.tenant_id,
-    subscription_id: subscription.id,
-    amount: checkout.amount,
-    status: 'paid',
-    moyasar_payment_id: payment.id,
-    period_start: periodStart.toISOString(),
-    period_end: periodEnd.toISOString(),
-    paid_at: new Date().toISOString(),
+  // لا نضع checkout في completed قبل حفظ الاشتراك والفاتورة؛
+  // دالة SQL تنفذ جميع التغييرات في معاملة ذرية واحدة مع قفل الصف.
+  const { data, error } = await sb.rpc('billing_activate_checkout', {
+    p_checkout: checkoutId,
+    p_payment_id: String(payment.id || ''),
+    p_payment_status: String(payment.status || ''),
+    p_amount_minor: Number(payment.amount),
+    p_currency: String(payment.currency || ''),
+    p_card_company: payment.source?.company || null,
+    p_card_number: payment.source?.number || null,
   });
 
-  await sb.from('tenants').update({ status: 'active', plan: plan.plan_code, updated_at: new Date().toISOString() })
-    .eq('id', checkout.tenant_id);
-
-  if (promotion) {
-    await sb.rpc('increment_promotion_redemption', { p_promotion_id: promotion.id });
-  }
-
-  return { alreadyActive: false, subscription };
+  if (error) throw new Error(`فشل تفعيل الاشتراك ذرياً: ${error.message}`);
+  if (data?.ok === false) throw new HttpError(400, data.error || 'تعذر تفعيل الاشتراك');
+  return { alreadyActive: Boolean(data?.alreadyActive), result: data };
 }
 
 /**
