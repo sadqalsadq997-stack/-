@@ -98,6 +98,9 @@ export async function activateOrderFromPayment(sb: SupabaseClient, order: any, p
   }
   // الدفعة لازم تحمل رقم هذا الطلب نفسه (نضعه في metadata عند إنشاء نموذج الدفع)
   if (payment.metadata?.order_id !== order.id) return { ok: false, message: 'الدفعة لا تخص هذا الطلب' };
+  if (order.moyasar_payment_id && order.moyasar_payment_id !== payment.id) {
+    return { ok: false, message: 'معرّف الدفعة لا يطابق الدفعة المسجلة على الطلب' };
+  }
   if (payment.currency !== 'SAR' || Number(payment.amount) !== Math.round(Number(order.amount) * 100)) {
     await sb.from('security_events').insert({
       event_type: 'payment_amount_mismatch', success: false,
