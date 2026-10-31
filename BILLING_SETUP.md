@@ -68,11 +68,16 @@ MOYASAR_SECRET_KEY=sk_live_... (أو sk_test_... للتجربة)
 ```
 هذا المفتاح يُستخدم **فقط** بالخلفية (Edge Functions)، أبداً بالواجهة الأمامية.
 
-### الخطوة 4 — نشر Edge Functions الثلاثة
+### الخطوة 4 — نشر Edge Functions
+طبّق migrations بالترتيب أولاً، بما فيها `029_atomic_checkout_activation.sql`، ثم انشر الدوال:
 ```bash
+# صفحة الاشتراك القديمة: تبقى مطالبة بتوكن المستخدم JWT
 supabase functions deploy billing-subscribe
-supabase functions deploy billing-run-cycle
-supabase functions deploy moyasar-webhook
+
+# هذه الدوال تتحقق من المصادقة/السر داخل الكود، لذلك تستقبل الطلبات دون JWT من Supabase Gateway
+supabase functions deploy billing-order --no-verify-jwt
+supabase functions deploy moyasar-webhook --no-verify-jwt
+supabase functions deploy billing-run-cycle --no-verify-jwt
 ```
 
 ### الخطوة 5 — جدولة محرك الفوترة اليومي (مهم جداً، بدون هذا لا يوجد خصم تلقائي فعلي)
