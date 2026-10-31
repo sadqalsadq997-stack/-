@@ -45,6 +45,9 @@ export default async function handler(req) {
   // المسار يجي إما من إعادة التوجيه (?__path=) أو من الرابط نفسه
   let path = url.searchParams.get('__path');
   url.searchParams.delete('__path');
+  // Vercel rewrite routing metadata must never be forwarded to PostgREST/Auth.
+  // PostgREST rejects the unknown `path` query parameter with HTTP 400.
+  url.searchParams.delete('path');
   path = '/' + (path ?? url.pathname.replace(/^\/api\/db\/?/, '')).replace(/^\/+/, '');
 
   if (path.includes('..') || path.includes('//')) return deny(400, 'bad_path');
