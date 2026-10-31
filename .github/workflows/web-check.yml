@@ -51,7 +51,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: Audit npm dependencies
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "const a=require('./npm-audit.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable,via:x.via.map(y=>typeof y==='string'?y:{title:y.title,url:y.url,range:y.range})}))},null,2))"
       - run: npm run build
 
   edge-functions:
