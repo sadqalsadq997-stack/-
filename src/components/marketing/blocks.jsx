@@ -50,7 +50,7 @@ export function usePlans() {
             };
           })
           .filter(p => p.ui)
-          .sort((a, b) => a.price - b.price);
+          .sort((a, b) => ['basic', 'pro', 'enterprise'].indexOf(a.code) - ['basic', 'pro', 'enterprise'].indexOf(b.code));
         if (merged.length) setPlans(merged);
       }, () => {});
   }, []);
