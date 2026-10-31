@@ -61,6 +61,33 @@ jobs:
           node -e "const a=require('./npm-audit-production.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable}))},null,2))"
       - run: npm run build
 
+  dependency-router-upgrade:
+    if: github.event_name == 'pull_request' && github.head_ref == 'audit/seo-billing-security-20261031'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/seo-billing-security-20261031
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Upgrade React Router to the patched v7 release
+        run: npm install --save-exact --ignore-scripts react-router-dom@7.18.5
+      - name: Commit router security update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No router changes."
+          else
+            git commit -m "chore: upgrade React Router to patched v7"
+            git push origin HEAD:audit/seo-billing-security-20261031
+          fi
+
   edge-functions:
     runs-on: ubuntu-latest
     timeout-minutes: 20
