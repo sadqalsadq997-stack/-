@@ -61,39 +61,6 @@ jobs:
           node -e "const a=require('./npm-audit-production.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable}))},null,2))"
       - run: npm run build
 
-  dependency-security-upgrade:
-    if: github.event_name == 'pull_request' && github.head_ref == 'audit/seo-billing-security-20261031'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: audit/seo-billing-security-20261031
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Upgrade affected direct dependencies to patched releases
-        run: >
-          npm install --save-exact --ignore-scripts
-          vite@6.4.5
-          zod@4.6.7
-          xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-      - name: Apply compatible transitive security updates
-        run: npm audit fix --package-lock-only --ignore-scripts || true
-      - name: Commit dependency updates
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          if git diff --cached --quiet; then
-            echo "No dependency changes."
-          else
-            git commit -m "chore: upgrade vulnerable production and build dependencies"
-            git push origin HEAD:audit/seo-billing-security-20261031
-          fi
-
   edge-functions:
     runs-on: ubuntu-latest
     timeout-minutes: 20
