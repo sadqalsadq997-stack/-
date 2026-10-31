@@ -23,6 +23,7 @@ export function usePlans() {
   const includedFallback = { basic: 1, pro: 3, enterprise: 999 };
   const [plans, setPlans] = useState(() => PLANS.map(p => ({
     code: p.code,
+    billingCode: p.code === 'basic' ? 'starter' : p.code,
     price: p.price,
     ui: p,
     includedBranches: includedFallback[p.code] ?? 1,
@@ -43,6 +44,7 @@ export function usePlans() {
             const code = CODE_ALIASES[p.plan_code];
             return {
               code,
+              billingCode: p.plan_code,
               price: Number(p.price_monthly),
               ui: PLANS.find(x => x.code === code),
               includedBranches: Number(p.included_branches ?? includedFallback[code] ?? 1),
@@ -83,7 +85,7 @@ function PricingCardsView({ plans }) {
                   </li>
                 ))}
               </ul>
-              <Link to={`/auth/signup?plan=${encodeURIComponent(p.code)}`}
+              <Link to={`/auth/signup?plan=${encodeURIComponent(p.billingCode || p.code)}`}
                 className={`mt-8 block rounded-2xl py-3.5 text-center font-bold transition-colors ${hot ? 'bg-sage-400 text-ink hover:bg-sage-500' : 'bg-beige text-ink hover:bg-beige-200'}`}>
                 {p.ui.cta}
               </Link>
