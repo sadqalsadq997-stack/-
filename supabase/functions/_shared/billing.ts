@@ -106,6 +106,7 @@ export async function activateOrderFromPayment(sb: SupabaseClient, order: any, p
     return { ok: false, message: 'مبلغ الدفعة لا يطابق مبلغ الطلب — تواصل معنا' };
   }
   const { error } = await sb.rpc('billing_activate_order', { p_order: order.id, p_ref: payment.id, p_method: 'card' });
-  if (error) return { ok: false, message: error.message };
+  // أخطاء قاعدة البيانات مؤقتة غالباً؛ ارفعها حتى يعيد Moyasar إرسال الـ webhook.
+  if (error) throw new Error(`فشل تفعيل طلب الاشتراك: ${error.message}`);
   return { ok: true };
 }
