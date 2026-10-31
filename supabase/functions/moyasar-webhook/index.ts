@@ -12,7 +12,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { CORS, json, adminClient } from '../_shared/auth.ts';
+import { CORS, json, adminClient, HttpError } from '../_shared/auth.ts';
 import { moyasarFetchPayment, activateFromCheckout, activateOrderFromPayment } from '../_shared/billing.ts';
 
 function safeEqual(a: string, b: string): boolean {
@@ -92,8 +92,12 @@ serve(async (req) => {
       .eq('payment_id', paymentId).eq('processed', false);
   } catch (err) {
     console.error('[moyasar-webhook]', err);
-    // نعيد 5xx عند فشل المعالجة حتى تعيد ميسر إرسال الحدث وفق سياسة المحاولات.
-    return json({ received: false, error: 'تعذرت معالجة إشعار الدفع' }, 500);
+    // أخطاء التحقق/الدفعة غير الصالحة نهائية؛ أما أعطال الشبكة وقاعدة البيانات فتعيد 5xx للمحاولة.
+    const retryable = !(err instanceof HttpError) || err.status >= 500;
+    if (retryable) {
+      return json({ received: false, error: 'تعذرت معالجة إشعار الدفع' }, 500);
+    }
+    return json({ received: true, ignored: true });
   }
   return json({ received: true });
 });
