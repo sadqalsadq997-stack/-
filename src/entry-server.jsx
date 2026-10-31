@@ -2,7 +2,7 @@
 // حتى تقرأ محركات البحث وأدوات الذكاء الاصطناعي المحتوى كاملاً بدون JavaScript
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { StaticRouter } from 'react-router';
+import { StaticRouter } from 'react-router-dom/server';
 import { Routes, Route } from 'react-router-dom';
 import LandingPage from '@/pages/LandingPage';
 import PricingPage from '@/pages/PricingPage';
