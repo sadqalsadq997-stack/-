@@ -12,6 +12,10 @@ on:
       - 'package-lock.json'
       - 'vite.config.*'
       - 'tsconfig*.json'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'BILLING_SETUP.md'
+      - '.env.example'
       - '.github/workflows/web-check.yml'
   push:
     branches: [main]
@@ -24,6 +28,10 @@ on:
       - 'package-lock.json'
       - 'vite.config.*'
       - 'tsconfig*.json'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'BILLING_SETUP.md'
+      - '.env.example'
 
 permissions:
   contents: read
@@ -44,3 +52,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  edge-functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check payment Edge Functions
+        run: >
+          deno check --no-lock
+          supabase/functions/billing-order/index.ts
+          supabase/functions/billing-subscribe/index.ts
+          supabase/functions/moyasar-webhook/index.ts
+          supabase/functions/billing-run-cycle/index.ts
