@@ -92,7 +92,8 @@ serve(async (req) => {
       .eq('payment_id', paymentId).eq('processed', false);
   } catch (err) {
     console.error('[moyasar-webhook]', err);
+    // نعيد 5xx عند فشل المعالجة حتى تعيد ميسر إرسال الحدث وفق سياسة المحاولات.
+    return json({ received: false, error: 'تعذرت معالجة إشعار الدفع' }, 500);
   }
-  // نرجّع 200 دائماً بعد التحقق من السر لتفادي إعادة الإرسال اللانهائية
   return json({ received: true });
 });
