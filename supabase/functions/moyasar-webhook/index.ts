@@ -28,7 +28,7 @@ serve(async (req) => {
 
   const expectedSecret = Deno.env.get('MOYASAR_WEBHOOK_SECRET') || '';
   const payload = await req.json().catch(() => null);
-  const provided = String(payload?.secret_token || req.headers.get('x-moyasar-secret') || '');
+  const provided = String(payload?.secret_token || req.headers.get('x-event-secret') || req.headers.get('x-moyasar-secret') || '');
 
   if (!expectedSecret || !provided || !safeEqual(provided, expectedSecret)) {
     return json({ error: 'غير مصرح' }, 401);
