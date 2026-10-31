@@ -30,7 +30,8 @@ export async function moyasarFetchPayment(paymentId: string) {
   const res = await fetch(`${MOYASAR_API}/payments/${paymentId}`, {
     headers: { Authorization: moyasarAuth() },
   });
-  if (!res.ok) throw new HttpError(404, 'الدفعة غير موجودة لدى موياسر');
+  if (res.status === 404) throw new HttpError(404, 'الدفعة غير موجودة لدى موياسر');
+  if (!res.ok) throw new Error(`فشل الاتصال بواجهة موياسر (HTTP ${res.status})`);
   return await res.json();
 }
 
