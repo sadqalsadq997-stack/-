@@ -32,6 +32,7 @@ export function usePlans() {
   useEffect(() => {
     supabase.from('billing_plans')
       .select('plan_code, price_monthly, version, included_branches, extra_branch_price')
+      .in('plan_code', ['starter', 'pro', 'enterprise'])
       .eq('is_active', true)
       .then(({ data }) => {
         if (!data?.length) return;
