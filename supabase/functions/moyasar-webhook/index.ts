@@ -12,7 +12,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { CORS, json, adminClient } from '../_shared/auth.ts';
+import { CORS, json, adminClient, HttpError } from '../_shared/auth.ts';
 import { moyasarFetchPayment, activateFromCheckout, activateOrderFromPayment } from '../_shared/billing.ts';
 
 function safeEqual(a: string, b: string): boolean {
@@ -28,7 +28,7 @@ serve(async (req) => {
 
   const expectedSecret = Deno.env.get('MOYASAR_WEBHOOK_SECRET') || '';
   const payload = await req.json().catch(() => null);
-  const provided = String(payload?.secret_token || req.headers.get('x-moyasar-secret') || '');
+  const provided = String(payload?.secret_token || req.headers.get('x-event-secret') || req.headers.get('x-moyasar-secret') || '');
 
   if (!expectedSecret || !provided || !safeEqual(provided, expectedSecret)) {
     return json({ error: 'غير مصرح' }, 401);
@@ -92,7 +92,12 @@ serve(async (req) => {
       .eq('payment_id', paymentId).eq('processed', false);
   } catch (err) {
     console.error('[moyasar-webhook]', err);
+    // أخطاء التحقق/الدفعة غير الصالحة نهائية؛ أما أعطال الشبكة وقاعدة البيانات فتعيد 5xx للمحاولة.
+    const retryable = !(err instanceof HttpError) || err.status >= 500;
+    if (retryable) {
+      return json({ received: false, error: 'تعذرت معالجة إشعار الدفع' }, 500);
+    }
+    return json({ received: true, ignored: true });
   }
-  // نرجّع 200 دائماً بعد التحقق من السر لتفادي إعادة الإرسال اللانهائية
   return json({ received: true });
 });

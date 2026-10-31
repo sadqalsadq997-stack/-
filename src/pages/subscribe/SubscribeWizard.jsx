@@ -291,6 +291,8 @@ export default function SubscribeWizard({ embedded = false }) {
   const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
 
   const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState('');
   const [terms, setTerms] = useState([]);
   const [plan, setPlan] = useState(saved.plan || params.get('plan') || '');
   const [branches, setBranches] = useState(saved.branches || 1);
@@ -309,22 +311,44 @@ export default function SubscribeWizard({ embedded = false }) {
 
   // الباقات والمدد من قاعدة البيانات
   useEffect(() => {
-    supabase.from('billing_plans').select('plan_code, name_ar, price_monthly, features, included_branches, extra_branch_price, version')
-      .eq('is_active', true).then(({ data }) => {
+    let alive = true;
+    supabase.from('billing_plans')
+      .select('plan_code, name_ar, price_monthly, features, included_branches, extra_branch_price, version')
+      .in('plan_code', ['starter', 'pro', 'enterprise'])
+      .eq('is_active', true)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          setPlansError('تعذر تحميل الباقات حالياً. تحقق من الاتصال وحاول مرة ثانية.');
+          return;
+        }
         const latest = {};
-        (data || []).forEach(p => { if (!latest[p.plan_code] || p.version > latest[p.plan_code].version) latest[p.plan_code] = p; });
-        const list = Object.values(latest).sort((a, b) => a.price_monthly - b.price_monthly);
+        (data || []).forEach(p => {
+          if (!latest[p.plan_code] || p.version > latest[p.plan_code].version) latest[p.plan_code] = p;
+        });
+        const order = ['starter', 'pro', 'enterprise'];
+        const list = order.map(code => latest[code]).filter(Boolean);
+        if (!list.length) {
+          setPlansError('لا توجد باقات اشتراك متاحة حالياً. تواصل مع الدعم.');
+          return;
+        }
         setPlans(list);
         setPlan(cur => {
           const want = cur === 'basic' ? 'starter' : cur;
-          return list.some(p => p.plan_code === want) ? want : (list.find(p => p.plan_code === 'pro') || list[0])?.plan_code || '';
+          return list.some(p => p.plan_code === want) ? want : (list.find(p => p.plan_code === 'pro') || list[0]).plan_code;
         });
+      })
+      .finally(() => { if (alive) setPlansLoading(false); });
+
+    supabase.from('billing_terms').select('*').eq('is_active', true).order('months')
+      .then(({ data }) => {
+        if (!alive) return;
+        const list = data || [];
+        setTerms(list);
+        setMonths(m => (list.some(t => t.months === m) ? m : (list[list.length - 1]?.months || 1)));
       });
-    supabase.from('billing_terms').select('*').eq('is_active', true).order('months').then(({ data }) => {
-      const list = data || [];
-      setTerms(list);
-      setMonths(m => (list.some(t => t.months === m) ? m : (list[list.length - 1]?.months || 1)));
-    });
+
+    return () => { alive = false; };
   }, []);
 
   // لو مسجّل: نشوف حالة آخر طلب وهل عنده منشأة
@@ -487,7 +511,8 @@ export default function SubscribeWizard({ embedded = false }) {
                               </button>
                             );
                           })}
-                          {!plans.length && <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-sage-700" /></div>}
+                          {plansLoading && <div className="flex justify-center py-10" role="status" aria-live="polite"><Loader2 className="h-6 w-6 animate-spin text-sage-700" /><span className="sr-only">جارٍ تحميل الباقات</span></div>}
+                          {!plansLoading && plansError && <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{plansError}</div>}
                         </div>
                       </>
                     )}

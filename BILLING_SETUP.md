@@ -46,13 +46,15 @@
 
 ## 🔲 الخطوات المتبقية عليك (بالترتيب)
 
+> **تنبيه أمان:** المفتاح العام `pk_live_...` ليس مفتاحاً سرياً وفق Moyasar، لكنه خاص بحساب الإنتاج ويجب ضبطه في Vercel Environment Variables فقط، لا في ملفات التوثيق. المفتاح `sk_live_...` والـ webhook/cron secrets أسرار خادم لا تُرسل في المتصفح ولا تُرفع إلى GitHub.
+
 ### الخطوة 1 — تشغيل Migration 016
 نفّذ `016_recurring_billing.sql` في SQL Editor (بعد 014 و 015).
 
 ### الخطوة 2 — مفتاح Moyasar العام (تم استلامه) ✅
 أضيف بالفعل بـ `.env.example`:
 ```
-VITE_MOYASAR_PUBLISHABLE_KEY=pk_live_jqWYhUwgKEH3o4tGxHyS8GLWKRvBQLC4j5k9Y3Pv
+VITE_MOYASAR_PUBLISHABLE_KEY=pk_live_... (ضعه في Vercel Environment Variables، ولا تضع مفتاح الإنتاج في ملفات المستودع)
 ```
 ⚠️ **هذا مفتاح `live` (إنتاج حقيقي)** — أي اختبار به سيسحب فلوساً حقيقية فعلاً.
 أنصحك بشدة أن تبدأ الاختبار بمفتاح **test** (`pk_test_...` و `sk_test_...`)
@@ -66,11 +68,16 @@ MOYASAR_SECRET_KEY=sk_live_... (أو sk_test_... للتجربة)
 ```
 هذا المفتاح يُستخدم **فقط** بالخلفية (Edge Functions)، أبداً بالواجهة الأمامية.
 
-### الخطوة 4 — نشر Edge Functions الثلاثة
+### الخطوة 4 — نشر Edge Functions
+طبّق migrations بالترتيب أولاً، بما فيها `029_atomic_checkout_activation.sql`، ثم انشر الدوال:
 ```bash
+# صفحة الاشتراك القديمة: تبقى مطالبة بتوكن المستخدم JWT
 supabase functions deploy billing-subscribe
-supabase functions deploy billing-run-cycle
-supabase functions deploy moyasar-webhook
+
+# هذه الدوال تتحقق من المصادقة/السر داخل الكود، لذلك تستقبل الطلبات دون JWT من Supabase Gateway
+supabase functions deploy billing-order --no-verify-jwt
+supabase functions deploy moyasar-webhook --no-verify-jwt
+supabase functions deploy billing-run-cycle --no-verify-jwt
 ```
 
 ### الخطوة 5 — جدولة محرك الفوترة اليومي (مهم جداً، بدون هذا لا يوجد خصم تلقائي فعلي)
@@ -100,9 +107,7 @@ select cron.schedule(
 ```
 https://YOUR_PROJECT.supabase.co/functions/v1/moyasar-webhook
 ```
-وأضف بـ Supabase Secrets: `MOYASAR_WEBHOOK_SECRET=` (قيمة سرية تختارها، نفس
-القيمة تُضبط بلوحة Moyasar إن دعمت سراً مشتركاً، وإلا يمكن تجاوز هذي الخطوة
-مؤقتاً والاعتماد على محرك الفوترة اليومي وحده كمصدر التأكيد الأساسي).
+وأضف في Supabase Secrets قيمة `MOYASAR_WEBHOOK_SECRET`، واضبط القيمة نفسها في حقل Secret Token داخل لوحة Moyasar. هذا السر إلزامي في الكود الحالي؛ إذا لم يكن موجوداً أو لم يطابق الطلب، سيرفض Webhook الطلب بـ 401. لا تتجاوز هذه الخطوة.
 
 ### الخطوة 7 — إنشاء أول عرض ترويجي
 من `SuperAdmin.jsx` → تبويب "الفوترة الدورية" → "العروض الترويجية" → "عرض

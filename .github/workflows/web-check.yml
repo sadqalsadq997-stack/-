@@ -1,0 +1,78 @@
+name: Web build and typecheck
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'tsconfig*.json'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'BILLING_SETUP.md'
+      - '.env.example'
+      - '.github/workflows/web-check.yml'
+  push:
+    branches: [main, audit/seo-billing-security-20261031]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'tsconfig*.json'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'BILLING_SETUP.md'
+      - '.env.example'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit npm dependencies
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "const a=require('./npm-audit.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable,via:x.via.map(y=>typeof y==='string'?y:{title:y.title,url:y.url,range:y.range})}))},null,2))"
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev --json > npm-audit-production.json || true
+          node -e "const a=require('./npm-audit-production.json'); const v=a.vulnerabilities||{}; console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, packages:Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable}))},null,2))"
+      - run: npm run build
+
+  edge-functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check payment Edge Functions
+        run: >
+          deno check --no-lock
+          supabase/functions/billing-order/index.ts
+          supabase/functions/billing-subscribe/index.ts
+          supabase/functions/moyasar-webhook/index.ts
+          supabase/functions/billing-run-cycle/index.ts
