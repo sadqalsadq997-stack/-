@@ -310,8 +310,9 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
         {done ? (
           <div className="py-6 text-center">
             <CheckCircle2 className="mx-auto mb-3 h-16 w-16 text-emerald-500" />
-            <h2 className="text-xl font-black">وصلنا طلبك!</h2>
+            <h2 className="text-xl font-black">تم تسجيل طلبك بانتظار اعتماد الدفع</h2>
             {done.order_number && <p className={`mt-1 text-sm ${skin.muted}`}>رقم الطلب <b dir="ltr">{done.order_number}</b></p>}
+            <p className={`mt-2 text-xs ${skin.muted}`}>سيبدأ تجهيز الطلب بعد اعتماد استلام المبلغ من الكاشير.</p>
             <button type="button" onClick={onClose} className="mt-6 h-12 w-full rounded-2xl bg-[var(--m-brand)] font-bold text-[var(--m-fg)]">تمام</button>
           </div>
         ) : (
