@@ -41,29 +41,22 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!cart.length) throw new Error('أضف منتجاً واحداً على الأقل');
-      const orderNum = `T${table.table_number}-${Date.now().toString(36).toUpperCase()}`;
-      const { data: ord, error } = await supabase.from('orders').insert({
-        order_number: orderNum,
-        branch_id: branchId,
-        table_number: table.table_number,
-        order_type: 'dine_in',
-        status: 'pending',
-        items: cart.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty, quantity: i.qty, total: fromH(i.unit.gross * i.qty) })),
-        subtotal,
-        tax_amount: tax,
-        total,
-        notes,
-        cashier_name: cashierName,
-      }).select().single();
+      // الأسعار والكميات يعاد التحقق منها داخل قاعدة البيانات، وتضاف الجولة
+      // إلى نفس الفاتورة المفتوحة للطاولة مع قفل يمنع تداخل طلبات النادلين.
+      const { data, error } = await supabase.rpc('add_table_order_round', {
+        p_table_id: table.id,
+        p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
+        p_notes: notes,
+        p_cashier_name: cashierName,
+      });
       if (error) throw error;
-      // تحديث حالة الطاولة
-      await supabase.from('tables_map').update({ status: 'occupied', current_order_id: ord.id }).eq('id', table.id);
-      return ord;
+      if (!data?.order?.id) throw new Error('لم يتم إنشاء الطلب');
+      return data.order;
     },
     onSuccess: (ord) => {
       qc.invalidateQueries({ queryKey: ['tables'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      toast.success('تم إرسال الطلب للمطبخ ✅');
+      toast.success('تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
       onOrderSent(ord);
     },
     onError: (e) => toast.error(e.message || 'فشل الإرسال'),
@@ -451,7 +444,7 @@ export default function Tables() {
           onClose={() => setOrderModal(null)}
           onOrderSent={(ord) => {
             setOrderModal(null);
-            setCheckModal({ table: orderModal.table, order: ord });
+            // تبقى الطاولة مفتوحة وغير مدفوعة؛ الدفع لا يظهر إلا بطلب الكاشير.
           }}
         />
       )}
