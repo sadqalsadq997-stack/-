@@ -90,6 +90,7 @@ function PricingCardsView({ plans }) {
                 className={`mt-8 block rounded-2xl py-3.5 text-center font-bold transition-colors ${hot ? 'bg-sage-400 text-ink hover:bg-sage-500' : 'bg-beige text-ink hover:bg-beige-200'}`}>
                 {p.ui.cta}
               </Link>
+              <Link to="/auth/signup?trial=1" className="mt-3 block rounded-2xl border border-sage-500 py-3 text-center text-sm font-black text-sage-800 hover:bg-sage-50">جرّب Pro مجاناً لمدة 30 يوماً</Link>
             </motion.div>
           );
         })}
