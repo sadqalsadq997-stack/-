@@ -15,6 +15,7 @@ import { issueEinvoice } from '@/lib/einvoice';
 import { ZATCA_STATUS } from '@/pages/ZatcaCenter';
 
 const STATUS_MAP = {
+  awaiting_payment: { label: 'بانتظار اعتماد الدفع', color: 'bg-orange-100 text-orange-700', icon: Clock },
   pending:    { label: 'قيد الانتظار', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
   preparing:  { label: 'يُحضَّر',      color: 'bg-sage-100 text-sage-700',   icon: ChefHat },
   ready:      { label: 'جاهز',          color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
@@ -277,6 +278,24 @@ export default function Orders() {
               </button>
             )}
           </div>
+
+          {/* لا يصل طلب الأونلاين للمطبخ إلا بعد اعتماد الكاشير استلام المبلغ فعلياً */}
+          {selected.source === 'online' && selected.status === 'awaiting_payment' && (
+            <button
+              onClick={async () => {
+                if (!window.confirm('تأكيد أنك استلمت كامل قيمة الطلب نقداً؟ بعد الاعتماد سيظهر الطلب للمطبخ.')) return;
+                const { error } = await supabase.from('orders').update({
+                  status: 'pending', payment_method: 'cash', amount_paid: selected.total,
+                  change_due: 0, cashier_name: sessionStorage.getItem('pin_employee_name') || 'كاشير',
+                }).eq('id', selected.id).eq('status', 'awaiting_payment');
+                if (error) { toast.error(error.message || 'تعذر اعتماد الدفع'); return; }
+                toast.success('تم اعتماد استلام الدفع وإرسال الطلب للمطبخ');
+                setSelected({ ...selected, status: 'pending', payment_method: 'cash', amount_paid: selected.total });
+                qc.invalidateQueries({ queryKey: ['orders'] });
+              }}
+              className="h-10 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700"
+            >تأكيد استلام الدفع نقداً وإرسال للمطبخ</button>
+          )}
 
           {/* تغيير الحالة */}
           <div className="flex gap-2 flex-wrap">
