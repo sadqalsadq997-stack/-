@@ -287,22 +287,25 @@ function PendingReview({ order }) {
 export default function SubscribeWizard({ embedded = false }) {
   const { session } = useAuth();
   const hasAccount = !!session;
-  const saved = useMemo(loadSaved, []);
   const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const trialMode = params.get('trial') === '1' && !hasAccount;
+  const [trialActivated, setTrialActivated] = useState(false);
+  const [trialResult, setTrialResult] = useState(null);
+  const saved = useMemo(loadSaved, []);
 
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState('');
   const [terms, setTerms] = useState([]);
-  const [plan, setPlan] = useState(saved.plan || params.get('plan') || '');
-  const [branches, setBranches] = useState(saved.branches || 1);
-  const [months, setMonths] = useState(saved.months || 12);
+  const [plan, setPlan] = useState(trialMode ? 'pro' : (saved.plan || params.get('plan') || ''));
+  const [branches, setBranches] = useState(trialMode ? 3 : (saved.branches || 1));
+  const [months, setMonths] = useState(trialMode ? 1 : (saved.months || 12));
   const [info, setInfo] = useState({ name: '', phone: '', business: '', email: '', ...(saved.info || {}), password: '' });
   const [errors, setErrors] = useState({});
   const [quote, setQuote] = useState(null);
   const [order, setOrder] = useState(saved.order || null);
   const [method, setMethod] = useState('card');
-  const [stepKey, setStepKey] = useState(saved.order ? 'payment' : 'plan');
+  const [stepKey, setStepKey] = useState(trialMode ? 'info' : (saved.order ? 'payment' : 'plan'));
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState('');
   const [needTenant, setNeedTenant] = useState(false);
@@ -373,13 +376,14 @@ export default function SubscribeWizard({ embedded = false }) {
   const unlimited = (planRow?.included_branches || 1) >= 999;
 
   const steps = useMemo(() => {
+    if (trialMode) return ['info'];
     const s = ['plan'];
     if (!unlimited) s.push('branches');
     s.push('duration');
     if (!hasAccount || needTenant) s.push('info');
     s.push('payment');
     return s;
-  }, [unlimited, hasAccount, needTenant]);
+  }, [unlimited, hasAccount, needTenant, trialMode]);
   const index = Math.max(0, steps.indexOf(stepKey));
 
   // حفظ التقدم (بدون كلمة المرور)
@@ -434,13 +438,18 @@ export default function SubscribeWizard({ embedded = false }) {
         if (!validateInfo()) { setBusy(false); return; }
         if (!hasAccount) {
           const { data, error } = await callFunction('billing-order', {
-            action: 'signup', plan_code: plan, branches: unlimited ? 1 : branches, months,
+            action: trialMode ? 'signup_trial' : 'signup', plan_code: trialMode ? 'pro' : plan, branches: trialMode ? 3 : (unlimited ? 1 : branches), months: trialMode ? 1 : months,
             name: info.name, phone: info.phone, business_name: info.business, email: info.email.trim(), password: info.password,
           });
           if (error) throw new Error(error);
           if (data.session) await supabase.auth.setSession(data.session);
-          setOrder(data.order);
           setInfo(i => ({ ...i, password: '' }));
+          if (trialMode) {
+            setTrialResult(data.trial);
+            setTrialActivated(true);
+          } else {
+            setOrder(data.order);
+          }
         } else {
           const { error: tErr } = await supabase.rpc('create_my_tenant', { p_name: info.business.trim() });
           if (tErr) throw new Error(tErr.message);
@@ -450,7 +459,7 @@ export default function SubscribeWizard({ embedded = false }) {
       } else {
         await createOrderForAccount();
       }
-      go('payment');
+      if (!trialMode) go('payment');
     } catch (e) {
       setFormErr(e.message || 'حدث خطأ — حاول مرة ثانية');
     }
@@ -478,7 +487,15 @@ export default function SubscribeWizard({ embedded = false }) {
         </header>
 
         <main className="mx-auto max-w-xl px-5 pb-40 pt-6">
-          {pending ? <PendingReview order={order} /> : (
+          {trialActivated ? (
+            <div className="mx-auto max-w-md py-12 text-center">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-sage-100 text-sage-700"><Check className="h-8 w-8" /></div>
+              <h1 className="text-3xl font-black text-ink">بدأت تجربتك المجانية!</h1>
+              <p className="mt-3 leading-relaxed text-slate-600">تم تفعيل باقة Pro مجاناً لمدة 30 يوماً. لا نطلب بطاقة بنكية ولن يتم خصم أي مبلغ تلقائياً.</p>
+              {trialResult?.current_period_end && <p className="mt-4 rounded-2xl border border-beige-300 bg-white p-4 text-sm">تنتهي تجربتك في <b>{new Date(trialResult.current_period_end).toLocaleDateString('ar-SA')}</b></p>}
+              <Link to="/dashboard" className="mt-7 inline-flex items-center justify-center rounded-2xl bg-ink px-8 py-3.5 font-black text-white">الدخول إلى نظام فلسي</Link>
+            </div>
+          ) : pending ? <PendingReview order={order} /> : (
             <>
               <Progress count={steps.length} index={index} onBack={back} />
               <div className="mt-8">
@@ -575,7 +592,7 @@ export default function SubscribeWizard({ embedded = false }) {
                     {stepKey === 'info' && (
                       <>
                         <StepTitle title={hasAccount ? 'بيانات نشاطك' : 'بيانات حسابك'}
-                          subtitle={hasAccount ? 'اسم نشاطك يظهر في الفواتير والمنيو.' : 'بهذي البيانات ننشئ حسابك، وتدخل فيها للنظام بعد الدفع.'} />
+                          subtitle={trialMode ? 'أنشئ حسابك وابدأ استخدام باقة Pro مجاناً لمدة 30 يوماً، بدون بطاقة بنكية.' : (hasAccount ? 'اسم نشاطك يظهر في الفواتير والمنيو.' : 'بهذي البيانات ننشئ حسابك، وتدخل فيها للنظام بعد الدفع.')} />
                         <div className="space-y-5 rounded-3xl border border-beige-300 bg-white p-5 sm:p-6">
                           {!hasAccount && (
                             <Field label="اسمك" error={errors.name}>
@@ -672,18 +689,17 @@ export default function SubscribeWizard({ embedded = false }) {
         </main>
 
         {/* الشريط السفلي: الإجمالي + متابعة */}
-        {!pending && stepKey !== 'payment' && (
+        {!pending && !trialActivated && stepKey !== 'payment' && (
           <div className="fixed inset-x-0 bottom-0 z-20 border-t border-beige-300 bg-white/95 backdrop-blur">
             {formErr && <p role="alert" className="mx-auto max-w-xl px-5 pt-3 text-sm text-red-600">{formErr}</p>}
             <div className="mx-auto flex max-w-xl items-center justify-between gap-4 px-5 py-4">
               <div>
-                <p className="text-xs text-slate-500">الإجمالي لمدة {monthsLabel(months)} شامل الضريبة</p>
-                <p className="text-2xl font-black">{quote ? sar(total) : '—'} <span className="text-sm font-bold text-slate-500">⃁</span></p>
+                {trialMode ? <><p className="text-xs text-slate-500">التجربة المجانية</p><p className="text-2xl font-black">30 يوماً <span className="text-sm font-bold text-sage-700">مجاناً</span></p></> : <><p className="text-xs text-slate-500">الإجمالي لمدة {monthsLabel(months)} شامل الضريبة</p><p className="text-2xl font-black">{quote ? sar(total) : '—'} <span className="text-sm font-bold text-slate-500">⃁</span></p></>}
               </div>
-              <button type="button" onClick={next} disabled={busy || !plan || !quote}
+              <button type="button" onClick={next} disabled={busy || (!trialMode && (!plan || !quote))}
                 className="flex h-12 items-center gap-2 rounded-2xl bg-ink px-7 text-base font-black text-white transition hover:bg-ink/90 disabled:opacity-50">
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                {steps[index + 1] === 'payment' ? 'المتابعة إلى الدفع' : 'متابعة'}
+                {trialMode ? 'ابدأ التجربة المجانية' : (steps[index + 1] === 'payment' ? 'المتابعة إلى الدفع' : 'متابعة')}
               </button>
             </div>
           </div>
