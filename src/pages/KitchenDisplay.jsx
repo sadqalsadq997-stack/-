@@ -80,7 +80,7 @@ export default function KitchenDisplay() {
         </button>
         <div className="mr-auto flex items-center gap-1.5 text-xs text-emerald-400">
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-          "جاهز" يرنّ بيجر العميل تلقائياً
+          الطلبات المعتمدة مالياً فقط
         </div>
       </div>
 
