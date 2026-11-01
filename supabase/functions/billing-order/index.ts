@@ -70,7 +70,8 @@ serve(async (req) => {
     const action = String(body.action || '');
 
     // ── إنشاء حساب جديد من الموقع ──────────────────────────────
-    if (action === 'signup') {
+    if (action === 'signup' || action === 'signup_trial') {
+      const freeTrial = action === 'signup_trial';
       const ip = clientIp(req);
       const device = await deviceHash(req, body.device_id);
       const guard = await guardCheck(sb, 'signup', device, ip, null);
@@ -89,8 +90,10 @@ serve(async (req) => {
       if (password.length < 8 || password.length > 72) throw new HttpError(400, 'كلمة المرور لازم تكون 8 أحرف على الأقل');
 
       // نتحقق من السعر قبل إنشاء أي شيء (باقة/مدة غير صالحة = لا حساب)
-      const { error: qErr } = await sb.rpc('billing_quote', { p_plan_code: plan, p_branches: branches, p_months: months });
-      if (qErr) throw new HttpError(400, qErr.message);
+      if (!freeTrial) {
+        const { error: qErr } = await sb.rpc('billing_quote', { p_plan_code: plan, p_branches: branches, p_months: months });
+        if (qErr) throw new HttpError(400, qErr.message);
+      }
 
       const { data: created, error: uErr } = await sb.auth.admin.createUser({
         email, password, email_confirm: true,
@@ -106,23 +109,33 @@ serve(async (req) => {
 
       try {
         const { data: tenant, error: tErr } = await sb.from('tenants').insert({
-          name: business, name_ar: business, status: 'pending_payment', plan: 'none',
+          name: business, name_ar: business, status: freeTrial ? 'active' : 'pending_payment', plan: freeTrial ? 'trial_pro' : 'none',
           owner_auth_id: uid, contact_email: email, contact_phone: phone,
         }).select('id').single();
         if (tErr) throw tErr;
         const { error: tuErr } = await sb.from('tenant_users').insert({ tenant_id: tenant.id, auth_id: uid, role: 'owner' });
         if (tuErr) throw tuErr;
 
-        const { data: order, error: oErr } = await sb.rpc('billing_create_order', {
-          p_tenant: tenant.id, p_auth: uid, p_plan_code: plan, p_branches: branches, p_months: months,
-        });
-        if (oErr) throw oErr;
+        let order = null;
+        if (!freeTrial) {
+          const { data, error: oErr } = await sb.rpc('billing_create_order', {
+            p_tenant: tenant.id, p_auth: uid, p_plan_code: plan, p_branches: branches, p_months: months,
+          });
+          if (oErr) throw oErr;
+          order = data;
+        }
 
         const session = await passwordSession(email, password);
         await sb.from('security_events').insert({
           event_type: 'signup', user_id: uid, ip_address: ip, success: true,
-          meta: { order: order.order_number, subject: await sha256Hex(email) },
+          meta: { order: order?.order_number ?? null, free_trial: freeTrial, subject: await sha256Hex(email) },
         });
+        if (freeTrial) {
+          const { data: trial } = await sb.from('tenant_subscriptions')
+            .select('status, current_period_start, current_period_end, billing_mode, billing_plans(name_ar, plan_code)')
+            .eq('tenant_id', tenant.id).single();
+          return json({ session, trial: { ...trial, days: 30, plan_code: 'pro' } });
+        }
         return json({ session, order: publicOrder(order) });
       } catch (e) {
         // لا نترك حساباً نصف مكتمل
