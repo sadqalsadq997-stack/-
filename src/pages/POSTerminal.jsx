@@ -188,6 +188,7 @@ export default function POSTerminal() {
         is_b2b: Boolean(b2b),
         branch_id: branchId,
         cashier_name: sess?.empName || (sess?.role === 'admin' ? 'المدير' : null),
+        cashier_employee_id: sess?.empId || null,
         ...(customer ? { customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone } : {}),
         ...(b2b ? { customer_id: b2b.id, customer_name: b2b.legal_name || b2b.name, customer_phone: b2b.phone } : {}),
       };
