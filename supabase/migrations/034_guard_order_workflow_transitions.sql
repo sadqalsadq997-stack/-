@@ -35,3 +35,7 @@ EXECUTE FUNCTION public.guard_order_workflow_transitions();
 
 COMMENT ON FUNCTION public.guard_order_workflow_transitions()
 IS 'Prevents unpaid online orders entering kitchen workflow and blocks cancellation after preparation starts.';
+
+INSERT INTO public.migration_status (migration, note)
+VALUES ('034_guard_order_workflow_transitions', 'Blocks unpaid online orders from kitchen workflow and prevents cancellation after preparation begins.')
+ON CONFLICT (migration) DO NOTHING;
