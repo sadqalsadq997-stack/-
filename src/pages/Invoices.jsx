@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { getZATCAStatusLabel } from '@/lib/zatca';
 import ZATCAInvoicePDF from '@/components/invoices/ZATCAInvoicePDF';
+import { loadSeller } from '@/lib/receipt';
 
 // ── حالة ZATCA بالألوان ────────────────────────────────────────────────────
 function ZATCABadge({ status }) {
@@ -74,9 +75,19 @@ export default function Invoices() {
       let query = supabase.from('branches').select('*');
       if (activeBranchId) query = query.eq('id', activeBranchId);
       else query = query.eq('is_active', true);
-      const { data, error } = await query.limit(1).maybeSingle();
+      const [{ data, error }, seller] = await Promise.all([
+        query.limit(1).maybeSingle(),
+        loadSeller(supabase),
+      ]);
       if (error) throw error;
-      return data;
+      return {
+        ...(data || {}),
+        zatca_seller_name: data?.zatca_seller_name || seller?.name,
+        vat_number: data?.vat_number || seller?.vat_number,
+        logo_url: data?.logo_url || seller?.logo_url,
+        address: data?.address || seller?.address,
+        phone: data?.phone || seller?.phone,
+      };
     },
   });
 
