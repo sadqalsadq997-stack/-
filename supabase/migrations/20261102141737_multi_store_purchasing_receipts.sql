@@ -53,8 +53,8 @@ BEGIN
   END LOOP;
   v_total:=v_net_total+v_tax_total;
   IF v_paid>v_total THEN RAISE EXCEPTION 'المبلغ المدفوع أكبر من إجمالي الفاتورة'; END IF;
-  INSERT INTO public.purchase_invoices(tenant_id,branch_id,supplier_id,warehouse_id,supplier_name,supplier_vat,invoice_number,invoice_date,net_amount,vat_amount,notes,invoice_kind,paid,paid_amount,payment_status,paid_at)
-  VALUES(v_tenant,p_branch,p_supplier,p_warehouse,v_supplier_name,v_supplier_vat,trim(p_invoice_number),coalesce(p_invoice_date,current_date),v_net_total,v_tax_total,p_notes,'tax',v_paid>=v_total,v_paid,CASE WHEN v_paid>=v_total THEN 'paid' WHEN v_paid>0 THEN 'partial' ELSE 'unpaid' END,CASE WHEN v_paid>=v_total THEN current_date ELSE NULL END)
+  INSERT INTO public.purchase_invoices(tenant_id,branch_id,supplier_id,warehouse_id,supplier_name,supplier_vat,invoice_number,invoice_date,net_amount,vat_amount,notes,invoice_kind,expense_account,paid,paid_amount,payment_status,paid_at)
+  VALUES(v_tenant,p_branch,p_supplier,p_warehouse,v_supplier_name,v_supplier_vat,trim(p_invoice_number),coalesce(p_invoice_date,current_date),v_net_total,v_tax_total,p_notes,'tax','1300',v_paid>=v_total,v_paid,CASE WHEN v_paid>=v_total THEN 'paid' WHEN v_paid>0 THEN 'partial' ELSE 'unpaid' END,CASE WHEN v_paid>=v_total THEN current_date ELSE NULL END)
   RETURNING id INTO v_invoice;
   FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines) LOOP
     v_product:=(v_line->>'product_id')::uuid; v_qty:=(v_line->>'quantity')::numeric;
@@ -84,6 +84,32 @@ BEGIN
   RETURN v_invoice;
 END;
 $function$
+
+
+CREATE OR REPLACE FUNCTION public.felsy_post_purchase(r public.purchase_invoices)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_desc text := 'مشتريات ' || coalesce(r.supplier_name,'') || ' ' || coalesce(r.invoice_number,'');
+  v_total numeric := r.net_amount + r.vat_amount;
+  v_paid numeric := CASE WHEN r.paid THEN v_total ELSE least(coalesce(r.paid_amount,0),v_total) END;
+BEGIN
+  PERFORM public.felsy_post(r.tenant_id,r.branch_id,'pi:'||r.id,r.invoice_date::timestamptz,v_desc,
+    jsonb_build_array(
+      jsonb_build_object('dr',r.expense_account,'cr','2100','amount',r.net_amount+CASE WHEN r.deductible THEN 0 ELSE r.vat_amount END),
+      jsonb_build_object('dr','1400','cr','2100','amount',CASE WHEN r.deductible THEN r.vat_amount ELSE 0 END,'desc','ضريبة مدخلات '||coalesce(r.invoice_number,''))
+    ));
+  IF v_paid>0 THEN
+    PERFORM public.felsy_post(r.tenant_id,r.branch_id,'pi-pay:'||r.id,coalesce(r.paid_at,r.invoice_date)::timestamptz,'سداد '||v_desc,
+      jsonb_build_array(jsonb_build_object('dr','2100','cr','1120','amount',v_paid)));
+  ELSE
+    DELETE FROM public.journal_entries WHERE tenant_id=r.tenant_id AND entry_type='auto' AND reference='pi-pay:'||r.id;
+  END IF;
+END
+$function$;
 
 REVOKE ALL ON FUNCTION public.create_purchase_receipt(uuid,uuid,uuid,text,text,text,date,numeric,text,jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.create_purchase_receipt(uuid,uuid,uuid,text,text,text,date,numeric,text,jsonb) TO authenticated;
