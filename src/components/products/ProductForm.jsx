@@ -120,10 +120,10 @@ export default function ProductForm({ product, onClose }) {
             </div>
             {form.sale_behavior === 'scale_barcode' && (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="PLU (حتى 5 أرقام)"><input value={form.scale_plu || ''} onChange={e=>set('scale_plu',e.target.value.replace(/\D/g,'').slice(0,5))} placeholder="مثال 01234" className="retail-input" /></Field>
-                <Field label="بادئة الميزان"><input value={form.scale_prefix || '20'} onChange={e=>set('scale_prefix',e.target.value.replace(/\D/g,'').slice(0,2))} className="retail-input" /></Field>
-                <Field label="القيمة داخل الباركود"><select value={form.scale_value_type || 'price'} onChange={e=>set('scale_value_type',e.target.value)} className="retail-input"><option value="price">إجمالي السعر</option><option value="weight">الوزن</option></select></Field>
-                <Field label="مقسوم القيمة"><input type="number" min="1" step="1" value={form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)} onChange={e=>set('scale_value_divisor',e.target.value)} className="retail-input" /></Field>
+                <Field label="PLU (حتى 5 أرقام)"><input value={form.scale_plu || ''} onChange={e=>set('scale_plu',e.target.value.replace(/\D/g,'').slice(0,5))} placeholder="مثال 01234" className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
+                <Field label="بادئة الميزان"><input value={form.scale_prefix || '20'} onChange={e=>set('scale_prefix',e.target.value.replace(/\D/g,'').slice(0,2))} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
+                <Field label="القيمة داخل الباركود"><select value={form.scale_value_type || 'price'} onChange={e=>set('scale_value_type',e.target.value)} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"><option value="price">إجمالي السعر</option><option value="weight">الوزن</option></select></Field>
+                <Field label="مقسوم القيمة"><input type="number" min="1" step="1" value={form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)} onChange={e=>set('scale_value_divisor',e.target.value)} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
                 <p className="col-span-2 text-[11px] text-muted-foreground">القالب: بادئة من خانتين + PLU من 5 خانات + قيمة من 5 خانات + رقم تحقق EAN‑13. عند اختيار السعر يحسب النظام الوزن من سعر الكيلو، وعند اختيار الوزن يضربه في سعر الوحدة.</p>
               </div>
             )}
@@ -340,9 +340,9 @@ function UnitConversionsEditor({value=[],onChange,baseUnit}) {
     <div className="flex items-center justify-between"><p className="text-sm font-bold">وحدات البيع والتحويل</p><button type="button" onClick={()=>onChange([...rows,{name:'',factor_to_base:'',price:''}])} className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">إضافة وحدة</button></div>
     <p className="text-[11px] text-muted-foreground">كل معامل يوضح كم {baseUnit || 'وحدة أساسية'} يحتويها هذا الخيار. مثال: شوال 50 كيلو = 50.</p>
     {rows.map((row,index)=><div key={index} className="grid grid-cols-12 gap-2 items-end rounded-lg border border-border p-2">
-      <div className="col-span-4"><label className="text-[10px] text-muted-foreground">اسم الوحدة</label><input value={row.name||''} onChange={e=>update(index,{name:e.target.value})} placeholder="شوال 50 كجم" className="retail-input"/></div>
-      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">التحويل</label><input type="number" min="0.001" step="0.001" value={row.factor_to_base||''} onChange={e=>update(index,{factor_to_base:e.target.value})} placeholder="50" className="retail-input"/></div>
-      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">سعر البيع</label><input type="number" min="0" step="0.01" value={row.price||''} onChange={e=>update(index,{price:e.target.value})} placeholder="120" className="retail-input"/></div>
+      <div className="col-span-4"><label className="text-[10px] text-muted-foreground">اسم الوحدة</label><input value={row.name||''} onChange={e=>update(index,{name:e.target.value})} placeholder="شوال 50 كجم" className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"/></div>
+      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">التحويل</label><input type="number" min="0.001" step="0.001" value={row.factor_to_base||''} onChange={e=>update(index,{factor_to_base:e.target.value})} placeholder="50" className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"/></div>
+      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">سعر البيع</label><input type="number" min="0" step="0.01" value={row.price||''} onChange={e=>update(index,{price:e.target.value})} placeholder="120" className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"/></div>
       <button type="button" onClick={()=>onChange(rows.filter((_,i)=>i!==index))} className="col-span-2 h-10 rounded-lg bg-destructive/10 text-xs text-destructive">حذف</button>
     </div>)}
   </div>;
