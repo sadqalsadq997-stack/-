@@ -10,6 +10,7 @@ import AccountTab from '@/components/settings/AccountTab';
 import MenuDesignTab from '@/components/settings/MenuDesignTab';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
 import { uploadImage } from '@/lib/images';
+import { INDUSTRY_OPTIONS } from '@/lib/industry';
 
 const TABS = [
   { id: 'account',  label: 'الحساب والاشتراك', icon: UserCircle },
@@ -60,10 +61,11 @@ export default function Settings() {
         phone: settings.phone || null,
         address: settings.address || null,
         zatca_city: settings.city || null,
+        industry_type: settings.industry_type || 'general',
       };
       const { data: branchData, error: branchError } = await supabase.from('branches')
         .update(branchPatch).eq('id', activeBranch.id)
-        .select('id,name,name_ar,logo_url,zatca_seller_name,vat_number,cr_number,phone,address,zatca_city').maybeSingle();
+        .select('id,name,name_ar,logo_url,zatca_seller_name,vat_number,cr_number,phone,address,zatca_city,industry_type').maybeSingle();
       if (branchError) {
         setSaving(false);
         toast.error('تم حفظ بيانات المنشأة، لكن تعذر تحديث بيانات الفرع: ' + branchError.message);
@@ -143,7 +145,7 @@ export default function Settings() {
                 </div>
               </div>
               {[
-                { key: 'business_name', label: 'اسم المنشأة',        placeholder: 'مطعم الأصالة' },
+                { key: 'business_name', label: 'اسم المنشأة',        placeholder: 'اسم المحل أو المنشأة' },
                 { key: 'vat_number',    label: 'الرقم الضريبي (15 رقم)', placeholder: '310000000000003', ltr: true },
                 { key: 'cr_number',     label: 'السجل التجاري',       placeholder: '1010000000', ltr: true },
                 { key: 'phone',         label: 'رقم الهاتف',          placeholder: '0500000000', ltr: true },
@@ -160,8 +162,7 @@ export default function Settings() {
                 <label className="mb-1.5 block text-sm font-medium">نوع النشاط</label>
                 <select value={settings.industry_type || 'general'} onChange={f('industry_type')}
                   className="h-10 w-full rounded-xl border border-border bg-muted/50 px-3 text-sm focus:border-primary focus:outline-none">
-                  <option value="general">عام</option><option value="restaurant">مطعم</option><option value="cafe">كافيه</option>
-                  <option value="retail">تجزئة</option><option value="car_wash">غسيل سيارات</option><option value="grocery">بقالة</option>
+                  {['عام', 'التجارة والمتاجر', 'الأغذية والضيافة', 'الخدمات'].map(group => <optgroup key={group} label={group}>{INDUSTRY_OPTIONS.filter(item => item.group === group).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</optgroup>)}
                 </select>
               </div>
               <button onClick={saveBusiness} disabled={saving}
