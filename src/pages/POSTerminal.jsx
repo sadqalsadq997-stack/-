@@ -54,6 +54,7 @@ export default function POSTerminal() {
   const [customer, setCustomer]   = useState(null);
   const [weightEntry, setWeightEntry] = useState(null);
   const [weightInput, setWeightInput] = useState('');
+  const [weightMode, setWeightMode] = useState('weight');
   const [unitChoice, setUnitChoice] = useState(null);
   const [discount, setDiscount]   = useState({ type: 'amount', value: '' });
   const [b2b, setB2b]             = useState(null); // عميل منشأة ⇒ فاتورة ضريبية (Standard)
@@ -157,7 +158,7 @@ export default function POSTerminal() {
 
   const handleProductSelect = useCallback((product) => {
     if (product.sale_behavior === 'manual_weight') {
-      setWeightEntry(product); setWeightInput(''); return;
+      setWeightEntry(product); setWeightInput(''); setWeightMode('weight'); return;
     }
     if (product.sale_behavior === 'multi_unit') {
       setUnitChoice(product); return;
@@ -457,10 +458,14 @@ export default function POSTerminal() {
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" dir="rtl">
           <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl">
             <div><h3 className="text-lg font-black">وزن / كمية يدوية</h3><p className="mt-1 text-sm text-muted-foreground">{weightEntry.name_ar || weightEntry.name} — السعر {money(fromH(weightEntry.unit.gross))} / {weightEntry.unit_type}</p></div>
-            <label className="block text-xs font-bold text-muted-foreground">الكمية ({weightEntry.unit_type})</label>
-            <input autoFocus type="number" min="0.001" step="0.001" value={weightInput} onChange={e=>setWeightInput(e.target.value)} placeholder="مثال: 0.250" className="h-12 w-full rounded-xl border border-border bg-background px-3 text-lg font-bold" />
-            <p className="text-xs text-muted-foreground">الإجمالي التقريبي: {money(fromH(Math.round(weightEntry.unit.gross * (Number(weightInput)||0))))} ⃁</p>
-            <div className="flex gap-2"><button onClick={()=>setWeightEntry(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm">إلغاء</button><button onClick={()=>{try{addWeightedLine(weightEntry,Number(weightInput),weightEntry.unit_type||'kg');setWeightEntry(null);}catch(e){toast.error(e.message);}}} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground">إضافة للسلة</button></div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+              <button onClick={()=>setWeightMode('weight')} className={'rounded-lg py-2 text-xs font-bold '+(weightMode==='weight'?'bg-card text-primary shadow-sm':'text-muted-foreground')}>إدخال الوزن</button>
+              <button onClick={()=>setWeightMode('amount')} className={'rounded-lg py-2 text-xs font-bold '+(weightMode==='amount'?'bg-card text-primary shadow-sm':'text-muted-foreground')}>إدخال المبلغ</button>
+            </div>
+            <label className="block text-xs font-bold text-muted-foreground">{weightMode==='weight' ? 'الوزن ('+weightEntry.unit_type+')' : 'المبلغ المطلوب (ريال)'}</label>
+            <input autoFocus type="number" min="0.001" step="0.001" value={weightInput} onChange={e=>setWeightInput(e.target.value)} placeholder={weightMode==='weight'?'مثال: 0.250':'مثال: 5.00'} className="h-12 w-full rounded-xl border border-border bg-background px-3 text-lg font-bold" />
+            <p className="text-xs text-muted-foreground">{weightMode==='weight'?'الإجمالي التقريبي:':'الوزن الناتج: '+(Number(weightInput||0)/(weightEntry.unit.gross/100)).toLocaleString('en-US',{maximumFractionDigits:3})+' '+weightEntry.unit_type+' • الإجمالي:'} {money(fromH(weightMode==='weight'?Math.round(weightEntry.unit.gross*(Number(weightInput)||0)):Math.round((Number(weightInput)||0)*100)))} ⃁</p>
+            <div className="flex gap-2"><button onClick={()=>setWeightEntry(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm">إلغاء</button><button onClick={()=>{try{const amount=Number(weightInput);if(weightMode==='amount'){const quantity=amount/(weightEntry.unit.gross/100);addWeightedLine(weightEntry,quantity,weightEntry.unit_type||'kg',amount);}else{addWeightedLine(weightEntry,amount,weightEntry.unit_type||'kg');}setWeightEntry(null);}catch(e){toast.error(e.message);}}} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground">إضافة للسلة</button></div>
           </div>
         </div>
       )}
