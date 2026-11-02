@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { loadSession } from '@/lib/security/session';
 import {
   LayoutGrid, Plus, Loader2, X, Save, Users,
-  ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer
+  ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer,
+  QrCode, Check, XCircle, ClipboardList
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { printReceipt as printOrderReceipt, loadSeller } from '@/lib/receipt';
 import { issueEinvoice } from '@/lib/einvoice';
 import { unitParts, cartTotals, fromH } from '@/lib/pricing';
+import QRCode from 'qrcode';
 
 const STATUS = {
   available: { label: 'متاح',   color: 'bg-green-100 border-green-300 text-green-700' },
@@ -18,9 +21,9 @@ const STATUS = {
 };
 
 // ── مودال إضافة طلب ──────────────────────────────────────────────
-function OrderModal({ table, products, onClose, onOrderSent }) {
-  const [cart, setCart] = useState([]);
-  const [notes, setNotes] = useState('');
+function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null, initialRoundId = null, initialRoundNumber = null }) {
+  const [cart, setCart] = useState(() => (initialOrder?.items || []).filter(i => !initialRoundId || i.round_id === initialRoundId).map(i => ({ id: i.product_id || i.id, name: i.name_ar || i.name, price: Number(i.price ?? i.unit_price ?? 0), qty: Number(i.qty ?? i.quantity ?? 1) })));
+  const [notes, setNotes] = useState(initialOrder?.notes || '');
   const qc = useQueryClient();
   const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id; } catch { return null; } })();
   const cashierName = sessionStorage.getItem('pin_employee_name') || 'كاشير';
@@ -43,20 +46,28 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
       if (!cart.length) throw new Error('أضف منتجاً واحداً على الأقل');
       // الأسعار والكميات يعاد التحقق منها داخل قاعدة البيانات، وتضاف الجولة
       // إلى نفس الفاتورة المفتوحة للطاولة مع قفل يمنع تداخل طلبات النادلين.
-      const { data, error } = await supabase.rpc('add_table_order_round', {
-        p_table_id: table.id,
-        p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
-        p_notes: notes,
-        p_cashier_name: cashierName,
-      });
+      const { data, error } = initialOrder
+        ? await supabase.rpc('replace_table_order_round', {
+            p_order_id: initialOrder.id,
+            p_round_id: initialRoundId,
+            p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
+            p_notes: notes,
+          })
+        : await supabase.rpc('add_table_order_round', {
+            p_table_id: table.id,
+            p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
+            p_notes: notes,
+            p_cashier_name: cashierName,
+          });
       if (error) throw error;
-      if (!data?.order?.id) throw new Error('لم يتم إنشاء الطلب');
-      return data.order;
+      const order = data?.order || data;
+      if (!order?.id) throw new Error('لم يتم حفظ الطلب');
+      return order;
     },
     onSuccess: (ord) => {
       qc.invalidateQueries({ queryKey: ['tables'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      toast.success('تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
+      toast.success(initialOrder ? 'تم تعديل الجولة وإعادة حساب الفاتورة بالكامل' : 'تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
       onOrderSent(ord);
     },
     onError: (e) => toast.error(e.message || 'فشل الإرسال'),
@@ -69,7 +80,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <ChefHat className="w-5 h-5 text-primary" />
-            <h2 className="font-black text-lg">طلب جديد — طاولة #{table.table_number}</h2>
+            <h2 className="font-black text-lg">{initialOrder ? `تعديل الجولة ${initialRoundNumber || ''}` : 'طلب جديد'} — طاولة #{table.table_number}</h2>
           </div>
           <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
@@ -125,7 +136,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
               <button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || !cart.length}
                 className="w-full h-10 bg-primary text-primary-foreground rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 disabled:opacity-50">
                 {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
-                إرسال للمطبخ
+                {initialOrder ? 'حفظ تعديل الطلب' : 'إرسال للمطبخ'}
               </button>
             </div>
           </div>
@@ -136,7 +147,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
 }
 
 // ── مودال الفاتورة والدفع ──────────────────────────────────────────
-function CheckoutModal({ table, order, onClose, onDone }) {
+function CheckoutModal({ table, order, employeeSession, onClose, onDone }) {
   const [payMethod, setPayMethod] = useState('cash');
   const [amountPaid, setAmountPaid] = useState('');
   const qc = useQueryClient();
@@ -155,6 +166,8 @@ function CheckoutModal({ table, order, onClose, onDone }) {
         payment_method: payMethod,
         amount_paid: paid,
         change_due: change,
+        cashier_employee_id: employeeSession?.empId || null,
+        cashier_name: employeeSession?.empName || (employeeSession?.role === 'admin' ? 'المدير' : null),
       }).eq('id', order.id).select('*').single();
       if (oe) throw oe;
       // توقيع وإرسال للهيئة ثم طباعة الفاتورة بـ QR المرحلة الثانية
@@ -261,13 +274,49 @@ function CheckoutModal({ table, order, onClose, onDone }) {
   );
 }
 
+function TableQRDialog({ table, onClose }) {
+  const [qr, setQr] = useState('');
+  const url = `${window.location.origin}/t/${table.public_token}`;
+  useEffect(() => {
+    let alive = true;
+    QRCode.toDataURL(url, { width: 520, margin: 2, errorCorrectionLevel: 'H' })
+      .then(value => { if (alive) setQr(value); })
+      .catch(() => { if (alive) setQr(''); });
+    return () => { alive = false; };
+  }, [url]);
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" dir="rtl" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-black text-lg">QR طاولة #{table.table_number}</h3>
+          <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">يمسح العميل الرمز لعرض المنيو وإرسال طلب للويتر لاعتماده</p>
+        <div className="mx-auto my-4 flex h-64 w-64 items-center justify-center rounded-xl border border-border bg-white p-2">
+          {qr ? <img src={qr} alt={`QR طاولة ${table.table_number}`} className="h-full w-full" /> : <Loader2 className="h-6 w-6 animate-spin" />}
+        </div>
+        <p className="break-all text-[11px] text-muted-foreground" dir="ltr">{url}</p>
+        <div className="mt-4 flex gap-2">
+          <button onClick={() => navigator.clipboard?.writeText(url)} className="h-10 flex-1 rounded-xl border border-border text-sm font-bold">نسخ الرابط</button>
+          <button onClick={() => { if (!qr) return; const a=document.createElement('a'); a.href=qr; a.download=`table-${table.table_number}-qr.png`; a.click(); }} disabled={!qr} className="h-10 flex-1 rounded-xl bg-primary text-sm font-bold text-primary-foreground disabled:opacity-50">تحميل QR</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── الصفحة الرئيسية ──────────────────────────────────────────────
 export default function Tables() {
   const [showAdd, setShowAdd]       = useState(false);
   const [form, setForm]             = useState({ table_number: '', seats: 4, shape: 'square' });
-  const [orderModal, setOrderModal] = useState(null);   // { table }
+  const [orderModal, setOrderModal] = useState(null);   // { table, order?, roundId?, roundNumber? }
+  const [roundPicker, setRoundPicker] = useState(null);
   const [checkModal, setCheckModal] = useState(null);   // { table, order }
+  const [qrTable, setQrTable] = useState(null);
+  const [employeeSession, setEmployeeSession] = useState(null);
   const qc = useQueryClient();
+
+  useEffect(() => { loadSession().then(setEmployeeSession).catch(() => setEmployeeSession(null)); }, []);
 
   const { data: tables = [], isLoading } = useQuery({
     queryKey: ['tables'],
@@ -277,6 +326,46 @@ export default function Tables() {
       return data || [];
     },
     refetchInterval: 10000,
+  });
+
+  const { data: guestRequests = [] } = useQuery({
+    queryKey: ['table-guest-requests'],
+    queryFn: async () => {
+      let q = supabase.from('table_guest_requests').select('*')
+        .eq('status', 'pending_approval').order('created_at', { ascending: true });
+      try {
+        const branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id;
+        if (branchId) q = q.eq('branch_id', branchId);
+      } catch { /* */ }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 5000,
+  });
+
+  const approveGuestRequest = useMutation({
+    mutationFn: async (id) => {
+      const { data, error } = await supabase.rpc('approve_table_guest_request', { p_request_id: id, p_employee_id: employeeSession?.empId || null });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['table-guest-requests'] });
+      qc.invalidateQueries({ queryKey: ['tables'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('تم اعتماد طلب العميل وإرساله للمطبخ');
+    },
+    onError: e => toast.error(e.message || 'تعذر اعتماد الطلب'),
+  });
+
+  const rejectGuestRequest = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.rpc('reject_table_guest_request', { p_request_id: id, p_reason: 'رفض من الويتر' });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['table-guest-requests'] }); toast.success('تم رفض طلب العميل'); },
+    onError: e => toast.error(e.message || 'تعذر رفض الطلب'),
   });
 
   // جلب المنتجات للقائمة
@@ -292,7 +381,15 @@ export default function Tables() {
   const addTable = useMutation({
     mutationFn: async () => {
       if (!form.table_number) throw new Error('رقم الطاولة مطلوب');
-      const { error } = await supabase.from('tables_map').insert({ ...form, status: 'available', seats: Number(form.seats) });
+      let activeBranchId = null;
+      try { activeBranchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+      if (!activeBranchId) throw new Error('اختر الفرع النشط أولاً حتى ترتبط الطاولة بفرعها');
+      const { error } = await supabase.from('tables_map').insert({
+        ...form,
+        branch_id: activeBranchId,
+        status: 'available',
+        seats: Number(form.seats),
+      });
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tables'] }); setShowAdd(false); setForm({ table_number: '', seats: 4, shape: 'square' }); toast.success('تمت الإضافة'); },
@@ -312,13 +409,43 @@ export default function Tables() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tables'] }); toast.success('تم الحذف'); },
   });
 
+  // اختيار الجولة المراد تعديلها: يسمح بتعديل أي جولة لم يبدأ تجهيزها،
+  // حتى لو كانت جولة أخرى على الطاولة قيد التجهيز.
+  const openEditOrder = async (table) => {
+    if (!table.current_order_id) { toast.error('لا يوجد طلب مفتوح لهذه الطاولة'); return; }
+    const { data, error } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
+    if (error || !data) { toast.error(error?.message || 'تعذر تحميل الطلب'); return; }
+    if (data.invoice_no || ['completed', 'cancelled'].includes(data.status)) {
+      toast.error('الفاتورة مغلقة ولا يمكن تعديلها'); return;
+    }
+    const grouped = new Map();
+    (data.items || []).forEach(item => {
+      const key = item.round_id || 'legacy';
+      if (!grouped.has(key)) grouped.set(key, {
+        roundId: item.round_id || null,
+        roundNumber: item.round_number || 1,
+        status: item.round_status || data.status || 'pending',
+        items: [],
+      });
+      grouped.get(key).items.push(item);
+    });
+    const rounds = [...grouped.values()].filter(round => round.status === 'pending' && round.roundId);
+    if (!rounds.length) {
+      toast.error('لا توجد جولة قابلة للتعديل؛ أضف جولة جديدة بدلاً من تغيير جولة بدأ تجهيزها');
+      return;
+    }
+    setRoundPicker({ table, order: data, rounds });
+  };
+
   // فتح مودال الدفع مع جلب آخر طلب للطاولة
   const openCheckout = async (table) => {
     if (table.current_order_id) {
       const { data } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
       setCheckModal({ table, order: data });
     } else {
-      const { data } = await supabase.from('orders').select('*').eq('table_number', table.table_number).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).single().catch(() => ({ data: null }));
+      let query = supabase.from('orders').select('*').eq('table_number', table.table_number).eq('status', 'pending').eq('order_type', 'dine_in');
+      if (table.branch_id) query = query.eq('branch_id', table.branch_id);
+      const { data } = await query.order('created_at', { ascending: false }).limit(1).single().catch(() => ({ data: null }));
       setCheckModal({ table, order: data });
     }
   };
@@ -336,6 +463,47 @@ export default function Tables() {
           <Plus className="w-4 h-4" />طاولة جديدة
         </button>
       </div>
+
+      {guestRequests.length > 0 && (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:bg-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-black"><ClipboardList className="h-5 w-5 text-amber-600" /> طلبات QR بانتظار اعتماد الويتر</h2>
+            <span className="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-amber-900">{guestRequests.length}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {guestRequests.map(request => (
+              <article key={request.id} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-black">طاولة #{request.table_number} — {request.request_type === 'edit_round' ? `تعديل الجولة ${request.round_number || ''}` : 'طلب جديد'}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{new Date(request.created_at).toLocaleString('ar-SA')}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">بانتظارك</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {(request.items || []).map((item, index) => (
+                    <div key={index} className="flex justify-between text-xs">
+                      <span>{item.name}</span><b>× {item.qty}</b>
+                    </div>
+                  ))}
+                </div>
+                {request.customer_phone && <p className="mt-2 text-xs text-muted-foreground" dir="ltr">{request.customer_phone}</p>}
+                {request.notes && <p className="mt-1 rounded-lg bg-muted/50 p-2 text-xs">{request.notes}</p>}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button onClick={() => approveGuestRequest.mutate(request.id)} disabled={approveGuestRequest.isPending}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-600 text-xs font-bold text-white disabled:opacity-50">
+                    <Check className="h-4 w-4" /> اعتماد وإرسال
+                  </button>
+                  <button onClick={() => rejectGuestRequest.mutate(request.id)} disabled={rejectGuestRequest.isPending}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-muted text-xs font-bold text-destructive disabled:opacity-50">
+                    <XCircle className="h-4 w-4" /> رفض
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* إحصائيات */}
       <div className="grid grid-cols-4 gap-3">
@@ -396,10 +564,13 @@ export default function Tables() {
               <div key={t.id} className={`border-2 ${st.color} rounded-2xl p-4 flex flex-col gap-2`}>
                 <div className="flex items-center justify-between">
                   <span className="font-black text-xl">#{t.table_number}</span>
-                  <button onClick={() => { if (confirm('حذف الطاولة؟')) deleteTable.mutate(t.id); }}
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setQrTable(t)} title="عرض QR الطاولة" className="rounded-lg p-1.5 text-primary hover:bg-primary/10"><QrCode className="h-4 w-4" /></button>
+                    <button onClick={() => { if (confirm('حذف الطاولة؟')) deleteTable.mutate(t.id); }}
                     className="text-muted-foreground hover:text-red-500 transition-colors opacity-50 hover:opacity-100">
                     <X className="w-4 h-4" />
-                  </button>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs opacity-70">
                   <Users className="w-3.5 h-3.5" />{t.seats} مقعد
@@ -414,11 +585,18 @@ export default function Tables() {
                     <ShoppingCart className="w-3.5 h-3.5" />إضافة طلب
                   </button>
                   {isOccupied && (
+                    <>
+                    <button
+                      onClick={() => openEditOrder(t)}
+                      className="w-full h-8 bg-blue-600/10 hover:bg-blue-600/20 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+                      <Save className="w-3.5 h-3.5" />تعديل الطلب المفتوح
+                    </button>
                     <button
                       onClick={() => openCheckout(t)}
                       className="w-full h-8 bg-green-600/10 hover:bg-green-600/20 text-green-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
                       <CreditCard className="w-3.5 h-3.5" />إغلاق الفاتورة
                     </button>
+                    </>
                   )}
                   {/* تغيير الحالة */}
                   <div className="flex gap-1 flex-wrap">
@@ -436,11 +614,42 @@ export default function Tables() {
         </div>
       )}
 
+      {/* اختيار الجولة السابقة القابلة للتعديل */}
+      {roundPicker && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" dir="rtl">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-black text-lg">اختر الجولة التي تريد تعديلها</h3>
+              <button onClick={() => setRoundPicker(null)}><X className="h-5 w-5 text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-2">
+              {roundPicker.rounds.map(round => (
+                <button key={round.roundId}
+                  onClick={() => {
+                    setOrderModal({ table: roundPicker.table, order: roundPicker.order, roundId: round.roundId, roundNumber: round.roundNumber });
+                    setRoundPicker(null);
+                  }}
+                  className="w-full rounded-xl border border-border p-3 text-right hover:border-primary hover:bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">الجولة {round.roundNumber}</span>
+                    <span className="text-xs text-emerald-600">لم يبدأ تجهيزها</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{round.items.map(item => item.name).join('، ')}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* مودال إضافة طلب */}
       {orderModal && (
         <OrderModal
           table={orderModal.table}
           products={products}
+          initialOrder={orderModal.order || null}
+          initialRoundId={orderModal.roundId || null}
+          initialRoundNumber={orderModal.roundNumber || null}
           onClose={() => setOrderModal(null)}
           onOrderSent={(ord) => {
             setOrderModal(null);
@@ -449,11 +658,14 @@ export default function Tables() {
         />
       )}
 
+      {qrTable && <TableQRDialog table={qrTable} onClose={() => setQrTable(null)} />}
+
       {/* مودال الدفع */}
       {checkModal && (
         <CheckoutModal
           table={checkModal.table}
           order={checkModal.order}
+          employeeSession={employeeSession}
           onClose={() => setCheckModal(null)}
           onDone={() => setCheckModal(null)}
         />

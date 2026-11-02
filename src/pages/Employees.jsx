@@ -4,7 +4,8 @@ import { hashPin } from '@/lib/security/pin';
 import { supabase } from '@/integrations/supabase/client';
 import {
   UserCheck, Plus, Search, Trash2, Edit3, Loader2,
-  X, Save, ToggleLeft, ToggleRight, ShieldCheck, ChevronDown, ChevronUp
+  X, Save, ToggleLeft, ToggleRight, ShieldCheck, ChevronDown, ChevronUp,
+  ChefHat, BarChart3, Award, Clock, DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROLE_LABELS, ASSIGNABLE_ROLES } from '@/lib/permissions';
@@ -160,6 +161,8 @@ export default function Employees() {
   const [search, setSearch]     = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing]   = useState(null);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [activeBranchId, setActiveBranchId] = useState(() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { return null; } });
   const qc = useQueryClient();
 
   const { data: employees = [], isLoading } = useQuery({
@@ -173,7 +176,57 @@ export default function Employees() {
 
   const { data: branches = [] } = useQuery({
     queryKey: ['branches'],
-    queryFn: async () => { const { data } = await supabase.from('branches').select('id,name'); return data||[]; },
+    queryFn: async () => { const { data } = await supabase.from('branches').select('id,name,tenant_id'); return data||[]; },
+  });
+
+  const branchId = activeBranchId || branches[0]?.id || null;
+  const { data: kitchenSections = [] } = useQuery({
+    queryKey: ['kitchen-sections', branchId],
+    enabled: Boolean(branchId),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('kitchen_sections').select('*')
+        .eq('branch_id', branchId).eq('is_active', true).order('sort_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: performance = [] } = useQuery({
+    queryKey: ['employee-performance', branchId],
+    enabled: Boolean(branchId),
+    queryFn: async () => {
+      const now = new Date();
+      const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const { data, error } = await supabase.rpc('employee_performance_summary', {
+        p_from: from.toISOString(), p_to: now.toISOString(), p_branch: branchId,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const assignSection = useMutation({
+    mutationFn: async ({ sectionId, employeeId }) => {
+      const { error } = await supabase.from('kitchen_sections')
+        .update({ assigned_employee_id: employeeId || null }).eq('id', sectionId);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kitchen-sections', branchId] }); toast.success('تم تحديث مسؤول القسم'); },
+    onError: e => toast.error(e.message || 'تعذر تعيين الموظف'),
+  });
+
+  const createSection = useMutation({
+    mutationFn: async () => {
+      const branch = branches.find(b => b.id === branchId);
+      if (!branch?.tenant_id || !newSectionName.trim()) throw new Error('أدخل اسم القسم');
+      const { error } = await supabase.from('kitchen_sections').insert({
+        tenant_id: branch.tenant_id, branch_id: branchId, name: newSectionName.trim(),
+        sort_order: kitchenSections.length + 1,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { setNewSectionName(''); qc.invalidateQueries({ queryKey: ['kitchen-sections', branchId] }); toast.success('تم إضافة قسم المطبخ'); },
+    onError: e => toast.error(e.message || 'تعذر إضافة القسم'),
   });
 
   const save = useMutation({
@@ -227,6 +280,94 @@ export default function Employees() {
           onCancel={() => { setShowForm(false); setEditing(null); }}
         />
       )}
+
+      <section className="rounded-2xl border border-border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <ChefHat className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="font-black">توزيع أقسام المطبخ</h2>
+            <p className="text-xs text-muted-foreground">عيّن موظفاً مسؤولاً لكل محطة؛ ستظهر له مهام القسم في شاشة المطبخ.</p>
+          </div>
+        </div>
+        {branches.length > 1 && (
+          <select value={branchId || ''} onChange={e => setActiveBranchId(e.target.value)}
+            className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+        <div className="grid gap-3 md:grid-cols-2">
+          {kitchenSections.map(section => (
+            <div key={section.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm">{section.name}</p>
+                <p className="text-[11px] text-muted-foreground">الموظف المسؤول</p>
+              </div>
+              <select value={section.assigned_employee_id || ''} onChange={e => assignSection.mutate({sectionId:section.id,employeeId:e.target.value})}
+                disabled={assignSection.isPending}
+                className="h-10 max-w-[180px] rounded-lg border border-border bg-background px-2 text-xs">
+                <option value="">أي موظف مطبخ</option>
+                {employees.filter(e => e.is_active && ['kitchen','admin','manager','branch_manager'].includes(e.role)).map(e => (
+                  <option key={e.id} value={e.id}>{e.full_name || e.name}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input value={newSectionName} onChange={e => setNewSectionName(e.target.value)} placeholder="اسم قسم جديد: مشروبات، حلويات، ساخن..."
+            className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm" />
+          <button onClick={() => createSection.mutate()} disabled={createSection.isPending || !newSectionName.trim()}
+            className="flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground disabled:opacity-50">
+            <Plus className="h-4 w-4" /> إضافة قسم
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="font-black">أداء الموظفين — آخر 30 يوماً</h2>
+            <p className="text-xs text-muted-foreground">المبيعات تسجل عند إصدار الفاتورة، وإنجاز المطبخ يسجل عند إتمام كل قسم.</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {title:'أكثر كاشير مبيعاً',icon:DollarSign,employee:[...performance.filter(p=>p.role==='cashier')].sort((a,b)=>Number(b.sales_total)-Number(a.sales_total))[0],value:p=>`${Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`},
+            {title:'أكثر موظف يستلم مهاماً',icon:ChefHat,employee:[...performance.filter(p=>p.role==='kitchen')].sort((a,b)=>Number(b.kitchen_tasks_assigned)-Number(a.kitchen_tasks_assigned))[0],value:p=>`${Number(p.kitchen_tasks_assigned||0)} مهمة مستلمة`},
+            {title:'أكثر موظف مطبخ إنجازاً',icon:Award,employee:[...performance.filter(p=>p.role==='kitchen')].sort((a,b)=>Number(b.kitchen_tasks_completed)-Number(a.kitchen_tasks_completed))[0],value:p=>`${Number(p.kitchen_tasks_completed||0)} مهمة مكتملة`},
+            {title:'أكثر ويتر اعتماداً',icon:UserCheck,employee:[...performance.filter(p=>p.role==='waiter')].sort((a,b)=>Number(b.waiter_approvals)-Number(a.waiter_approvals))[0],value:p=>`${Number(p.waiter_approvals||0)} طلب معتمد`},
+          ].map((card,index)=>(
+            <div key={index} className="rounded-xl bg-muted/40 p-3">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground"><card.icon className="h-4 w-4" />{card.title}</p>
+              <p className="mt-2 font-black">{card.employee?.employee_name || 'لا توجد بيانات بعد'}</p>
+              <p className="mt-1 text-sm font-bold text-primary">{card.employee ? card.value(card.employee) : 'ابدأ بتسجيل نشاط الموظفين'}</p>
+            </div>
+          ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px] text-xs">
+            <thead><tr className="border-b border-border text-muted-foreground">
+              {['الموظف','الدور','فواتير الكاشير','مبيعات الكاشير','مهام مستلمة','مهام مكتملة','طلبات الويتر المعتمدة','متوسط وقت التجهيز'].map(x=><th key={x} className="p-2 text-right">{x}</th>)}
+            </tr></thead>
+            <tbody>
+              {performance.map(p=>(
+                <tr key={p.employee_id} className="border-b border-border/50">
+                  <td className="p-2 font-bold">{p.employee_name}</td>
+                  <td className="p-2">{ROLE_LABELS[p.role]||p.role}</td>
+                  <td className="p-2 tabular-nums">{Number(p.sales_count||0)}</td>
+                  <td className="p-2 tabular-nums">{Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س</td>
+                  <td className="p-2 tabular-nums">{Number(p.kitchen_tasks_assigned||0)}</td>
+                  <td className="p-2 tabular-nums">{Number(p.kitchen_tasks_completed||0)}</td>
+                  <td className="p-2 tabular-nums">{Number(p.waiter_approvals||0)}</td>
+                  <td className="p-2 tabular-nums">{p.avg_kitchen_minutes ? `${p.avg_kitchen_minutes} دقيقة` : '—'}</td>
+                </tr>
+              ))}
+              {performance.length===0 && <tr><td colSpan={8} className="p-5 text-center text-muted-foreground">لا توجد أنشطة مسجلة لهذه الفترة</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

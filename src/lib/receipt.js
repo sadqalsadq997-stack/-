@@ -43,15 +43,25 @@ export async function buildReceiptHTML(order, seller = {}) {
     } catch { /* بدون QR */ }
   }
 
+  let pagerQr = '';
+  if (seller.pager_public_token && order.invoice_no && !isProforma && !isCN) {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://felsy.org';
+      const pagerUrl = `${origin}/pager/${seller.pager_public_token}`;
+      pagerQr = await QRCode.toDataURL(pagerUrl, { width: 220, margin: 1, errorCorrectionLevel: 'M' });
+    } catch { /* البيجر اختياري ولا يمنع طباعة الفاتورة */ }
+  }
+
   const rows = items.map(it => {
-    const qty = Number(it.quantity ?? it.qty ?? 1);
-    const unit = Number(it.price ?? it.unit_price ?? 0);
-    const line = it.total != null ? Number(it.total) : unit * qty;
+    const qty = Number(it.display_quantity ?? it.quantity ?? it.qty ?? 1);
+    const line = it.total != null ? Number(it.total) : Number(it.price ?? it.unit_price ?? 0) * Number(it.quantity ?? it.qty ?? 1);
+    const unit = qty > 0 ? line / qty : line;
+    const unitLabel = it.unit_name ? ` ${esc(it.unit_name)}` : '';
     const cat = it.vat_category || 'S';
     const tag = cat !== 'S' ? ` <span class="u">(${vatShort(cat)})</span>` : '';
-    return `<tr><td class="nm">${esc(it.name || it.product_name)}${tag}${narrow ? '' : `<div class="u">${n2(unit)} × ${qty}</div>`}</td><td class="c">${qty}</td><td class="l">${n2(line)}</td></tr>`;
+    return `<tr><td class="nm">${esc(it.name || it.product_name)}${tag}${narrow ? '' : `<div class="u">${n2(unit)} × ${qty}${unitLabel}</div>`}</td><td class="c">${qty}${unitLabel}</td><td class="l">${n2(line)}</td></tr>`;
   }).join('');
-  const count = items.reduce((s2, it) => s2 + Number(it.quantity ?? it.qty ?? 1), 0);
+  const count = items.reduce((s2, it) => s2 + Number(it.display_quantity ?? it.quantity ?? it.qty ?? 1), 0);
   const logo = /^https:\/\//.test(seller.logo_url || '') ? `<img src="${esc(seller.logo_url)}" alt="" class="logo"/>` : '';
   const title = isCN ? ['إشعار دائن', isB2B ? 'Credit Note — Tax Invoice' : 'Credit Note'] : isProforma ? ['فاتورة مبدئية', 'Pro-forma — ليست فاتورة ضريبية']
     : isB2B ? ['فاتورة ضريبية', 'Tax Invoice'] : ['فاتورة ضريبية مبسطة', 'Simplified Tax Invoice'];
@@ -61,6 +71,7 @@ ${esc([buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].f
   const exemptRows = brk.filter(b => b.category !== 'S' && Number(b.taxable) > 0)
     .map(b => `<div class="row sm"><span>${b.category === 'Z' ? 'مبيعات بنسبة صفرية' : b.category === 'E' ? 'مبيعات معفاة' : 'خارج نطاق الضريبة'}</span><span>${n2(b.taxable)}</span></div>`).join('');
   const number = order.invoice_no || order.order_number;
+  const dailyOrderNumber = order.daily_order_number ?? order.order_number;
 
   return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
 <style>
@@ -91,6 +102,7 @@ ${seller.vat_number ? `<div class="sm">الرقم الضريبي <b dir="ltr">${
 <div class="title"><b>${title[0]}</b><span>${title[1]}</span></div>
 <dl class="meta">
 <dt>${isCN ? 'رقم الإشعار' : isProforma ? 'الطلب' : 'رقم الفاتورة'}</dt><dd dir="ltr" class="b">${esc(number)}</dd>
+<dt>رقم الطلب</dt><dd dir="ltr" class="b">${esc(String(dailyOrderNumber))}</dd>
 <dt>التاريخ</dt><dd dir="ltr">${format(issued, 'yyyy-MM-dd  HH:mm')}</dd>
 ${order.order_type && !isCN ? `<dt>النوع</dt><dd>${esc(TYPES[order.order_type] || order.order_type)}</dd>` : ''}
 ${order.cashier_name ? `<dt>الكاشير</dt><dd>${esc(order.cashier_name)}</dd>` : ''}
@@ -113,6 +125,7 @@ ${Number(order.rounding_amount || order.rounding) ? `<div class="row sm"><span>�
 ${order.payment_method && !isCN ? `<div class="row" style="margin-top:4px"><span>طريقة الدفع</span><span class="b">${esc(PAY[order.payment_method] || order.payment_method)}</span></div>` : ''}
 ${Number(order.amount_paid) > 0 ? `<div class="row"><span>المدفوع</span><span>${n2(order.amount_paid)}</span></div><div class="row"><span>الباقي</span><span>${n2(order.change_due)}</span></div>` : ''}
 ${qr ? `<img class="qr" src="${qr}" alt="QR"/>` : ''}
+${pagerQr ? `<div class="center sm muted" style="margin-top:6px">لمتابعة حالة الطلب: امسح الرمز وأدخل رقم الفاتورة</div><img class="qr" src="${pagerQr}" alt="متابعة الطلب"/>` : ''}
 <div class="center b" style="margin-top:4px">${isCN ? 'تم الإرجاع' : 'شكراً لزيارتكم'}</div>
 ${order.zatca_qr ? '<div class="center sm muted">فاتورة إلكترونية مرسلة لهيئة الزكاة والضريبة والجمارك</div>' : ''}
 <div class="center sm muted" style="margin-top:2px">Felsy.org</div>
@@ -125,10 +138,20 @@ export async function loadSeller(supabase) {
   const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
   let br = {};
   try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+  let branchData = {};
+  if (br.id) {
+    const { data: current } = await supabase.from('branches')
+      .select('zatca_seller_name,zatca_vat_number,vat_number,address,phone,logo_url,pager_public_token')
+      .eq('id', br.id).maybeSingle();
+    branchData = current || {};
+  }
   return {
-    name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
-    vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
-    address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
+    name: branchData.zatca_seller_name || br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
+    vat_number: branchData.zatca_vat_number || branchData.vat_number || br.zatca_vat_number || br.vat_number || data?.vat_number,
+    address: branchData.address || br.address || data?.address,
+    phone: branchData.phone || br.phone || data?.phone,
+    logo_url: branchData.logo_url || br.logo_url || data?.logo_url,
+    pager_public_token: branchData.pager_public_token || br.pager_public_token || null,
   };
 }
 

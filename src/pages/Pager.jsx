@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { BellRing, Plus, QrCode, Check, X, Loader2, Eye, Printer } from 'lucide-react';
+import { BellRing, QrCode, Check, X, Loader2, Eye, Printer, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { PagerTicketDialog, printPagerTicket } from '@/components/pager/PagerTicket';
 
@@ -22,9 +22,9 @@ function minutesSince(d) {
 export default function Pager() {
   const [pagers, setPagers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [show, setShow] = useState(null);
   const [business, setBusiness] = useState('');
+  const [branchPager, setBranchPager] = useState(null);
   const [, tick] = useState(0);
 
   const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { return null; } })();
@@ -40,6 +40,12 @@ export default function Pager() {
   }
 
   useEffect(() => {
+    if (!branchId) return;
+    supabase.from('branches').select('name,name_ar,pager_public_token').eq('id', branchId).maybeSingle()
+      .then(({ data }) => { if (data) setBranchPager(data); });
+  }, [branchId]);
+
+  useEffect(() => {
     load();
     supabase.rpc('my_billing_status').then(({ data }) => setBusiness((Array.isArray(data) ? data[0] : data)?.tenant_name || ''));
     const ch = supabase.channel('pagers-live')
@@ -49,15 +55,6 @@ export default function Pager() {
     return () => { supabase.removeChannel(ch); clearInterval(t); };
   }, []);
 
-  async function create(e) {
-    e?.preventDefault();
-    setCreating(true);
-    const { data, error } = await supabase.rpc('create_pager', { p_order_id: null, p_branch_id: branchId, p_label: null });
-    setCreating(false);
-    if (error) return toast.error(error.message);
-    setShow(data);
-    load();
-  }
 
   async function setStatus(p, status) {
     setPagers(list => list.map(x => (x.id === p.id ? { ...x, status } : x)).filter(x => !['collected', 'cancelled'].includes(x.status)));
@@ -79,12 +76,28 @@ export default function Pager() {
           <h1 className="flex items-center gap-2 text-2xl font-black"><BellRing className="h-6 w-6 text-primary" /> البيجر الإلكتروني</h1>
           <p className="mt-1 text-sm text-muted-foreground">العميل يمسح الباركود ويُنادى برقم الطلب — أول ما المطبخ يضغط "جاهز" يرن جواله تلقائياً بدون الكاشير.</p>
         </div>
-        <form onSubmit={create} className="flex w-full gap-2 md:w-auto">
-          <button disabled={creating} className="flex h-11 flex-shrink-0 items-center gap-2 rounded-xl bg-primary px-5 font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} بيجر جديد
-          </button>
-        </form>
+        <p className="text-xs text-muted-foreground">تظهر هنا البيجرات المرتبطة بالفواتير التي بدأ العملاء متابعتها من رابط المنشأة.</p>
       </div>
+
+      {branchPager?.pager_public_token && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-bold">رابط البيجر الخاص بالمنشأة</p>
+            <p className="mt-1 break-all text-xs text-muted-foreground" dir="ltr">{window.location.origin}/pager/{branchPager.pager_public_token}</p>
+            <p className="mt-1 text-xs text-muted-foreground">العميل يفتح الرابط ويدخل رقم الفاتورة لتفعيل متابعة الطلب.</p>
+          </div>
+          <div className="flex flex-shrink-0 gap-2">
+            <button onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/pager/${branchPager.pager_public_token}`)}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-bold hover:bg-muted">
+              <Copy className="h-4 w-4" /> نسخ الرابط
+            </button>
+            <a href={`${window.location.origin}/pager/${branchPager.pager_public_token}`} target="_blank" rel="noreferrer"
+              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-bold text-primary-foreground">
+              <ExternalLink className="h-4 w-4" /> فتح
+            </a>
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-2 text-xs">
         {COLUMNS.map(c => (

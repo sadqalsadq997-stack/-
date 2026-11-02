@@ -37,6 +37,18 @@ export default function AIAssistant() {
   const { data: orders = [] } = useQuery({ queryKey: ['ai-orders'], queryFn: async () => { const { data } = await supabase.from('orders').select('id, order_number, total, status, created_at').order('created_at', { ascending: false }).limit(100); return data || []; } });
   const { data: products = [] } = useQuery({ queryKey: ['ai-products'], queryFn: async () => { const { data } = await supabase.from('products').select('id, name, name_ar, base_price, stock_quantity, track_inventory'); return data || []; } });
   const { data: customers = [] } = useQuery({ queryKey: ['ai-customers'], queryFn: async () => { const { data } = await supabase.from('customers').select('id'); return data || []; } });
+  const { data: employeeMetrics = [] } = useQuery({
+    queryKey: ['ai-employee-metrics'],
+    queryFn: async () => {
+      const now = new Date();
+      const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const { data, error } = await supabase.rpc('employee_performance_summary', {
+        p_from: from.toISOString(), p_to: now.toISOString(), p_branch: null,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,17 +67,17 @@ export default function AIAssistant() {
         if (error) throw error;
         toast.success(`تم تحديث حالة الطلب #${action.order_number} إلى "${action.new_status}"`);
       } else if (action.type === 'adjust_stock') {
-        const { error } = await supabase.from('products').update({ stock_quantity: action.new_quantity }).eq('id', action.product_id);
-        if (error) throw error;
-        await supabase.from('inventory_logs').insert({
-          product_id: action.product_id,
-          product_name: action.product_name,
-          quantity_change: action.new_quantity - action.previous_quantity,
-          previous_stock: action.previous_quantity,
-          new_stock: action.new_quantity,
-          type: 'manual_ai_assistant',
-          reason: 'تعديل عبر المساعد الذكي بموافقة المستخدم',
+        const delta = Number(action.new_quantity) - Number(action.previous_quantity);
+        if (!Number.isFinite(delta) || delta === 0) throw new Error('لا يوجد تغيير في الكمية');
+        let branchId = null;
+        try { branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+        const { error } = await supabase.rpc('inventory_manual_move', {
+          p_product: action.product_id, p_delta: delta,
+          p_type: delta > 0 ? 'restock' : 'adjustment',
+          p_reason: 'تعديل مخزون عبر المساعد الذكي بموافقة المستخدم',
+          p_unit_cost: null, p_branch: branchId,
         });
+        if (error) throw error;
         toast.success(`تم تعديل مخزون "${action.product_name}" إلى ${action.new_quantity}`);
       }
       setMessages(prev => [...prev, { role: 'assistant', content: '✅ تم التنفيذ بنجاح.' }]);
@@ -102,16 +114,19 @@ export default function AIAssistant() {
     const msg = text || input.trim();
     if (!msg || loading) return;
     setInput('');
+    setPendingAction(null);
+    const history = messages.slice(-8).map(item => `${item.role === 'assistant' ? 'المساعد' : 'المستخدم'}: ${item.content}`).join('\\n');
     setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setLoading(true);
 
     try {
       const context = `
 بيانات النظام الحالية لهذا الحساب فقط (لا يمكنك رؤية أي حساب آخر):
-- عدد الطلبات: ${orders.length} | إجمالي المبيعات: ${orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)} ⃁
+- آخر ${orders.length} طلباً محمّلاً (ليست بالضرورة كل طلبات الشهر): إجماليها ${orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)} ⃁
 - المنتجات (id | الاسم | السعر | المخزون): ${products.slice(0, 40).map(p => `${p.id}|${p.name_ar || p.name}|${p.base_price}|${p.stock_quantity ?? 0}`).join(' ، ')}
 - آخر 10 طلبات (id | رقم | الحالة): ${orders.slice(0, 10).map(o => `${o.id}|${o.order_number}|${o.status}`).join(' ، ')}
 - عدد العملاء: ${customers.length}
+- أداء الموظفين آخر 30 يوماً (الاسم | الدور | فواتير | مبيعات | مهام مستلمة | مهام مكتملة | موافقات ويتر): ${employeeMetrics.map(e => `${e.employee_name}|${e.role}|${e.sales_count}|${e.sales_total}|${e.kitchen_tasks_assigned}|${e.kitchen_tasks_completed}|${e.waiter_approvals}`).join(' ؛ ')}
 `;
 
       const systemInstruction = `أنت مساعد أعمال ذكي لنظام فلسي POS. لديك صلاحية اقتراح تنفيذ مهام (لا تنفيذها مباشرة):
@@ -134,19 +149,25 @@ export default function AIAssistant() {
 \`\`\`
 
 اكتب قبل البلوك جملة قصيرة توضح ما ستفعله. لا تخمّن أي id غير موجود في البيانات أعلاه — إذا لم تجد المنتج/الطلب المطلوب، اطلب توضيحاً من المستخدم بدلاً من تخمين بلوك action.
-لن يُنفَّذ أي إجراء إلا بعد موافقة المستخدم الصريحة بالضغط على زر التأكيد — هذا مضبوط من النظام تلقائياً، فلا تطلب من المستخدم تأكيداً نصياً بنفسك.`;
+لن يُنفَّذ أي إجراء إلا بعد موافقة المستخدم الصريحة بالضغط على زر التأكيد — هذا مضبوط من النظام تلقائياً، فلا تطلب من المستخدم تأكيداً نصياً بنفسك. إذا كانت البيانات لا تكفي للإجابة، قل ذلك بوضوح ولا تخترع أرقاماً. أجب بلغة المستخدم نفسها.`;
 
       // الطلب يمر من السيرفر (ai-chat) — مفتاح Gemini لا يظهر في المتصفح
       const { data, error: aiErr } = await callFunction('ai-chat', {
-        prompt: `${systemInstruction}\n\n${context}\n\nسؤال/طلب المستخدم: ${msg}\n\nأجب باللغة العربية.`,
+        prompt: `${systemInstruction}\n\n${context}\n\nالمحادثة السابقة:\n${history}\n\nسؤال/طلب المستخدم الحالي: ${msg}\n\nأجب بلغة المستخدم نفسها.`,
         max_tokens: 600,
       });
-      if (aiErr || data?.configured === false) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `بناءً على بياناتك:\n\n${getLocalInsight(orders, products, customers)}${aiErr ? `\n\n(${aiErr})` : ''}` }]);
+      if (data?.configured === false) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'خدمة الذكاء الاصطناعي غير مهيأة حالياً. يلزم ضبط سر GEMINI_API_KEY في إعدادات Edge Functions في Supabase، ثم إعادة المحاولة.' }]);
         setLoading(false);
         return;
       }
-      const reply = data?.text || 'لم أتمكن من الحصول على إجابة.';
+      if (aiErr || data?.error || !data?.text) {
+        const reason = aiErr || data?.error || 'لم يصل رد نصي من مزود الذكاء الاصطناعي';
+        setMessages(prev => [...prev, { role: 'assistant', content: `تعذر الحصول على إجابة من خدمة الذكاء الاصطناعي: ${reason}` }]);
+        setLoading(false);
+        return;
+      }
+      const reply = data.text;
 
       const action = extractAction(reply);
       const cleanText = reply.replace(/```action[\s\S]*?```/i, '').trim();

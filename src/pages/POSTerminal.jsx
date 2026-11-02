@@ -7,6 +7,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 import LoyaltyCustomerBox from '@/components/pos/LoyaltyCustomerBox';
 import { DiscountBox, B2BBox } from '@/components/pos/CheckoutExtras';
 import { unitParts, cartTotals, fromH, money } from '@/lib/pricing';
+import { parseScaleBarcode, decodeScaleValue } from '@/lib/scaleBarcode';
 import { printReceipt } from '@/lib/receipt';
 import { issueEinvoice } from '@/lib/einvoice';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
@@ -51,6 +52,10 @@ export default function POSTerminal() {
   const [lastOrder, setLastOrder] = useState(null);
   const [flashId, setFlashId]     = useState(null);
   const [customer, setCustomer]   = useState(null);
+  const [weightEntry, setWeightEntry] = useState(null);
+  const [weightInput, setWeightInput] = useState('');
+  const [weightMode, setWeightMode] = useState('weight');
+  const [unitChoice, setUnitChoice] = useState(null);
   const [discount, setDiscount]   = useState({ type: 'amount', value: '' });
   const [b2b, setB2b]             = useState(null); // عميل منشأة ⇒ فاتورة ضريبية (Standard)
   const lastScan = useRef(0);
@@ -63,7 +68,7 @@ export default function POSTerminal() {
     queryKey: ['pos-products'],
     queryFn: async () => {
       const { data, error } = await supabase.from('products')
-        .select('id, name, name_ar, base_price, tax_inclusive, tax_rate, vat_category, vat_exemption_code, image_url, category_id, barcode, sku, is_active')
+        .select('id, name, name_ar, base_price, tax_inclusive, tax_rate, vat_category, vat_exemption_code, image_url, category_id, barcode, sku, is_active, unit_type, sale_behavior, scale_plu, scale_prefix, scale_value_type, scale_value_divisor, unit_conversions')
         .eq('is_active', true).order('sort_order', { nullsFirst: false });
       if (error) toast.error('تعذر تحميل المنتجات');
       return (data || []).map(p => ({ ...p, unit: unitParts(p) }));
@@ -114,26 +119,86 @@ export default function POSTerminal() {
     return matchSearch && matchCat;
   });
 
-  const addToCart = useCallback((product) => {
+  const addToCart = useCallback((product, options = {}) => {
+    const unitName = options.unitName || product.unit_type || 'قطعة';
+    const lineKey = options.lineKey || `${product.id}:${unitName}`;
     setCart(prev => {
-      const exist = prev.find(i => i.product_id === product.id);
-      if (exist) return prev.map(i => i.product_id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { product_id: product.id, name: product.name_ar || product.name, unit: product.unit, qty: 1 }];
+      const exist = prev.find(i => i.lineKey === lineKey);
+      if (exist) return prev.map(i => i.lineKey === lineKey ? { ...i, qty: i.qty + 1, inventoryQty: (i.inventoryQty || 1) + (options.inventoryQty || 1) } : i);
+      return [...prev, {
+        lineKey, product_id: product.id, name: product.name_ar || product.name,
+        unit: options.unit || product.unit, qty: 1,
+        inventoryQty: options.inventoryQty ?? 1, unitName, baseUnit: product.unit_type || 'piece',
+        displayQty: options.displayQty || null, lockedQty: !!options.lockedQty,
+      }];
     });
     setFlashId(product.id);
     setTimeout(() => setFlashId(id => (id === product.id ? null : id)), 450);
   }, []);
 
-  // المسح بالباركود ← السلة فوراً
+  const addWeightedLine = useCallback((product, quantity, unitName, totalGross = null) => {
+    const amount = Number(quantity);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) throw new Error('الوزن أو الكمية غير صحيحة');
+    const unit = totalGross == null
+      ? {
+          ...product.unit,
+          net: Math.round(product.unit.net * amount),
+          vat: Math.round(product.unit.vat * amount),
+          gross: Math.round(product.unit.gross * amount),
+        }
+      : unitParts({ ...product, base_price: totalGross, tax_inclusive: true });
+    const lineKey = `${product.id}:${unitName}:${Date.now()}:${Math.random().toString(36).slice(2,6)}`;
+    setCart(prev => [...prev, {
+      lineKey, product_id: product.id, name: product.name_ar || product.name,
+      unit, qty: 1, inventoryQty: amount, unitName, baseUnit: product.unit_type || 'kg', lockedQty: true,
+      displayQty: `${amount.toLocaleString('en-US',{maximumFractionDigits:3})} ${unitName}`,
+    }]);
+    setFlashId(product.id);
+  }, []);
+
+  const handleProductSelect = useCallback((product) => {
+    if (product.sale_behavior === 'manual_weight') {
+      setWeightEntry(product); setWeightInput(''); setWeightMode('weight'); return;
+    }
+    if (product.sale_behavior === 'multi_unit') {
+      setUnitChoice(product); return;
+    }
+    addToCart(product);
+  }, [addToCart]);
+
+  // باركود الميزان: تحقق EAN-13 ثم مطابقة البادئة وPLU ثم فك السعر/الوزن.
   const handleScan = useCallback((raw) => {
     const code = normCode(raw);
     if (!code) return;
     lastScan.current = Date.now();
-    const p = products.find(x => normCode(x.barcode) === code) || products.find(x => normCode(x.sku) === code);
     setSearch('');
-    if (p) { addToCart(p); beep(true); }
+    const scaleProduct = products.find(x =>
+      x.sale_behavior === 'scale_barcode' &&
+      String(x.scale_prefix || '20') === code.slice(0,2) &&
+      String(x.scale_plu || '').padStart(5,'0') === code.slice(2,7)
+    );
+    if (scaleProduct) {
+      const parsed = parseScaleBarcode(code, scaleProduct.scale_prefix || '20');
+      const decoded = decodeScaleValue(parsed, scaleProduct);
+      if (!decoded) { beep(false); toast.error('باركود الميزان غير صحيح أو رقم التحقق غير مطابق'); return; }
+      try {
+        if (decoded.type === 'price') {
+          const grossPerUnit = scaleProduct.unit.gross / 100;
+          if (grossPerUnit <= 0) throw new Error('سعر الوحدة غير مضبوط');
+          const quantity = decoded.value / grossPerUnit;
+          addWeightedLine(scaleProduct, quantity, scaleProduct.unit_type || 'kg', decoded.value);
+        } else {
+          const quantity = decoded.value;
+          addWeightedLine(scaleProduct, quantity, scaleProduct.unit_type || 'kg');
+        }
+        beep(true);
+      } catch (error) { beep(false); toast.error(error.message); }
+      return;
+    }
+    const p = products.find(x => normCode(x.barcode) === code) || products.find(x => normCode(x.sku) === code);
+    if (p) { handleProductSelect(p); beep(true); }
     else { beep(false); toast.error(`باركود غير مسجّل: ${code}`); }
-  }, [products, addToCart]);
+  }, [products, addWeightedLine, handleProductSelect]);
 
   // لو الكاشير كتب الباركود يدوياً في البحث وضغط Enter
   const onSearchKey = (e) => {
@@ -151,8 +216,8 @@ export default function POSTerminal() {
     }, 60);
   };
 
-  const updateQty = (productId, delta) => {
-    setCart(prev => prev.map(i => i.product_id === productId ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0));
+  const updateQty = (lineKey, delta) => {
+    setCart(prev => prev.map(i => i.lineKey === lineKey ? { ...i, qty: i.qty + delta, inventoryQty: (i.inventoryQty || i.qty) + delta * (i.inventoryQty || 1) / i.qty } : i).filter(i => i.qty > 0));
   };
 
   const grossNow = cart.reduce((s, i) => s + i.unit.gross * i.qty, 0) / 100;
@@ -173,7 +238,7 @@ export default function POSTerminal() {
       const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
       const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { return null; } })();
       const items = cart.map(i => ({
-        product_id: i.product_id, name: i.name, quantity: i.qty,
+        product_id: i.product_id, name: i.name, quantity: i.qty, display_quantity: i.lockedQty ? i.inventoryQty : i.qty, inventory_quantity: i.inventoryQty ?? i.qty, unit_name: i.unitName || null,
         price: fromH(i.unit.gross), net: fromH(i.unit.net), vat: fromH(i.unit.vat), total: fromH(i.unit.gross * i.qty),
         vat_category: i.unit.cat, ...(i.unit.code ? { vat_exemption_code: i.unit.code } : {}),
       }));
@@ -188,6 +253,7 @@ export default function POSTerminal() {
         is_b2b: Boolean(b2b),
         branch_id: branchId,
         cashier_name: sess?.empName || (sess?.role === 'admin' ? 'المدير' : null),
+        cashier_employee_id: sess?.empId || null,
         ...(customer ? { customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone } : {}),
         ...(b2b ? { customer_id: b2b.id, customer_name: b2b.legal_name || b2b.name, customer_phone: b2b.phone } : {}),
       };
@@ -268,20 +334,21 @@ export default function POSTerminal() {
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {filtered.map(p => {
-              const inCart = cart.find(i => i.product_id === p.id);
+              const inCart = cart.filter(i => i.product_id === p.id).reduce((n,i)=>n+i.qty,0);
               return (
-                <button key={p.id} onClick={() => addToCart(p)}
+                <button key={p.id} onClick={() => handleProductSelect(p)}
                   className={`relative rounded-2xl border bg-card p-3 text-right transition-all hover:border-primary/50 hover:shadow-md active:scale-95 ${inCart ? 'border-primary/40 bg-primary/5' : 'border-border'} ${flashId === p.id ? 'ring-2 ring-primary' : ''}`}>
                   {inCart && (
                     <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      {inCart.qty}
+                      {inCart}
                     </span>
                   )}
                   <div className="mb-2 flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-muted/30 text-2xl">
                     {p.image_url ? <img src={p.image_url} className="h-full w-full rounded-xl object-cover" alt="" loading="lazy" /> : '🛍️'}
                   </div>
                   <p className="truncate text-sm font-bold text-foreground">{p.name_ar || p.name}</p>
-                  <p className="mt-0.5 text-sm font-black text-primary">{money(fromH(p.unit.gross))} ⃁</p>
+                  <p className="mt-0.5 text-sm font-black text-primary">{money(fromH(p.unit.gross))} ⃁ <span className="text-[10px] text-muted-foreground">/{p.unit_type || 'قطعة'}</span></p>
+                  {p.sale_behavior !== 'standard' && <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{p.sale_behavior === 'scale_barcode' ? 'باركود ميزان' : p.sale_behavior === 'manual_weight' ? 'وزن يدوي' : 'وحدات متعددة'}</span>}
                 </button>
               );
             })}
@@ -315,21 +382,24 @@ export default function POSTerminal() {
               امسح باركود المنتج أو اضغط عليه
             </div>
           ) : cart.map(item => (
-            <div key={item.product_id} className="flex items-center gap-3 rounded-xl bg-muted/30 p-2.5">
+            <div key={item.lineKey || item.product_id} className="flex items-center gap-3 rounded-xl bg-muted/30 p-2.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                 <p className="text-xs font-bold text-primary">{money(fromH(item.unit.gross * item.qty))} ⃁</p>
+                {item.lockedQty && <p className="text-[11px] text-muted-foreground">{item.displayQty}</p>}{!item.lockedQty && item.unitName && item.unitName !== item.baseUnit && <p className="text-[11px] text-muted-foreground">الوحدة: {item.unitName}</p>}
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => updateQty(item.product_id, -1)} aria-label="إنقاص"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-destructive/10 hover:text-destructive">
-                  <Minus className="h-3 w-3" />
-                </button>
-                <span className="w-6 text-center text-sm font-bold">{item.qty}</span>
-                <button onClick={() => updateQty(item.product_id, 1)} aria-label="زيادة"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary/10 hover:text-primary">
-                  <Plus className="h-3 w-3" />
-                </button>
+                {item.lockedQty ? (
+                  <button onClick={() => setCart(prev=>prev.filter(row=>row.lineKey!==item.lineKey))} aria-label="حذف السطر" className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-destructive"><Trash2 className="h-3 w-3" /></button>
+                ) : (
+                  <>
+                    <button onClick={() => updateQty(item.lineKey || item.product_id, -1)} aria-label="إنقاص"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-destructive/10 hover:text-destructive"><Minus className="h-3 w-3" /></button>
+                    <span className="w-6 text-center text-sm font-bold">{item.qty}</span>
+                    <button onClick={() => updateQty(item.lineKey || item.product_id, 1)} aria-label="زيادة"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary/10 hover:text-primary"><Plus className="h-3 w-3" /></button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -384,6 +454,36 @@ export default function POSTerminal() {
           )}
         </div>
       </div>
+      {weightEntry && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" dir="rtl">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <div><h3 className="text-lg font-black">وزن / كمية يدوية</h3><p className="mt-1 text-sm text-muted-foreground">{weightEntry.name_ar || weightEntry.name} — السعر {money(fromH(weightEntry.unit.gross))} / {weightEntry.unit_type}</p></div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+              <button onClick={()=>setWeightMode('weight')} className={'rounded-lg py-2 text-xs font-bold '+(weightMode==='weight'?'bg-card text-primary shadow-sm':'text-muted-foreground')}>إدخال الوزن</button>
+              <button onClick={()=>setWeightMode('amount')} className={'rounded-lg py-2 text-xs font-bold '+(weightMode==='amount'?'bg-card text-primary shadow-sm':'text-muted-foreground')}>إدخال المبلغ</button>
+            </div>
+            <label className="block text-xs font-bold text-muted-foreground">{weightMode==='weight' ? 'الوزن ('+weightEntry.unit_type+')' : 'المبلغ المطلوب (ريال)'}</label>
+            <input autoFocus type="number" min="0.001" step="0.001" value={weightInput} onChange={e=>setWeightInput(e.target.value)} placeholder={weightMode==='weight'?'مثال: 0.250':'مثال: 5.00'} className="h-12 w-full rounded-xl border border-border bg-background px-3 text-lg font-bold" />
+            <p className="text-xs text-muted-foreground">{weightMode==='weight'?'الإجمالي التقريبي:':'الوزن الناتج: '+(Number(weightInput||0)/(weightEntry.unit.gross/100)).toLocaleString('en-US',{maximumFractionDigits:3})+' '+weightEntry.unit_type+' • الإجمالي:'} {money(fromH(weightMode==='weight'?Math.round(weightEntry.unit.gross*(Number(weightInput)||0)):Math.round((Number(weightInput)||0)*100)))} ⃁</p>
+            <div className="flex gap-2"><button onClick={()=>setWeightEntry(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm">إلغاء</button><button onClick={()=>{try{const amount=Number(weightInput);if(weightMode==='amount'){const quantity=amount/(weightEntry.unit.gross/100);addWeightedLine(weightEntry,quantity,weightEntry.unit_type||'kg',amount);}else{addWeightedLine(weightEntry,amount,weightEntry.unit_type||'kg');}setWeightEntry(null);}catch(e){toast.error(e.message);}}} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground">إضافة للسلة</button></div>
+          </div>
+        </div>
+      )}
+      {unitChoice && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" dir="rtl">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <div><h3 className="text-lg font-black">اختر وحدة البيع</h3><p className="mt-1 text-sm text-muted-foreground">{unitChoice.name_ar || unitChoice.name}</p></div>
+            <div className="grid grid-cols-2 gap-2">
+              {(unitChoice.unit_conversions||[]).map((u,index)=>(
+                <button key={index} onClick={()=>{const converted={...unitChoice,unit:unitParts({...unitChoice,base_price:Number(u.price||unitChoice.base_price)}),};addToCart(converted,{unitName:u.name,inventoryQty:Number(u.factor_to_base),displayQty:null});setUnitChoice(null);}} className="rounded-xl border border-border p-3 text-right hover:border-primary">
+                  <p className="font-bold">{u.name}</p><p className="mt-1 text-xs text-muted-foreground">{u.factor_to_base} {unitChoice.unit_type} • {money(Number(u.price||0))} ⃁</p>
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setUnitChoice(null)} className="w-full rounded-xl border border-border py-2.5 text-sm">إلغاء</button>
+          </div>
+        </div>
+      )}
       <PagerTicketDialog pager={pagerTicket} onClose={() => setPagerTicket(null)} />
     </div>
   );

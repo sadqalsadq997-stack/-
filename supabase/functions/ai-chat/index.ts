@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { CORS, json, adminClient, requireTenantMember, errorResponse, HttpError } from '../_shared/auth.ts';
+import { CORS, json, adminClient, requireTenantMember, errorResponse, HttpError } from './auth.ts';
 
 const MAX_PER_HOUR = 60;
 
@@ -45,7 +45,19 @@ serve(async (req) => {
       },
     );
     const data = await res.json().catch(() => ({}));
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    if (!res.ok) {
+      const providerMessage = data?.error?.message || `Gemini API returned HTTP ${res.status}`;
+      console.error('Gemini provider error:', res.status, providerMessage);
+      return json({ error: providerMessage, configured: true, provider_status: res.status }, 502);
+    }
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: string }) => part.text || '')
+      .join('')
+      .trim() || null;
+    if (!text) {
+      const reason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || 'EMPTY_RESPONSE';
+      return json({ error: `لم يُرجع النموذج إجابة نصية (${reason})`, configured: true }, 502);
+    }
     return json({ text, configured: true });
   } catch (err) {
     return errorResponse(err);

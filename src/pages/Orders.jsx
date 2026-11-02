@@ -1,9 +1,10 @@
 /**
  * صفحة الطلبات — مع عرض حالة ZATCA وزر إعادة الإرسال
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { loadSession } from '@/lib/security/session';
 import {
   Receipt, Search, Eye, Loader2, CheckCircle2, Clock,
   XCircle, ChefHat, Shield, RefreshCw, AlertCircle, Printer, Undo2
@@ -31,7 +32,10 @@ export default function Orders() {
   const [selected, setSelected] = useState(null);
   const [retrying, setRetrying] = useState(null);
   const [returning, setReturning] = useState(null);
+  const [employeeSession, setEmployeeSession] = useState(null);
   const qc = useQueryClient();
+
+  useEffect(() => { loadSession().then(setEmployeeSession).catch(() => setEmployeeSession(null)); }, []);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
@@ -61,6 +65,17 @@ export default function Orders() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }) => {
+      const current = orders.find((o) => o.id === id);
+      if (!current) throw new Error('الطلب غير موجود — حدّث القائمة وحاول مجدداً');
+      // لا يمكن دفع الطلب الأونلاين إلى المطبخ أو تغيير حالته من أزرار الحالة
+      // قبل أن يعتمد الكاشير استلام كامل المبلغ من زر الاعتماد المخصص.
+      if (current.source === 'online' && current.status === 'awaiting_payment') {
+        throw new Error('الطلب غير مدفوع. يجب على الكاشير اعتماد استلام كامل المبلغ أولاً');
+      }
+      // بمجرد بدء التحضير، يمنع الإلغاء من شاشة الطلبات.
+      if (status === 'cancelled' && ['preparing', 'ready', 'completed'].includes(current.status)) {
+        throw new Error('لا يمكن إلغاء الطلب بعد بدء التجهيز');
+      }
       const { data, error } = await supabase.from('orders').update({ status }).eq('id', id).select('id, invoice_no, zatca_status').single();
       if (error) throw error;
       // الإكمال قد يُصدر الفاتورة (طلبات الأونلاين) ⇒ نوقّعها ونرسلها للهيئة
@@ -286,7 +301,9 @@ export default function Orders() {
                 if (!window.confirm('تأكيد أنك استلمت كامل قيمة الطلب نقداً؟ بعد الاعتماد سيظهر الطلب للمطبخ.')) return;
                 const { error } = await supabase.from('orders').update({
                   status: 'pending', payment_method: 'cash', amount_paid: selected.total,
-                  change_due: 0, cashier_name: sessionStorage.getItem('pin_employee_name') || 'كاشير',
+                  change_due: 0,
+                  cashier_name: employeeSession?.empName || sessionStorage.getItem('pin_employee_name') || 'كاشير',
+                  cashier_employee_id: employeeSession?.empId || null,
                 }).eq('id', selected.id).eq('status', 'awaiting_payment');
                 if (error) { toast.error(error.message || 'تعذر اعتماد الدفع'); return; }
                 toast.success('تم اعتماد استلام الدفع وإرسال الطلب للمطبخ');
@@ -297,18 +314,22 @@ export default function Orders() {
             >تأكيد استلام الدفع نقداً وإرسال للمطبخ</button>
           )}
 
-          {/* تغيير الحالة */}
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(STATUS_MAP).filter(([k]) => !(k === 'cancelled' && selected.invoice_no)).map(([k, v]) => (
-              <button key={k}
-                onClick={() => updateStatus.mutate({ id: selected.id, status: k })}
-                disabled={selected.status === k || updateStatus.isPending}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40
-                  ${selected.status === k ? v.color : 'bg-muted hover:bg-muted/80'}`}>
-                {v.label}
-              </button>
-            ))}
-          </div>
+          {/* تغيير الحالة — طلب الأونلاين ينتظر اعتماد الكاشير، والإلغاء ممنوع بعد بدء التحضير */}
+          {!(selected.source === 'online' && selected.status === 'awaiting_payment') && (
+            <div className="flex gap-2 flex-wrap">
+              {Object.entries(STATUS_MAP)
+                .filter(([k]) => !(k === 'cancelled' && (selected.invoice_no || ['preparing', 'ready', 'completed'].includes(selected.status))))
+                .map(([k, v]) => (
+                  <button key={k}
+                    onClick={() => updateStatus.mutate({ id: selected.id, status: k })}
+                    disabled={selected.status === k || updateStatus.isPending}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40
+                      ${selected.status === k ? v.color : 'bg-muted hover:bg-muted/80'}`}>
+                    {v.label}
+                  </button>
+                ))}
+            </div>
+          )}
 
           {/* زر إعادة إرسال لـ ZATCA */}
           {zatcaActive && selected.invoice_no && ['pending', 'signed', 'error'].includes(selected.zatca_status) && (

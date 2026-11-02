@@ -55,8 +55,8 @@ const ROLE_ACCESS = {
 
   branch_manager: [
     '/', '/pos', '/orders', '/tables', '/kitchen',
-    '/products', '/categories', '/inventory',
-    '/customers', '/invoices', '/suppliers',
+    '/products', '/categories', '/inventory', '/purchases',
+    '/customers', '/invoices', '/suppliers', '/purchases',
     '/expenses', '/analytics', '/employees',
     '/settings', '/ai', '/estore', '/loyalty',
     '/car-orders', '/support', '/pager', '/zatca-admin',
@@ -85,12 +85,12 @@ const ROLE_ACCESS = {
   ],
 
   accountant: [
-    '/', '/accounting', '/invoices', '/expenses', '/analytics',
+    '/', '/accounting', '/invoices', '/expenses', '/analytics', '/purchases',
     '/customers', '/suppliers', '/zatca-admin', '/support',
   ],
 
   inventory_manager: [
-    '/', '/inventory', '/products', '/categories', '/suppliers', '/support',
+    '/', '/inventory', '/products', '/categories', '/suppliers', '/purchases', '/support',
   ],
 };
 
