@@ -15,7 +15,6 @@ export default function ProductForm({ product, onClose }) {
     tax_inclusive: false, is_ingredient: false, ...product,
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const qc = useQueryClient();
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
