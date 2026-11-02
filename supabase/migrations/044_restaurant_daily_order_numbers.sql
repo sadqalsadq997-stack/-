@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.daily_order_counters (
   tenant_id UUID NOT NULL,
   branch_id UUID,
   business_date DATE NOT NULL,
-  last_number SMALLINT NOT NULL DEFAULT 0 CHECK (last_number BETWEEN 1 AND 100),
+  last_number SMALLINT NOT NULL DEFAULT 1 CHECK (last_number BETWEEN 1 AND 100),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (scope_id, business_date)
 );
