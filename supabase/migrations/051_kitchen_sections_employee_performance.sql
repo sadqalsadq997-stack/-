@@ -243,16 +243,16 @@ BEGIN
       jsonb_build_object('section_id',v_task.section_id,'round_id',v_task.round_id));
   END IF;
 
-  IF EXISTS (SELECT 1 FROM public.kitchen_tasks
-             WHERE order_id=v_task.order_id
-               AND round_id IS NOT DISTINCT FROM v_task.round_id
-               AND status='preparing') THEN
-    v_round_status := 'preparing';
-  ELSIF NOT EXISTS (SELECT 1 FROM public.kitchen_tasks
-                    WHERE order_id=v_task.order_id
-                      AND round_id IS NOT DISTINCT FROM v_task.round_id
-                      AND status NOT IN ('ready','cancelled')) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.kitchen_tasks
+                 WHERE order_id=v_task.order_id
+                   AND round_id IS NOT DISTINCT FROM v_task.round_id
+                   AND status NOT IN ('ready','cancelled')) THEN
     v_round_status := 'ready';
+  ELSIF EXISTS (SELECT 1 FROM public.kitchen_tasks
+                WHERE order_id=v_task.order_id
+                  AND round_id IS NOT DISTINCT FROM v_task.round_id
+                  AND status IN ('preparing','ready')) THEN
+    v_round_status := 'preparing';
   ELSE
     v_round_status := 'pending';
   END IF;
