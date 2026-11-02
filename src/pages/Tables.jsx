@@ -333,6 +333,10 @@ export default function Tables() {
     const { data, error } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
     if (error || !data) { toast.error(error?.message || 'تعذر تحميل الطلب'); return; }
     if (data.status !== 'pending' || data.invoice_no) { toast.error('يمكن تعديل الطلب قبل بدء التجهيز فقط'); return; }
+    if ((data.items || []).some(item => !['pending', undefined, null].includes(item.round_status))) {
+      toast.error('بدأ تجهيز إحدى جولات الطلب؛ أضف جولة جديدة بدلاً من تعديل الطلب السابق');
+      return;
+    }
     setOrderModal({ table, order: data });
   };
 
