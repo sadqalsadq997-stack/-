@@ -76,12 +76,14 @@ export default function KitchenDisplay() {
   }, [load]);
 
   const setStatus = async (card, status) => {
-    const { error } = await supabase.rpc('set_table_order_round_status', {
-      p_order_id: card.order.id,
-      p_round_id: card.roundId,
-      p_status: status,
-    });
-    if (error) { toast.error(error.message || 'تعذر تحديث حالة الجولة'); return; }
+    const result = card.order.order_type === 'dine_in'
+      ? await supabase.rpc('set_table_order_round_status', {
+          p_order_id: card.order.id,
+          p_round_id: card.roundId,
+          p_status: status,
+        })
+      : await supabase.from('orders').update({ status }).eq('id', card.order.id);
+    if (result.error) { toast.error(result.error.message || 'تعذر تحديث حالة الطلب'); return; }
     if (status === 'ready' && pagers[card.order.id]) {
       toast.success(`تم تجهيز الجولة ${card.roundNumber} · بيجر رقم ${pagers[card.order.id]}`);
     }
