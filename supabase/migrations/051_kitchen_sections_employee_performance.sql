@@ -121,6 +121,37 @@ CREATE TRIGGER trg_ensure_default_kitchen_section
 AFTER INSERT ON public.branches
 FOR EACH ROW EXECUTE FUNCTION public.ensure_default_kitchen_section();
 
+CREATE OR REPLACE FUNCTION public.sync_kitchen_section_assignment()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $
+BEGIN
+  UPDATE public.kitchen_tasks
+  SET assigned_employee_id=NEW.assigned_employee_id,updated_at=now()
+  WHERE section_id=NEW.id AND status='pending';
+  RETURN NEW;
+END;
+$;
+DROP TRIGGER IF EXISTS trg_sync_kitchen_section_assignment ON public.kitchen_sections;
+CREATE TRIGGER trg_sync_kitchen_section_assignment
+AFTER UPDATE OF assigned_employee_id ON public.kitchen_sections
+FOR EACH ROW
+WHEN (OLD.assigned_employee_id IS DISTINCT FROM NEW.assigned_employee_id)
+EXECUTE FUNCTION public.sync_kitchen_section_assignment();
+
+CREATE OR REPLACE FUNCTION public.unassign_inactive_kitchen_employee()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $
+BEGIN
+  IF OLD.is_active AND NOT NEW.is_active THEN
+    UPDATE public.kitchen_sections SET assigned_employee_id=NULL,updated_at=now()
+    WHERE assigned_employee_id=NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$;
+DROP TRIGGER IF EXISTS trg_unassign_inactive_kitchen_employee ON public.employee_profiles;
+CREATE TRIGGER trg_unassign_inactive_kitchen_employee
+AFTER UPDATE OF is_active ON public.employee_profiles
+FOR EACH ROW EXECUTE FUNCTION public.unassign_inactive_kitchen_employee();
+
 CREATE OR REPLACE FUNCTION public.sync_kitchen_tasks_from_order()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
