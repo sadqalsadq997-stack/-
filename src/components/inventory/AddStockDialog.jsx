@@ -6,20 +6,27 @@ import { toast } from 'sonner';
 
 export default function AddStockDialog({ product, onClose }) {
   const [qty, setQty]         = useState('');
-  const [type, setType]       = useState('add');
+  const [type, setType]       = useState('restock');
   const [notes, setNotes]     = useState('');
+  const [unitCost, setUnitCost] = useState(String(product.cost_price || ''));
 
   const save = useMutation({
     mutationFn: async () => {
       const amount = Number(qty);
       if (!amount || amount <= 0) throw new Error('الكمية غير صحيحة');
-      // ذري في السيرفر + سجل حركة (بدل اقرأ-عدّل-اكتب اللي يضيع حركات متزامنة)
-      const { error } = await supabase.rpc('adjust_stock', {
-        p_product: product.id, p_delta: type === 'add' ? amount : -amount, p_reason: notes || null,
+      let branchId = null;
+      try { branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+      const { error } = await supabase.rpc('inventory_manual_move', {
+        p_product: product.id,
+        p_delta: type === 'restock' ? amount : -amount,
+        p_type: type,
+        p_reason: notes || null,
+        p_unit_cost: type === 'restock' && unitCost ? Number(unitCost) : null,
+        p_branch: branchId,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success('تم تحديث المخزون'); onClose(); },
+    onSuccess: () => { toast.success(type === 'restock' ? 'تم تسجيل التوريد' : type === 'wastage' ? 'تم تسجيل الهدر والتالف' : type === 'consumption' ? 'تم تسجيل الاستهلاك' : 'تم تسجيل التسوية'); onClose(); },
     onError: (e) => toast.error(e.message || 'فشل التحديث'),
   });
 
@@ -33,10 +40,10 @@ export default function AddStockDialog({ product, onClose }) {
         <p className="text-sm text-muted-foreground">المنتج: <span className="font-medium text-foreground">{product.name_ar || product.name}</span></p>
         <p className="text-sm text-muted-foreground">المخزون الحالي: <span className="font-bold text-foreground">{product.stock_quantity || 0}</span></p>
 
-        <div className="flex gap-2">
-          {[['add','إضافة'],['remove','خصم']].map(([v, l]) => (
+        <div className="grid grid-cols-2 gap-2">
+          {[['restock','توريد'],['consumption','استهلاك'],['wastage','هدر / تالف'],['adjustment','تسوية خصم']].map(([v, l]) => (
             <button key={v} onClick={() => setType(v)}
-              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${type === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              className={`rounded-xl py-2 text-sm font-medium transition-colors ${type === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
               {l}
             </button>
           ))}
@@ -46,8 +53,15 @@ export default function AddStockDialog({ product, onClose }) {
           <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} placeholder="0"
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
+        {type === 'restock' && (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">تكلفة الوحدة الجديدة (اختياري)</label>
+            <input type="number" min="0" step="0.01" value={unitCost} onChange={e => setUnitCost(e.target.value)}
+              className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
+          </div>
+        )}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">ملاحظات</label>
+          <label className="text-xs text-muted-foreground mb-1 block">سبب الحركة / الملاحظات</label>
           <input value={notes} onChange={e => setNotes(e.target.value)}
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
