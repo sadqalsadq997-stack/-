@@ -14,6 +14,7 @@ import { canAccess, ROLE_LABELS } from '@/lib/permissions';
 import { loadSession, clearSession } from '@/lib/security/session';
 import Logo, { LogoMark } from '@/components/brand/Logo';
 import AccountNumber from '@/components/AccountNumber';
+import { FOOD_INDUSTRIES } from '@/lib/industry';
 
 const ALL_ITEMS = [
   { path: '/',                icon: LayoutDashboard, label: 'لوحة التحكم'           },
@@ -21,8 +22,8 @@ const ALL_ITEMS = [
   { path: '/orders',          icon: Receipt,         label: 'الطلبات'               },
   { path: '/tables',          icon: UtensilsCrossed, label: 'الطاولات',   food: true },
   { path: '/kitchen',         icon: ChefHat,         label: 'المطبخ',     food: true },
-  { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني' },
-  { path: '/products',        icon: Package,         label: 'المتجر'                },
+  { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني', food: true },
+  { path: '/products',        icon: Package,         label: 'المنتجات'              },
   { path: '/categories',      icon: Layers,          label: 'التصنيفات'             },
   { path: '/inventory',       icon: Warehouse,       label: 'المخزون'               },
   { path: '/customers',       icon: Users,           label: 'العملاء'               },
@@ -42,8 +43,6 @@ const ALL_ITEMS = [
   { path: '/zatca-admin',     icon: Shield,          label: 'الفوترة الإلكترونية' },
   { path: '/settings',        icon: Settings,        label: 'الإعدادات'             },
 ];
-
-const FOOD_INDUSTRIES = ['restaurant', 'cafe'];
 
 // الدور الافتراضي "موظف" (أقل صلاحية) — لا يُفترض "مدير" أبداً
 const GUEST_SESSION = { role: 'employee', perms: {}, name: '' };
