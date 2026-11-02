@@ -90,6 +90,8 @@ export default function Products() {
                   <div className="flex items-center gap-2 mt-0.5">
                     {p.categories && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{p.categories.name_ar || p.categories.name}</span>}
                     {p.is_ingredient && <span className="text-xs rounded-full bg-blue-500/10 px-2 py-0.5 font-bold text-blue-600">مادة خام</span>}
+                    {p.sale_behavior && p.sale_behavior !== 'standard' && <span className="text-xs rounded-full bg-primary/10 px-2 py-0.5 font-bold text-primary">{p.sale_behavior === 'scale_barcode' ? 'باركود ميزان' : p.sale_behavior === 'manual_weight' ? 'وزن يدوي' : 'وحدات متعددة'}</span>}
+                    {p.unit_type && <span className="text-xs text-muted-foreground">الوحدة: {p.unit_type}</span>}
                     {p.barcode && <span className="text-xs text-muted-foreground">{p.barcode}</span>}
                     {p.track_inventory && p.min_stock_alert != null && (
                       <span className="flex items-center gap-1 text-xs text-amber-600">
