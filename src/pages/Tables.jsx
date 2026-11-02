@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutGrid, Plus, Loader2, X, Save, Users,
-  ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer
+  ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer,
+  QrCode, Check, XCircle, ClipboardList
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { printReceipt as printOrderReceipt, loadSeller } from '@/lib/receipt';
 import { issueEinvoice } from '@/lib/einvoice';
 import { unitParts, cartTotals, fromH } from '@/lib/pricing';
+import QRCode from 'qrcode';
 
 const STATUS = {
   available: { label: 'متاح',   color: 'bg-green-100 border-green-300 text-green-700' },
@@ -269,6 +271,37 @@ function CheckoutModal({ table, order, onClose, onDone }) {
   );
 }
 
+function TableQRDialog({ table, onClose }) {
+  const [qr, setQr] = useState('');
+  const url = `${window.location.origin}/t/${table.public_token}`;
+  useEffect(() => {
+    let alive = true;
+    QRCode.toDataURL(url, { width: 520, margin: 2, errorCorrectionLevel: 'H' })
+      .then(value => { if (alive) setQr(value); })
+      .catch(() => { if (alive) setQr(''); });
+    return () => { alive = false; };
+  }, [url]);
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" dir="rtl" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-black text-lg">QR طاولة #{table.table_number}</h3>
+          <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">يمسح العميل الرمز لعرض المنيو وإرسال طلب للويتر لاعتماده</p>
+        <div className="mx-auto my-4 flex h-64 w-64 items-center justify-center rounded-xl border border-border bg-white p-2">
+          {qr ? <img src={qr} alt={`QR طاولة ${table.table_number}`} className="h-full w-full" /> : <Loader2 className="h-6 w-6 animate-spin" />}
+        </div>
+        <p className="break-all text-[11px] text-muted-foreground" dir="ltr">{url}</p>
+        <div className="mt-4 flex gap-2">
+          <button onClick={() => navigator.clipboard?.writeText(url)} className="h-10 flex-1 rounded-xl border border-border text-sm font-bold">نسخ الرابط</button>
+          <button onClick={() => { if (!qr) return; const a=document.createElement('a'); a.href=qr; a.download=`table-${table.table_number}-qr.png`; a.click(); }} disabled={!qr} className="h-10 flex-1 rounded-xl bg-primary text-sm font-bold text-primary-foreground disabled:opacity-50">تحميل QR</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── الصفحة الرئيسية ──────────────────────────────────────────────
 export default function Tables() {
   const [showAdd, setShowAdd]       = useState(false);
@@ -276,6 +309,7 @@ export default function Tables() {
   const [orderModal, setOrderModal] = useState(null);   // { table, order?, roundId?, roundNumber? }
   const [roundPicker, setRoundPicker] = useState(null);
   const [checkModal, setCheckModal] = useState(null);   // { table, order }
+  const [qrTable, setQrTable] = useState(null);
   const qc = useQueryClient();
 
   const { data: tables = [], isLoading } = useQuery({
@@ -286,6 +320,46 @@ export default function Tables() {
       return data || [];
     },
     refetchInterval: 10000,
+  });
+
+  const { data: guestRequests = [] } = useQuery({
+    queryKey: ['table-guest-requests'],
+    queryFn: async () => {
+      let q = supabase.from('table_guest_requests').select('*')
+        .eq('status', 'pending_approval').order('created_at', { ascending: true });
+      try {
+        const branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id;
+        if (branchId) q = q.eq('branch_id', branchId);
+      } catch { /* */ }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 5000,
+  });
+
+  const approveGuestRequest = useMutation({
+    mutationFn: async (id) => {
+      const { data, error } = await supabase.rpc('approve_table_guest_request', { p_request_id: id });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['table-guest-requests'] });
+      qc.invalidateQueries({ queryKey: ['tables'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('تم اعتماد طلب العميل وإرساله للمطبخ');
+    },
+    onError: e => toast.error(e.message || 'تعذر اعتماد الطلب'),
+  });
+
+  const rejectGuestRequest = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.rpc('reject_table_guest_request', { p_request_id: id, p_reason: 'رفض من الويتر' });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['table-guest-requests'] }); toast.success('تم رفض طلب العميل'); },
+    onError: e => toast.error(e.message || 'تعذر رفض الطلب'),
   });
 
   // جلب المنتجات للقائمة
@@ -384,6 +458,47 @@ export default function Tables() {
         </button>
       </div>
 
+      {guestRequests.length > 0 && (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:bg-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-black"><ClipboardList className="h-5 w-5 text-amber-600" /> طلبات QR بانتظار اعتماد الويتر</h2>
+            <span className="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-amber-900">{guestRequests.length}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {guestRequests.map(request => (
+              <article key={request.id} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-black">طاولة #{request.table_number} — {request.request_type === 'edit_round' ? `تعديل الجولة ${request.round_id ? '' : ''}` : 'طلب جديد'}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{new Date(request.created_at).toLocaleString('ar-SA')}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">بانتظارك</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {(request.items || []).map((item, index) => (
+                    <div key={index} className="flex justify-between text-xs">
+                      <span>{item.name}</span><b>× {item.qty}</b>
+                    </div>
+                  ))}
+                </div>
+                {request.customer_phone && <p className="mt-2 text-xs text-muted-foreground" dir="ltr">{request.customer_phone}</p>}
+                {request.notes && <p className="mt-1 rounded-lg bg-muted/50 p-2 text-xs">{request.notes}</p>}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button onClick={() => approveGuestRequest.mutate(request.id)} disabled={approveGuestRequest.isPending}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-600 text-xs font-bold text-white disabled:opacity-50">
+                    <Check className="h-4 w-4" /> اعتماد وإرسال
+                  </button>
+                  <button onClick={() => rejectGuestRequest.mutate(request.id)} disabled={rejectGuestRequest.isPending}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-muted text-xs font-bold text-destructive disabled:opacity-50">
+                    <XCircle className="h-4 w-4" /> رفض
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* إحصائيات */}
       <div className="grid grid-cols-4 gap-3">
         {Object.entries(STATUS).map(([k, v]) => (
@@ -443,10 +558,13 @@ export default function Tables() {
               <div key={t.id} className={`border-2 ${st.color} rounded-2xl p-4 flex flex-col gap-2`}>
                 <div className="flex items-center justify-between">
                   <span className="font-black text-xl">#{t.table_number}</span>
-                  <button onClick={() => { if (confirm('حذف الطاولة؟')) deleteTable.mutate(t.id); }}
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setQrTable(t)} title="عرض QR الطاولة" className="rounded-lg p-1.5 text-primary hover:bg-primary/10"><QrCode className="h-4 w-4" /></button>
+                    <button onClick={() => { if (confirm('حذف الطاولة؟')) deleteTable.mutate(t.id); }}
                     className="text-muted-foreground hover:text-red-500 transition-colors opacity-50 hover:opacity-100">
                     <X className="w-4 h-4" />
-                  </button>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs opacity-70">
                   <Users className="w-3.5 h-3.5" />{t.seats} مقعد
@@ -533,6 +651,8 @@ export default function Tables() {
           }}
         />
       )}
+
+      {qrTable && <TableQRDialog table={qrTable} onClose={() => setQrTable(null)} />}
 
       {/* مودال الدفع */}
       {checkModal && (
