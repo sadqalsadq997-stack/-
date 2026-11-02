@@ -40,7 +40,7 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const vatNumberDigits = String(vatNumberRaw || '').replace(/\D/g, '');
   const hasSellerVat = /^\d{15}$/.test(vatNumberDigits);
   const qrData = zatcaInvoice?.qr_code || order?.zatca_qr || (!isB2B && hasSellerVat ? generateZATCAQR({
-    sellerName: sellerNameRaw, vatNumber: vatNumberRaw,
+    sellerName: sellerNameRaw, vatNumber: vatNumberDigits,
     invoiceDate: issuedAt.toISOString(),
     invoiceTotal: total,
     vatAmount,
