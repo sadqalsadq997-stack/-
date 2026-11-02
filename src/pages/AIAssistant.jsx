@@ -126,6 +126,7 @@ export default function AIAssistant() {
 - المنتجات (id | الاسم | السعر | المخزون): ${products.slice(0, 40).map(p => `${p.id}|${p.name_ar || p.name}|${p.base_price}|${p.stock_quantity ?? 0}`).join(' ، ')}
 - آخر 10 طلبات (id | رقم | الحالة): ${orders.slice(0, 10).map(o => `${o.id}|${o.order_number}|${o.status}`).join(' ، ')}
 - عدد العملاء: ${customers.length}
+- أداء الموظفين آخر 30 يوماً (الاسم | الدور | فواتير | مبيعات | مهام مستلمة | مهام مكتملة | موافقات ويتر): ${employeeMetrics.map(e => `${e.employee_name}|${e.role}|${e.sales_count}|${e.sales_total}|${e.kitchen_tasks_assigned}|${e.kitchen_tasks_completed}|${e.waiter_approvals}`).join(' ؛ ')}
 `;
 
       const systemInstruction = `أنت مساعد أعمال ذكي لنظام فلسي POS. لديك صلاحية اقتراح تنفيذ مهام (لا تنفيذها مباشرة):
