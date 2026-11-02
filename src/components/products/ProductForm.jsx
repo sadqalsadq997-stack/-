@@ -10,7 +10,7 @@ export default function ProductForm({ product, onClose }) {
   const isEdit = !!product?.id;
   const [form, setForm] = useState({
     name: '', name_ar: '', base_price: '', cost_price: '', barcode: '', sku: '',
-    category_id: '', unit_type: 'piece', is_active: true, show_in_menu: true,
+    category_id: '', unit_type: 'piece', sale_behavior: 'standard', scale_plu: '', scale_prefix: '20', scale_value_type: 'price', scale_value_divisor: 100, unit_conversions: [], allow_manual_weight: false, is_active: true, show_in_menu: true,
     show_in_store: false, track_inventory: false, min_stock_alert: 5, tax_rate: 15,
     tax_inclusive: false, is_ingredient: false, ...product,
   });
@@ -40,6 +40,10 @@ export default function ProductForm({ product, onClose }) {
       if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
       const payload = {
         ...form,
+        unit_conversions: (form.unit_conversions || []).filter(u => u.name?.trim() && Number(u.factor_to_base)>0).map(u=>({name:u.name.trim(),factor_to_base:Number(u.factor_to_base),price:Number(u.price||0)})),
+        scale_plu: form.scale_plu?.trim() || null,
+        scale_prefix: form.scale_prefix || '20',
+        scale_value_divisor: Number(form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)),
         base_price: form.base_price ? Number(form.base_price) : null,
         cost_price: form.cost_price ? Number(form.cost_price) : null,
         min_stock_alert: Number(form.min_stock_alert),
@@ -101,6 +105,31 @@ export default function ProductForm({ product, onClose }) {
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
               {['piece','kg','g','liter','ml','box','dozen','carton'].map(u => <option key={u} value={u}>{u}</option>)}
             </select>
+          </div>
+          <div className="col-span-2 rounded-xl border border-border bg-muted/20 p-3 space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">سلوك البيع في نقطة البيع</label>
+              <select value={form.sale_behavior || 'standard'} onChange={e => set('sale_behavior',e.target.value)}
+                className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm">
+                <option value="standard">منتج ثابت — قطعة / باركود عادي</option>
+                <option value="scale_barcode">منتج ميزان — باركود سعر أو وزن</option>
+                <option value="manual_weight">وزن يدوي — إدخال الوزن أو القيمة</option>
+                <option value="multi_unit">وحدات متعددة — كيس / كرتون / شوال</option>
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">يحدد طريقة إدخال الصنف وحساب الكمية والخصم من المخزون.</p>
+            </div>
+            {form.sale_behavior === 'scale_barcode' && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="PLU (حتى 5 أرقام)"><input value={form.scale_plu || ''} onChange={e=>set('scale_plu',e.target.value.replace(/\D/g,'').slice(0,5))} placeholder="مثال 01234" className="retail-input" /></Field>
+                <Field label="بادئة الميزان"><input value={form.scale_prefix || '20'} onChange={e=>set('scale_prefix',e.target.value.replace(/\D/g,'').slice(0,2))} className="retail-input" /></Field>
+                <Field label="القيمة داخل الباركود"><select value={form.scale_value_type || 'price'} onChange={e=>set('scale_value_type',e.target.value)} className="retail-input"><option value="price">إجمالي السعر</option><option value="weight">الوزن</option></select></Field>
+                <Field label="مقسوم القيمة"><input type="number" min="1" step="1" value={form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)} onChange={e=>set('scale_value_divisor',e.target.value)} className="retail-input" /></Field>
+                <p className="col-span-2 text-[11px] text-muted-foreground">القالب: بادئة من خانتين + PLU من 5 خانات + قيمة من 5 خانات + رقم تحقق EAN‑13. عند اختيار السعر يحسب النظام الوزن من سعر الكيلو، وعند اختيار الوزن يضربه في سعر الوحدة.</p>
+              </div>
+            )}
+            {form.sale_behavior === 'multi_unit' && (
+              <UnitConversionsEditor value={form.unit_conversions || []} onChange={v=>set('unit_conversions',v)} baseUnit={form.unit_type} />
+            )}
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">قسم التحضير بالمطبخ</label>
@@ -303,6 +332,22 @@ function VatPicker({ form, set }) {
 }
 
 // صورة المنتج: تُضغط في الجهاز (WebP ≤ 800px) قبل الرفع — توفّر المساحة وتسرّع المنيو
+function Field({label,children}) { return <div><label className="mb-1 block text-xs text-muted-foreground">{label}</label>{children}</div>; }
+function UnitConversionsEditor({value=[],onChange,baseUnit}) {
+  const rows = Array.isArray(value) ? value : [];
+  const update=(index,patch)=>onChange(rows.map((row,i)=>i===index?{...row,...patch}:row));
+  return <div className="space-y-2">
+    <div className="flex items-center justify-between"><p className="text-sm font-bold">وحدات البيع والتحويل</p><button type="button" onClick={()=>onChange([...rows,{name:'',factor_to_base:'',price:''}])} className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">إضافة وحدة</button></div>
+    <p className="text-[11px] text-muted-foreground">كل معامل يوضح كم {baseUnit || 'وحدة أساسية'} يحتويها هذا الخيار. مثال: شوال 50 كيلو = 50.</p>
+    {rows.map((row,index)=><div key={index} className="grid grid-cols-12 gap-2 items-end rounded-lg border border-border p-2">
+      <div className="col-span-4"><label className="text-[10px] text-muted-foreground">اسم الوحدة</label><input value={row.name||''} onChange={e=>update(index,{name:e.target.value})} placeholder="شوال 50 كجم" className="retail-input"/></div>
+      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">التحويل</label><input type="number" min="0.001" step="0.001" value={row.factor_to_base||''} onChange={e=>update(index,{factor_to_base:e.target.value})} placeholder="50" className="retail-input"/></div>
+      <div className="col-span-3"><label className="text-[10px] text-muted-foreground">سعر البيع</label><input type="number" min="0" step="0.01" value={row.price||''} onChange={e=>update(index,{price:e.target.value})} placeholder="120" className="retail-input"/></div>
+      <button type="button" onClick={()=>onChange(rows.filter((_,i)=>i!==index))} className="col-span-2 h-10 rounded-lg bg-destructive/10 text-xs text-destructive">حذف</button>
+    </div>)}
+  </div>;
+}
+
 function ImagePicker({ value, onChange }) {
   const [busy, setBusy] = useState(false);
   async function pick(e) {
