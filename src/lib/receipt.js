@@ -61,6 +61,7 @@ ${esc([buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].f
   const exemptRows = brk.filter(b => b.category !== 'S' && Number(b.taxable) > 0)
     .map(b => `<div class="row sm"><span>${b.category === 'Z' ? 'مبيعات بنسبة صفرية' : b.category === 'E' ? 'مبيعات معفاة' : 'خارج نطاق الضريبة'}</span><span>${n2(b.taxable)}</span></div>`).join('');
   const number = order.invoice_no || order.order_number;
+  const dailyOrderNumber = order.daily_order_number ?? order.order_number;
 
   return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
 <style>
@@ -91,6 +92,7 @@ ${seller.vat_number ? `<div class="sm">الرقم الضريبي <b dir="ltr">${
 <div class="title"><b>${title[0]}</b><span>${title[1]}</span></div>
 <dl class="meta">
 <dt>${isCN ? 'رقم الإشعار' : isProforma ? 'الطلب' : 'رقم الفاتورة'}</dt><dd dir="ltr" class="b">${esc(number)}</dd>
+<dt>رقم الطلب</dt><dd dir="ltr" class="b">${esc(String(dailyOrderNumber))}</dd>
 <dt>التاريخ</dt><dd dir="ltr">${format(issued, 'yyyy-MM-dd  HH:mm')}</dd>
 ${order.order_type && !isCN ? `<dt>النوع</dt><dd>${esc(TYPES[order.order_type] || order.order_type)}</dd>` : ''}
 ${order.cashier_name ? `<dt>الكاشير</dt><dd>${esc(order.cashier_name)}</dd>` : ''}
