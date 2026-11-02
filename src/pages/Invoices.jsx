@@ -69,12 +69,26 @@ export default function Invoices() {
   const { data: branch } = useQuery({
     queryKey: ['active-branch'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .single();
-      return data;
+      let active = {};
+      try { active = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+      const { data: settings } = await supabase.from('app_settings')
+        .select('business_name,vat_number,cr_number,address,city,phone,logo_url').limit(1).maybeSingle();
+      let query = supabase.from('branches').select('*');
+      if (active.id) query = query.eq('id', active.id);
+      else query = query.eq('is_active', true);
+      const { data: branch } = await query.limit(1).maybeSingle();
+      return {
+        ...(settings || {}), ...(branch || {}),
+        name: branch?.name || settings?.business_name || 'المنشأة',
+        zatca_seller_name: branch?.zatca_seller_name || settings?.business_name || branch?.name_ar || branch?.name,
+        vat_number: branch?.vat_number || branch?.zatca_vat_number || settings?.vat_number,
+        cr_number: branch?.cr_number || settings?.cr_number,
+        address: branch?.address || settings?.address,
+        city: branch?.city || settings?.city,
+        zatca_city: branch?.zatca_city || branch?.city || settings?.city,
+        phone: branch?.phone || settings?.phone,
+        logo_url: branch?.logo_url || settings?.logo_url,
+      };
     },
   });
 
@@ -151,7 +165,7 @@ export default function Invoices() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-right p-3 font-medium text-muted-foreground">رقم الطلب</th>
+                  <th className="text-right p-3 font-medium text-muted-foreground">رقم الطلب / الفاتورة</th>
                   <th className="text-right p-3 font-medium text-muted-foreground">العميل</th>
                   <th className="text-right p-3 font-medium text-muted-foreground">التاريخ</th>
                   <th className="text-right p-3 font-medium text-muted-foreground">الضريبة</th>
@@ -165,7 +179,7 @@ export default function Invoices() {
                   const zi = zatcaMap[o.id];
                   return (
                     <tr key={o.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3 font-mono font-bold">#{o.order_number}</td>
+                      <td className="p-3"><div className="font-mono font-bold">طلب #{o.daily_order_number ?? o.order_number}</div><div className="mt-1 text-[10px] text-muted-foreground" dir="ltr">{o.invoice_no || "—"}</div></td>
                       <td className="p-3">{o.customer_name || '—'}</td>
                       <td className="p-3 text-muted-foreground text-xs">
                         {new Date(o.created_at).toLocaleString('ar-SA')}
