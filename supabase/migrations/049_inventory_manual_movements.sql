@@ -93,17 +93,22 @@ BEGIN
     RAISE EXCEPTION 'إشارة الكمية لا تتوافق مع نوع الحركة';
   END IF;
 
-  SELECT tenant_id INTO v_tenant
+  SELECT tenant_id, coalesce(stock_quantity,0) INTO v_tenant, v_stock
   FROM public.products
   WHERE id = p_product AND tenant_id IN (SELECT public.current_paid_tenant_ids())
   FOR UPDATE;
   IF v_tenant IS NULL THEN RAISE EXCEPTION 'المنتج غير موجود أو لا تملك صلاحية الوصول'; END IF;
+  IF p_type <> 'restock' AND v_stock + p_delta < 0 THEN
+    RAISE EXCEPTION 'الكمية المطلوبة أكبر من المخزون المتاح (%).', v_stock;
+  END IF;
 
   IF p_branch IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.branches b WHERE b.id = p_branch AND b.tenant_id = v_tenant
   ) THEN RAISE EXCEPTION 'الفرع غير تابع للمنشأة'; END IF;
 
-  UPDATE public.products SET track_inventory = true WHERE id = p_product;
+  UPDATE public.products SET track_inventory = true,
+    cost_price = CASE WHEN p_type='restock' AND coalesce(p_unit_cost,0)>0 THEN p_unit_cost ELSE cost_price END
+  WHERE id = p_product;
   PERFORM public.felsy_stock_move(
     v_tenant, p_branch, p_product, p_delta, p_type,
     left(coalesce(nullif(trim(p_reason), ''),
