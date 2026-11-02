@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { getZATCAStatusLabel } from '@/lib/zatca';
 import ZATCAInvoicePDF from '@/components/invoices/ZATCAInvoicePDF';
+import { loadSeller } from '@/lib/receipt';
 
 // ── حالة ZATCA بالألوان ────────────────────────────────────────────────────
 function ZATCABadge({ status }) {
@@ -67,14 +68,28 @@ export default function Invoices() {
 
   // ── جلب بيانات الفرع ──
   const { data: branch } = useQuery({
-    queryKey: ['active-branch'],
+    queryKey: ['invoice-active-branch'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .single();
-      return data;
+      let activeBranchId = null;
+      try { activeBranchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+      let query = supabase.from('branches').select('*');
+      if (activeBranchId) query = query.eq('id', activeBranchId);
+      else query = query.eq('is_active', true);
+      const [{ data, error }, seller] = await Promise.all([
+        query.limit(1).maybeSingle(),
+        loadSeller(supabase),
+      ]);
+      if (error) throw error;
+      return {
+        ...(data || {}),
+        zatca_seller_name: data?.zatca_seller_name || seller?.name,
+        vat_number: data?.vat_number || seller?.vat_number,
+        logo_url: data?.logo_url || seller?.logo_url,
+        cr_number: data?.cr_number || seller?.cr_number,
+        city: data?.city || seller?.city,
+        address: data?.address || seller?.address,
+        phone: data?.phone || seller?.phone,
+      };
     },
   });
 
@@ -87,6 +102,8 @@ export default function Invoices() {
   const filtered = orders.filter(o =>
     !search ||
     o.order_number?.includes(search) ||
+    o.invoice_no?.includes(search) ||
+    String(o.daily_order_number ?? '').includes(search) ||
     o.customer_name?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -165,7 +182,10 @@ export default function Invoices() {
                   const zi = zatcaMap[o.id];
                   return (
                     <tr key={o.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3 font-mono font-bold">#{o.order_number}</td>
+                      <td className="p-3 font-mono font-bold">
+                        <div>#{o.daily_order_number ?? o.order_number}</div>
+                        {o.invoice_no && <div className="mt-1 text-[10px] font-normal text-muted-foreground" dir="ltr">{o.invoice_no}</div>}
+                      </td>
                       <td className="p-3">{o.customer_name || '—'}</td>
                       <td className="p-3 text-muted-foreground text-xs">
                         {new Date(o.created_at).toLocaleString('ar-SA')}

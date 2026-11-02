@@ -60,7 +60,8 @@ ${buyer.vat_number ? `الرقم الضريبي: <b dir="ltr">${esc(buyer.vat_nu
 ${esc([buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].filter(Boolean).join('، '))}</div>` : '';
   const exemptRows = brk.filter(b => b.category !== 'S' && Number(b.taxable) > 0)
     .map(b => `<div class="row sm"><span>${b.category === 'Z' ? 'مبيعات بنسبة صفرية' : b.category === 'E' ? 'مبيعات معفاة' : 'خارج نطاق الضريبة'}</span><span>${n2(b.taxable)}</span></div>`).join('');
-  const number = order.invoice_no || order.order_number;
+  const number = order.daily_order_number ?? order.order_number;
+  const taxInvoiceNumber = order.invoice_no || '';
 
   return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
 <style>
@@ -90,7 +91,8 @@ ${seller.phone ? `<div class="sm muted" dir="ltr">${esc(seller.phone)}</div>` : 
 ${seller.vat_number ? `<div class="sm">الرقم الضريبي <b dir="ltr">${esc(seller.vat_number)}</b></div>` : ''}</header>
 <div class="title"><b>${title[0]}</b><span>${title[1]}</span></div>
 <dl class="meta">
-<dt>${isCN ? 'رقم الإشعار' : isProforma ? 'الطلب' : 'رقم الفاتورة'}</dt><dd dir="ltr" class="b">${esc(number)}</dd>
+<dt>${isCN ? 'رقم الإشعار' : 'رقم الطلب'}</dt><dd dir="ltr" class="b">${esc(number)}</dd>
+${!isCN && !isProforma && taxInvoiceNumber ? `<dt>رقم الفاتورة الضريبية</dt><dd dir="ltr" class="b">${esc(taxInvoiceNumber)}</dd>` : ''}
 <dt>التاريخ</dt><dd dir="ltr">${format(issued, 'yyyy-MM-dd  HH:mm')}</dd>
 ${order.order_type && !isCN ? `<dt>النوع</dt><dd>${esc(TYPES[order.order_type] || order.order_type)}</dd>` : ''}
 ${order.cashier_name ? `<dt>الكاشير</dt><dd>${esc(order.cashier_name)}</dd>` : ''}
@@ -122,12 +124,13 @@ ${order.zatca_qr ? '<div class="center sm muted">فاتورة إلكترونية
 
 /** بيانات البائع للفاتورة (اسم المنشأة والرقم الضريبي) من الفرع النشط أو الإعدادات */
 export async function loadSeller(supabase) {
-  const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
+  const { data } = await supabase.from('app_settings').select('business_name, vat_number, cr_number, address, city, phone, logo_url').limit(1).maybeSingle();
   let br = {};
   try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
   return {
     name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
     vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
+    cr_number: br.cr_number || data?.cr_number, city: br.city || data?.city,
     address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
   };
 }

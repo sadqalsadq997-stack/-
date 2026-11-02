@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, Plug, FileCheck, UserCircle, Palette,
+  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, Plug, FileCheck, UserCircle, Palette, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ZatcaCenter from './ZatcaCenter';
@@ -20,7 +20,7 @@ const TABS = [
 ];
 
 // الحقول اللي يحفظها تبويب "بيانات المنشأة" فقط (ما نرسل الصف كامل)
-const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type'];
+const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type', 'logo_url'];
 
 export default function Settings() {
   const [params, setParams] = useSearchParams();
@@ -28,6 +28,7 @@ export default function Settings() {
   const setTab = (id) => setParams({ tab: id }, { replace: true });
   const [settings, setSettings] = useState({});
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +49,62 @@ export default function Settings() {
     if (error) { toast.error('تعذر الحفظ'); return; }
     if (data) setSettings(data);
     toast.success('تم حفظ بيانات المنشأة');
+  }
+
+  async function uploadBusinessLogo(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = '';
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      toast.error('ارفع شعاراً بصيغة PNG أو JPG أو WEBP');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error('حجم الشعار يجب ألا يتجاوز 1 ميجابايت');
+      return;
+    }
+    let activeBranch = {};
+    try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+    let tenantId = settings.tenant_id || activeBranch.tenant_id || null;
+    if (!tenantId && activeBranch.id) {
+      const { data: branchTenant, error: tenantError } = await supabase
+        .from('branches').select('tenant_id').eq('id', activeBranch.id).maybeSingle();
+      if (tenantError) { toast.error('تعذر تحديد المنشأة'); return; }
+      tenantId = branchTenant?.tenant_id || null;
+    }
+    if (!tenantId) {
+      toast.error('تعذر تحديد المنشأة. حدّث الصفحة وحاول مرة أخرى');
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${tenantId}/logos/business-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from('media').upload(path, file, {
+        upsert: true, cacheControl: '3600', contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicData } = supabase.storage.from('media').getPublicUrl(path);
+      const logoUrl = publicData?.publicUrl;
+      if (!logoUrl) throw new Error('تعذر إنشاء رابط الشعار');
+
+      const patch = { logo_url: logoUrl };
+      const { data, error } = settings.id
+        ? await supabase.from('app_settings').update(patch).eq('id', settings.id).select().single()
+        : await supabase.from('app_settings').insert({ ...patch, tenant_id: tenantId }).select().single();
+      if (error) throw error;
+      if (activeBranch.id) {
+        const { error: branchError } = await supabase.from('branches').update({ logo_url: logoUrl }).eq('id', activeBranch.id);
+        if (branchError) throw branchError;
+        localStorage.setItem('activeBranch', JSON.stringify({ ...activeBranch, logo_url: logoUrl }));
+      }
+      setSettings(v => ({ ...v, ...(data || {}), logo_url: logoUrl }));
+      toast.success('تم رفع شعار المنشأة وربطه بالفواتير');
+    } catch (error) {
+      toast.error(error?.message || 'تعذر رفع الشعار');
+    } finally {
+      setLogoUploading(false);
+    }
   }
 
   const f = (key) => (e) => setSettings(v => ({ ...v, [key]: e.target.value }));
@@ -82,6 +139,24 @@ export default function Settings() {
             <div className="max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6">
               <h3 className="font-bold text-foreground">بيانات المنشأة</h3>
               <p className="text-xs text-muted-foreground">تظهر في الفاتورة الضريبية والمنيو — تأكد إن الاسم والرقم الضريبي مطابقة لشهادة التسجيل في الضريبة.</p>
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <label className="mb-2 block text-sm font-bold">شعار المنشأة على الفاتورة</label>
+                <div className="flex items-center gap-3">
+                  {settings.logo_url ? (
+                    <img src={settings.logo_url} alt="شعار المنشأة" className="h-16 w-16 rounded-lg border border-border bg-white object-contain p-1" />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><Building2 className="h-6 w-6" /></div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground">
+                      {logoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {logoUploading ? 'جارٍ الرفع...' : 'رفع شعار'}
+                      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadBusinessLogo} disabled={logoUploading} className="hidden" />
+                    </label>
+                    <p className="mt-1 text-[11px] text-muted-foreground">PNG أو JPG أو WEBP — حتى 1 ميجابايت. يظهر على فواتير الفرع النشط.</p>
+                  </div>
+                </div>
+              </div>
               {[
                 { key: 'business_name', label: 'اسم المنشأة',        placeholder: 'مطعم الأصالة' },
                 { key: 'vat_number',    label: 'الرقم الضريبي (15 رقم)', placeholder: '310000000000003', ltr: true },
