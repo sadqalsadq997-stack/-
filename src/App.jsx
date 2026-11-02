@@ -20,6 +20,7 @@ import SubscribeReturn from "@/pages/subscribe/SubscribeReturn";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword  from "@/pages/auth/ResetPassword";
 import PagerCustomer  from "@/pages/PagerCustomer";
+import PagerLookup    from "@/pages/PagerLookup";
 import Pager          from "@/pages/Pager";
 
 // App pages
@@ -186,6 +187,7 @@ function AppRoutes() {
       <Route path="/auth/forgot"   element={<ForgotPassword />} />
       <Route path="/auth/reset"    element={<ResetPassword />} />
       <Route path="/p/:token"      element={<PagerCustomer />} />
+      <Route path="/pager/:branchToken" element={<PagerLookup />} />
       <Route path="/subscribe"      element={<SignupGate />} />
       <Route path="/subscribe/return" element={<RequireAuth><SubscribeReturn /></RequireAuth>} />
 
