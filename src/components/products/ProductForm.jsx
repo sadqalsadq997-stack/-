@@ -21,6 +21,19 @@ export default function ProductForm({ product, onClose }) {
     queryFn: async () => { const { data } = await supabase.from('categories').select('id, name, name_ar').eq('is_active', true); return data || []; },
   });
 
+  const { data: kitchenSections = [] } = useQuery({
+    queryKey: ['kitchen-sections-product-form'],
+    queryFn: async () => {
+      let branchId = null;
+      try { branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+      let q = supabase.from('kitchen_sections').select('id,name').eq('is_active',true).order('sort_order');
+      if (branchId) q = q.eq('branch_id',branchId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const save = useMutation({
     mutationFn: async () => {
       const cat = vatCategoryOf(form);
@@ -34,6 +47,7 @@ export default function ProductForm({ product, onClose }) {
         vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
         tax_rate: cat === 'S' ? 15 : 0,
         is_ingredient: !!form.is_ingredient,
+        kitchen_section_id: form.kitchen_section_id || null,
         track_inventory: form.is_ingredient ? true : !!form.track_inventory,
         show_in_menu: form.is_ingredient ? false : !!form.show_in_menu,
         show_in_store: form.is_ingredient ? false : !!form.show_in_store,
@@ -86,6 +100,14 @@ export default function ProductForm({ product, onClose }) {
             <select value={form.unit_type} onChange={e => set('unit_type', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
               {['piece','kg','g','liter','ml','box','dozen','carton'].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">قسم التحضير بالمطبخ</label>
+            <select value={form.kitchen_section_id || ''} onChange={e => set('kitchen_section_id',e.target.value || null)}
+              className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
+              <option value="">القسم العام</option>
+              {kitchenSections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </div>
         </div>
