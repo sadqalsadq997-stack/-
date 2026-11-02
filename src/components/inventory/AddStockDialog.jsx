@@ -57,7 +57,7 @@ export default function AddStockDialog({ product, onClose }) {
         {type === 'restock' && (product.unit_conversions || []).length > 0 && (
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">وحدة التوريد</label>
-            <select value={stockUnit} onChange={e=>setStockUnit(e.target.value)} className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm">
+            <select value={stockUnit} onChange={e=>{const value=e.target.value;setStockUnit(value);const conversion=(product.unit_conversions||[]).find(u=>u.name===value);setUnitCost(String(Number(product.cost_price||0)*(conversion?Number(conversion.factor_to_base):1)));}} className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm">
               <option value="base">الوحدة الأساسية ({product.unit_type})</option>
               {(product.unit_conversions || []).map((u,i)=><option key={i} value={u.name}>{u.name} = {u.factor_to_base} {product.unit_type}</option>)}
             </select>
