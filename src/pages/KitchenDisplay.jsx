@@ -41,15 +41,32 @@ export default function KitchenDisplay() {
       .in('status', ['pending', 'preparing'])
       .order('created_at').limit(80);
     const list = data || [];
-    // صوت لطلب جديد (ليس عند أول تحميل)
-    const ids = new Set(list.map(o => o.id));
-    if (known.current && list.some(o => !known.current.has(o.id)) && soundRef.current) chime();
-    known.current = ids;
-    setOrders(list);
+    const cards = list.flatMap(order => {
+      const groups = new Map();
+      (order.items || []).forEach(item => {
+        const status = item.round_status || order.status;
+        if (!['pending', 'preparing'].includes(status)) return;
+        const roundId = item.round_id || null;
+        const key = roundId || 'legacy';
+        if (!groups.has(key)) groups.set(key, {
+          order, roundId, roundNumber: item.round_number || 1, status,
+          items: [], notes: item.round_notes || order.notes,
+          addedAt: item.round_added_at || order.created_at,
+        });
+        groups.get(key).items.push(item);
+      });
+      // الطلبات القديمة التي لم تحمل بيانات جولات تبقى ظاهرة كجولة واحدة.
+      return [...groups.values()];
+    });
+    const keys = new Set(cards.map(card => `${card.order.id}:${card.roundId || 'legacy'}`));
+    if (known.current && [...keys].some(key => !known.current.has(key)) && soundRef.current) chime();
+    known.current = keys;
+    setOrders(cards);
     if (list.length) {
-      const { data: pg } = await supabase.from('order_pagers').select('order_id, display_number').in('order_id', list.map(o => o.id));
+      const orderIds = [...new Set(list.map(o => o.id))];
+      const { data: pg } = await supabase.from('order_pagers').select('order_id, display_number').in('order_id', orderIds);
       setPagers(Object.fromEntries((pg || []).map(p => [p.order_id, p.display_number])));
-    }
+    } else setPagers({});
   }, []);
 
   useEffect(() => {
@@ -58,13 +75,17 @@ export default function KitchenDisplay() {
     return () => supabase.removeChannel(ch);
   }, [load]);
 
-  const setStatus = async (o, status) => {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', o.id);
-    if (error) { toast.error('تعذر التحديث'); return; }
-    if (status === 'ready') {
-      setOrders(prev => prev.filter(x => x.id !== o.id));
-      if (pagers[o.id]) toast.success(`🔔 رنّ بيجر رقم ${pagers[o.id]} عند العميل`);
-    } else setOrders(prev => prev.map(x => (x.id === o.id ? { ...x, status } : x)));
+  const setStatus = async (card, status) => {
+    const { error } = await supabase.rpc('set_table_order_round_status', {
+      p_order_id: card.order.id,
+      p_round_id: card.roundId,
+      p_status: status,
+    });
+    if (error) { toast.error(error.message || 'تعذر تحديث حالة الجولة'); return; }
+    if (status === 'ready' && pagers[card.order.id]) {
+      toast.success(`تم تجهيز الجولة ${card.roundNumber} · بيجر رقم ${pagers[card.order.id]}`);
+    }
+    await load();
   };
 
   const toggleSound = () => setSound(v => { try { localStorage.setItem('felsy_kds_sound', v ? '0' : '1'); } catch { /* */ } if (!v) chime(); return !v; });
@@ -90,11 +111,12 @@ export default function KitchenDisplay() {
             <ChefHat className="mx-auto mb-3 h-16 w-16 opacity-20" />
             <p>لا توجد طلبات حالياً</p>
           </div>
-        ) : orders.map(o => {
+        ) : orders.map(card => {
+          const o = card.order;
           const pn = pagers[o.id];
-          const mins = Math.floor((Date.now() - new Date(o.created_at)) / 60000);
+          const mins = Math.floor((Date.now() - new Date(card.addedAt || o.created_at)) / 60000);
           return (
-            <div key={o.id} className={`flex flex-col rounded-2xl border-2 bg-slate-800 p-4 ${o.status === 'pending' ? 'border-amber-500' : 'border-sky-500'}`}>
+            <div key={`${o.id}:${card.roundId || 'legacy'}`} className={`flex flex-col rounded-2xl border-2 bg-slate-800 p-4 ${card.status === 'pending' ? 'border-amber-500' : 'border-sky-500'}`}>
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   {pn ? (
@@ -104,6 +126,7 @@ export default function KitchenDisplay() {
                   )}
                   <p className="mt-1 text-[11px] text-slate-400">
                     {o.table_number ? `طاولة ${o.table_number}` : o.order_type === 'dine_in' ? 'محلي' : 'سفري'}
+                    {o.table_number && ` · الجولة ${card.roundNumber}`}
                     {pn && ` · ${o.order_number?.slice(-4)}`}
                   </p>
                 </div>
@@ -117,25 +140,27 @@ export default function KitchenDisplay() {
               </div>
 
               <div className="mb-4 min-h-[60px] flex-1 space-y-1.5">
-                {(o.items || []).map((item, i) => (
+                {(card.items || []).map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-slate-200">
                     <span className="rounded-md bg-slate-700 px-1.5 py-0.5 text-xs font-bold text-white">{qtyOf(item)}×</span>
                     {item.name}
                   </div>
                 ))}
-                {o.notes && <p className="rounded-lg bg-amber-500/10 px-2 py-1 text-xs text-amber-300">📝 {o.notes}</p>}
+                {card.notes && <p className="rounded-lg bg-amber-500/10 px-2 py-1 text-xs text-amber-300">📝 {card.notes}</p>}
               </div>
 
               <div className="space-y-2">
-                {o.status === 'pending' && (
-                  <button onClick={() => setStatus(o, 'preparing')} className="h-10 w-full rounded-xl bg-sky-600 text-sm font-bold text-white hover:bg-sky-700">
+                {card.status === 'pending' && (
+                  <button onClick={() => setStatus(card, 'preparing')} className="h-10 w-full rounded-xl bg-sky-600 text-sm font-bold text-white hover:bg-sky-700">
                     بدء التحضير
                   </button>
                 )}
-                <button onClick={() => setStatus(o, 'ready')}
-                  className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-base font-black text-white hover:bg-emerald-600">
-                  <CheckCircle2 className="h-5 w-5" /> جاهز {pn && <BellRing className="h-4 w-4" />}
-                </button>
+                {card.status === 'preparing' && (
+                  <button onClick={() => setStatus(card, 'ready')}
+                    className="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-base font-black text-white hover:bg-emerald-600">
+                    <CheckCircle2 className="h-5 w-5" /> جاهز {pn && <BellRing className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
           );
