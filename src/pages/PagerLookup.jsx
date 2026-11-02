@@ -76,7 +76,7 @@ export default function PagerLookup() {
             className="h-14 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-center font-mono text-lg font-bold tracking-wide outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
           {error && <p role="alert" className="text-sm font-medium text-red-600">{error}</p>}
           <button type="submit" disabled={searching || !invoiceNo.trim()}
-            className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700 disabled:opacity-50">
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700 disabled:opacity-50">
             {searching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
             متابعة طلبي
           </button>
