@@ -89,6 +89,7 @@ export default function Products() {
                   <p className="font-bold text-foreground truncate">{p.name_ar || p.name}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     {p.categories && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{p.categories.name_ar || p.categories.name}</span>}
+                    {p.is_ingredient && <span className="text-xs rounded-full bg-blue-500/10 px-2 py-0.5 font-bold text-blue-600">مادة خام</span>}
                     {p.barcode && <span className="text-xs text-muted-foreground">{p.barcode}</span>}
                     {p.track_inventory && p.min_stock_alert != null && (
                       <span className="flex items-center gap-1 text-xs text-amber-600">
