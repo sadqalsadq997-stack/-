@@ -469,7 +469,7 @@ export default function Tables() {
               <article key={request.id} className="rounded-xl border border-border bg-card p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-black">طاولة #{request.table_number} — {request.request_type === 'edit_round' ? `تعديل الجولة ${request.round_id ? '' : ''}` : 'طلب جديد'}</p>
+                    <p className="font-black">طاولة #{request.table_number} — {request.request_type === 'edit_round' ? `تعديل الجولة ${request.round_number || ''}` : 'طلب جديد'}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">{new Date(request.created_at).toLocaleString('ar-SA')}</p>
                   </div>
                   <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">بانتظارك</span>
