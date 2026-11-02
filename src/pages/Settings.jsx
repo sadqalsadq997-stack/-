@@ -46,10 +46,33 @@ export default function Settings() {
     const { data, error } = settings.id
       ? await supabase.from('app_settings').update(patch).eq('id', settings.id).select().single()
       : await supabase.from('app_settings').insert(patch).select().single();
-    setSaving(false);
-    if (error) { toast.error('تعذر الحفظ'); return; }
+    if (error) { setSaving(false); toast.error('تعذر الحفظ'); return; }
     if (data) setSettings(data);
-    toast.success('تم حفظ بيانات المنشأة');
+
+    let activeBranch = {};
+    try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+    if (activeBranch.id) {
+      const branchPatch = {
+        logo_url: settings.logo_url || null,
+        zatca_seller_name: settings.business_name || null,
+        vat_number: settings.vat_number || null,
+        cr_number: settings.cr_number || null,
+        phone: settings.phone || null,
+        address: settings.address || null,
+        zatca_city: settings.city || null,
+      };
+      const { data: branchData, error: branchError } = await supabase.from('branches')
+        .update(branchPatch).eq('id', activeBranch.id)
+        .select('id,name,name_ar,logo_url,zatca_seller_name,vat_number,cr_number,phone,address,zatca_city').maybeSingle();
+      if (branchError) {
+        setSaving(false);
+        toast.error('تم حفظ بيانات المنشأة، لكن تعذر تحديث بيانات الفرع: ' + branchError.message);
+        return;
+      }
+      if (branchData) localStorage.setItem('activeBranch', JSON.stringify({ ...activeBranch, ...branchData }));
+    }
+    setSaving(false);
+    toast.success('تم حفظ بيانات المنشأة والفرع');
   }
 
   async function uploadBusinessLogo(e) {
