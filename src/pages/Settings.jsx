@@ -63,13 +63,13 @@ export default function Settings() {
       toast.error('حجم الشعار يجب ألا يتجاوز 1 ميجابايت');
       return;
     }
-    const tenantId = settings.tenant_id;
+    let activeBranch = {};
+    try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+    const tenantId = settings.tenant_id || activeBranch.tenant_id;
     if (!tenantId) {
       toast.error('تعذر تحديد المنشأة. حدّث الصفحة وحاول مرة أخرى');
       return;
     }
-    let activeBranch = {};
-    try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
     setLogoUploading(true);
     try {
       const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
