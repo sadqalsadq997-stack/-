@@ -220,8 +220,9 @@ BEGIN
        AND v_employee.role NOT IN ('owner','admin','manager','branch_manager') THEN
       RAISE EXCEPTION 'هذه المهمة مسندة لموظف آخر';
     END IF;
-  ELSIF v_section.assigned_employee_id IS NOT NULL THEN
-    RAISE EXCEPTION 'هذه المهمة مسندة لموظف محدد؛ سجّل دخول الموظف أولاً';
+  ELSIF v_section.assigned_employee_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.tenant_users tu WHERE tu.auth_id=auth.uid() AND tu.tenant_id=v_task.tenant_id AND tu.is_active AND tu.role='owner') THEN
+    RAISE EXCEPTION 'هذه المهمة مسندة لموظف محدد؛ سجّل دخول الموظف أو اطلب من المدير اعتمادها';
   END IF;
 
   UPDATE public.kitchen_tasks
