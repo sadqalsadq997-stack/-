@@ -142,7 +142,7 @@ function ProductCard({ theme, p, qty, onAdd, skin }) {
   );
 }
 
-export default function MenuView({ data, theme = 'fresh', color, preview = false, onPlaceOrder, storeMode = false }) {
+export default function MenuView({ data, theme = 'fresh', color, preview = false, onPlaceOrder, storeMode = false, tableMode = false, tableInfo = null }) {
   const skin = SKINS[theme] || SKINS.fresh;
   const vars = themeVars(color || data?.color, theme);
   const products = data?.products || [];
@@ -151,6 +151,7 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
   const [q, setQ] = useState('');
   const [cart, setCart] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editingRound, setEditingRound] = useState(null);
   const name = data?.business_name || data?.branch?.name_ar || data?.branch?.name || 'المنيو';
   const logo = data?.logo_url || data?.branch?.logo_url;
   const place = [data?.address || data?.branch?.address, data?.city].filter(Boolean).join('، ');
@@ -237,6 +238,33 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
       </div>
 
       <main className={`mx-auto max-w-5xl space-y-7 px-4 pt-3 ${count ? 'pb-28' : 'pb-10'}`}>
+        {tableMode && tableInfo?.open_rounds?.length > 0 && (
+          <section className={`rounded-2xl border p-4 ${skin.card}`}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-black">طلبات الطاولة الحالية</h2>
+              <span className="text-xs text-[var(--m-ink)]">طاولة #{tableInfo.table_number}</span>
+            </div>
+            <div className="space-y-2">
+              {tableInfo.open_rounds.map(round => (
+                <div key={round.round_id || round.round_number} className="flex items-center justify-between gap-3 rounded-xl border border-black/10 p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold">الجولة {round.round_number}</p>
+                    <p className={`mt-0.5 truncate text-xs ${skin.muted}`}>{(round.items || []).map(item => item.name).join('، ')}</p>
+                    <p className={`mt-1 text-[10px] ${skin.muted}`}>{round.status === 'pending' ? 'بانتظار بدء التجهيز' : round.status === 'preparing' ? 'قيد التجهيز' : 'جاهزة'}</p>
+                  </div>
+                  {round.status === 'pending' && round.round_id && (
+                    <button type="button" onClick={() => {
+                      setEditingRound(round);
+                      setCart((round.items || []).map(item => ({ id: item.product_id || item.id, name: item.name_ar || item.name, price: Number(item.price ?? 0), qty: Number(item.qty ?? item.quantity ?? 1) })));
+                      setOpen(true);
+                    }} className="flex-shrink-0 rounded-lg bg-[var(--m-brand)] px-3 py-2 text-xs font-black text-[var(--m-fg)]">تعديل الجولة</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        {tableMode && <div className="rounded-xl bg-[var(--m-brand)]/10 px-4 py-3 text-center text-sm font-bold text-[var(--m-ink)]">طلباتك تصل إلى الويتر أولاً، ولا يبدأ المطبخ التجهيز إلا بعد اعتماد الموظف.</div>}
         {/* الأكثر طلباً — شريط أفقي */}
         {cat === 'all' && !q && featured.length > 0 && theme !== 'minimal' && (
           <section>
@@ -281,12 +309,14 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
         </div>
       )}
       {open && <CartSheet cart={cart} add={add} total={total} pos={pos} skin={skin} theme={theme}
-        onClose={() => setOpen(false)} onPlaceOrder={onPlaceOrder} onDone={() => setCart([])} />}
+        tableMode={tableMode} editingRound={editingRound}
+        onClose={() => setOpen(false)} onPlaceOrder={onPlaceOrder}
+        onDone={() => { setCart([]); setEditingRound(null); }} />}
     </div>
   );
 }
 
-function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, onDone }) {
+function CartSheet({ cart, add, total, pos, skin, theme, tableMode = false, editingRound = null, onClose, onPlaceOrder, onDone }) {
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -298,7 +328,7 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
     if (!onPlaceOrder) { setDone({ order_number: 'معاينة' }); return; }
     setBusy(true); setErr('');
     try {
-      const o = await onPlaceOrder({ items: cart.map(i => ({ id: i.id, qty: i.qty })), phone: phone.trim() || null, notes: notes.trim() || null });
+      const o = await onPlaceOrder({ items: cart.map(i => ({ id: i.id, qty: i.qty })), phone: phone.trim() || null, notes: notes.trim() || null, request_type: editingRound ? 'edit_round' : 'new_order', round_id: editingRound?.round_id || null });
       setDone(o || {}); onDone();
     } catch (e) { setErr(e?.message || 'تعذر إرسال الطلب — حاول مرة ثانية'); }
     setBusy(false);
@@ -310,15 +340,15 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
         {done ? (
           <div className="py-6 text-center">
             <CheckCircle2 className="mx-auto mb-3 h-16 w-16 text-emerald-500" />
-            <h2 className="text-xl font-black">تم تسجيل طلبك بانتظار اعتماد الدفع</h2>
-            {done.order_number && <p className={`mt-1 text-sm ${skin.muted}`}>رقم الطلب <b dir="ltr">{done.order_number}</b></p>}
+            <h2 className="text-xl font-black">{tableMode ? "تم إرسال طلبك للويتر بانتظار الموافقة" : "تم تسجيل طلبك بانتظار اعتماد الدفع"}</h2>
+            {(done.order_number || done.table_number) && <p className={`mt-1 text-sm ${skin.muted}`}>{tableMode ? "الطاولة" : "رقم الطلب"} <b dir="ltr">{done.table_number || done.order_number}</b></p>}
             <p className={`mt-2 text-xs ${skin.muted}`}>سيبدأ تجهيز الطلب بعد اعتماد استلام المبلغ من الكاشير.</p>
             <button type="button" onClick={onClose} className="mt-6 h-12 w-full rounded-2xl bg-[var(--m-brand)] font-bold text-[var(--m-fg)]">تمام</button>
           </div>
         ) : (
           <>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-black">طلبك</h2>
+              <h2 className="text-lg font-black">{editingRound ? `تعديل الجولة ${editingRound.round_number}` : "طلبك"}</h2>
               <button type="button" onClick={onClose} aria-label="إغلاق" className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5"><X className="h-4 w-4" /></button>
             </div>
             <ul className="mb-4 space-y-3">
@@ -336,9 +366,9 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
             <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (بدون بصل، حار...)" rows={2}
               className={`mb-3 w-full resize-none rounded-xl px-4 py-3 text-sm outline-none ${skin.input}`} />
             {err && <p role="alert" className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
-            <button type="button" onClick={submit} disabled={busy}
+            <button type="button" onClick={submit} disabled={busy || cart.length === 0}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--m-brand)] font-black text-[var(--m-fg)] disabled:opacity-60">
-              {busy && <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />} أرسل الطلب • {fmt(total)} ⃁
+              {busy && <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />} {tableMode ? "إرسال للويتر" : "أرسل الطلب"} • {fmt(total)} ⃁
             </button>
           </>
         )}
