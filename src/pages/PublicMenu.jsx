@@ -49,6 +49,16 @@ export default function PublicMenu() {
     return () => { alive = false; };
   }, [slug, tableToken, search, storeMode]);
 
+  useEffect(() => {
+    if (!tableToken) return;
+    const refreshTable = async () => {
+      const { data: latest } = await supabase.rpc('public_table_menu', { p_token: tableToken });
+      if (latest) setData(latest);
+    };
+    const timer = setInterval(refreshTable, 8000);
+    return () => clearInterval(timer);
+  }, [tableToken]);
+
   if (data === undefined) {
     return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-500" /></div>;
   }
