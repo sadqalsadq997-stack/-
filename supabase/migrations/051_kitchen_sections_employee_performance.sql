@@ -61,10 +61,27 @@ ALTER TABLE public.kitchen_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_activity ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS kitchen_sections_tenant ON public.kitchen_sections;
-CREATE POLICY kitchen_sections_tenant ON public.kitchen_sections
+DROP POLICY IF EXISTS kitchen_sections_select_tenant ON public.kitchen_sections;
+DROP POLICY IF EXISTS kitchen_sections_manage_tenant ON public.kitchen_sections;
+CREATE POLICY kitchen_sections_select_tenant ON public.kitchen_sections
+  FOR SELECT TO authenticated
+  USING (tenant_id IN (SELECT public.current_paid_tenant_ids()));
+CREATE POLICY kitchen_sections_manage_tenant ON public.kitchen_sections
   FOR ALL TO authenticated
-  USING (tenant_id IN (SELECT public.current_paid_tenant_ids()))
-  WITH CHECK (tenant_id IN (SELECT public.current_paid_tenant_ids()));
+  USING (
+    tenant_id IN (SELECT public.current_paid_tenant_ids())
+    AND (
+      EXISTS (SELECT 1 FROM public.tenant_users tu WHERE tu.auth_id=auth.uid() AND tu.tenant_id=kitchen_sections.tenant_id AND tu.is_active AND tu.role='owner')
+      OR EXISTS (SELECT 1 FROM public.employee_profiles ep WHERE ep.auth_user_id=auth.uid() AND ep.tenant_id=kitchen_sections.tenant_id AND ep.is_active AND ep.role IN ('owner','admin','manager','branch_manager'))
+    )
+  )
+  WITH CHECK (
+    tenant_id IN (SELECT public.current_paid_tenant_ids())
+    AND (
+      EXISTS (SELECT 1 FROM public.tenant_users tu WHERE tu.auth_id=auth.uid() AND tu.tenant_id=kitchen_sections.tenant_id AND tu.is_active AND tu.role='owner')
+      OR EXISTS (SELECT 1 FROM public.employee_profiles ep WHERE ep.auth_user_id=auth.uid() AND ep.tenant_id=kitchen_sections.tenant_id AND ep.is_active AND ep.role IN ('owner','admin','manager','branch_manager'))
+    )
+  );
 
 DROP POLICY IF EXISTS kitchen_tasks_tenant_select ON public.kitchen_tasks;
 CREATE POLICY kitchen_tasks_tenant_select ON public.kitchen_tasks
@@ -200,7 +217,7 @@ BEGIN
     END IF;
     IF v_section.assigned_employee_id IS NOT NULL
        AND v_section.assigned_employee_id<>p_employee_id
-       AND v_employee.role NOT IN ('admin','branch_manager') THEN
+       AND v_employee.role NOT IN ('owner','admin','manager','branch_manager') THEN
       RAISE EXCEPTION 'هذه المهمة مسندة لموظف آخر';
     END IF;
   ELSIF v_section.assigned_employee_id IS NOT NULL THEN
