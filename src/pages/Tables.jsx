@@ -147,7 +147,7 @@ function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null
 }
 
 // ── مودال الفاتورة والدفع ──────────────────────────────────────────
-function CheckoutModal({ table, order, onClose, onDone }) {
+function CheckoutModal({ table, order, employeeSession, onClose, onDone }) {
   const [payMethod, setPayMethod] = useState('cash');
   const [amountPaid, setAmountPaid] = useState('');
   const qc = useQueryClient();
@@ -166,6 +166,8 @@ function CheckoutModal({ table, order, onClose, onDone }) {
         payment_method: payMethod,
         amount_paid: paid,
         change_due: change,
+        cashier_employee_id: employeeSession?.empId || null,
+        cashier_name: employeeSession?.empName || (employeeSession?.role === 'admin' ? 'المدير' : null),
       }).eq('id', order.id).select('*').single();
       if (oe) throw oe;
       // توقيع وإرسال للهيئة ثم طباعة الفاتورة بـ QR المرحلة الثانية
@@ -663,6 +665,7 @@ export default function Tables() {
         <CheckoutModal
           table={checkModal.table}
           order={checkModal.order}
+          employeeSession={employeeSession}
           onClose={() => setCheckModal(null)}
           onDone={() => setCheckModal(null)}
         />
