@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, Plug, FileCheck, UserCircle, Palette,
+  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, Plug, FileCheck, UserCircle, Palette, ImagePlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ZatcaCenter from './ZatcaCenter';
 import AccountTab from '@/components/settings/AccountTab';
 import MenuDesignTab from '@/components/settings/MenuDesignTab';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
+import { uploadImage } from '@/lib/images';
 
 const TABS = [
   { id: 'account',  label: 'الحساب والاشتراك', icon: UserCircle },
@@ -20,7 +21,7 @@ const TABS = [
 ];
 
 // الحقول اللي يحفظها تبويب "بيانات المنشأة" فقط (ما نرسل الصف كامل)
-const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type'];
+const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type', 'logo_url'];
 
 export default function Settings() {
   const [params, setParams] = useSearchParams();
@@ -28,6 +29,7 @@ export default function Settings() {
   const setTab = (id) => setParams({ tab: id }, { replace: true });
   const [settings, setSettings] = useState({});
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +50,29 @@ export default function Settings() {
     if (error) { toast.error('تعذر الحفظ'); return; }
     if (data) setSettings(data);
     toast.success('تم حفظ بيانات المنشأة');
+  }
+
+  async function uploadBusinessLogo(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const url = await uploadImage(file, 'logos', { max: 1200, quality: 0.88 });
+      let activeBranch = {};
+      try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+      if (activeBranch.id) {
+        const { error } = await supabase.from('branches').update({ logo_url: url }).eq('id', activeBranch.id);
+        if (error) throw error;
+        localStorage.setItem('activeBranch', JSON.stringify({ ...activeBranch, logo_url: url }));
+      }
+      setSettings(v => ({ ...v, logo_url: url }));
+      toast.success('تم رفع الشعار. اضغط حفظ لتثبيت بيانات المنشأة.');
+    } catch (err) {
+      toast.error(err.message || 'تعذر رفع شعار المنشأة');
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   const f = (key) => (e) => setSettings(v => ({ ...v, [key]: e.target.value }));
@@ -82,6 +107,21 @@ export default function Settings() {
             <div className="max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6">
               <h3 className="font-bold text-foreground">بيانات المنشأة</h3>
               <p className="text-xs text-muted-foreground">تظهر في الفاتورة الضريبية والمنيو — تأكد إن الاسم والرقم الضريبي مطابقة لشهادة التسجيل في الضريبة.</p>
+              <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+                  {settings.logo_url ? <img src={settings.logo_url} alt="شعار المنشأة" className="h-full w-full object-contain" /> : <ImagePlus className="h-7 w-7 text-muted-foreground" />}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-bold">شعار المنشأة على الفاتورة</p>
+                  <p className="text-xs text-muted-foreground">PNG أو JPG أو WebP. يتم ضغط الصورة قبل رفعها.</p>
+                  <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground">
+                    {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    {uploadingLogo ? 'جارٍ الرفع...' : settings.logo_url ? 'تغيير الشعار' : 'رفع الشعار'}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadBusinessLogo} disabled={uploadingLogo} className="hidden" />
+                  </label>
+                  {settings.logo_url && <button type="button" onClick={() => setSettings(v => ({ ...v, logo_url: null }))} className="mr-2 text-xs text-red-600">إزالة الشعار</button>}
+                </div>
+              </div>
               {[
                 { key: 'business_name', label: 'اسم المنشأة',        placeholder: 'مطعم الأصالة' },
                 { key: 'vat_number',    label: 'الرقم الضريبي (15 رقم)', placeholder: '310000000000003', ltr: true },
