@@ -101,7 +101,7 @@ export default function ProductForm({ product, onClose }) {
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">الوحدة</label>
-            <select value={form.unit_type} onChange={e => set('unit_type', e.target.value)}
+            <select value={form.unit_type} onChange={e => { set('unit_type',e.target.value); if(form.sale_behavior==='scale_barcode' && form.scale_value_type==='weight') set('scale_value_divisor',e.target.value==='g'?1:1000); }}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary">
               {['piece','kg','g','liter','ml','box','dozen','carton'].map(u => <option key={u} value={u}>{u}</option>)}
             </select>
