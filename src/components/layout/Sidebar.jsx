@@ -86,6 +86,15 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
     setBranchOpen(false);
   };
 
+  useEffect(() => {
+    const refreshBusiness = (event) => {
+      const next = event.detail;
+      if (next?.id) setActiveBranch(next);
+    };
+    window.addEventListener('felsy:business-updated', refreshBusiness);
+    return () => window.removeEventListener('felsy:business-updated', refreshBusiness);
+  }, []);
+
   const industryType = activeBranch?.industry_type || 'general';
   const isFood = FOOD_INDUSTRIES.includes(industryType);
 
