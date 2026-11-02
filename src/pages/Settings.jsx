@@ -65,7 +65,13 @@ export default function Settings() {
     }
     let activeBranch = {};
     try { activeBranch = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
-    const tenantId = settings.tenant_id || activeBranch.tenant_id;
+    let tenantId = settings.tenant_id || activeBranch.tenant_id || null;
+    if (!tenantId && activeBranch.id) {
+      const { data: branchTenant, error: tenantError } = await supabase
+        .from('branches').select('tenant_id').eq('id', activeBranch.id).maybeSingle();
+      if (tenantError) { toast.error('تعذر تحديد المنشأة'); return; }
+      tenantId = branchTenant?.tenant_id || null;
+    }
     if (!tenantId) {
       toast.error('تعذر تحديد المنشأة. حدّث الصفحة وحاول مرة أخرى');
       return;
