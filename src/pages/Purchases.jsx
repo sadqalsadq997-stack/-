@@ -87,6 +87,8 @@ export default function Purchases() {
       if (!invoiceNumber.trim()) throw new Error('رقم فاتورة المورد مطلوب');
       const selectedSupplier = suppliers.find(s => s.id === supplierId);
       if (!selectedSupplier && !supplierName.trim()) throw new Error('اختر المورد أو اكتب اسمه');
+      const supplierVatNumber = selectedSupplier?.vat_number || supplierVat || null;
+      if (!supplierVatNumber && validLines.some(l => number(l.tax_rate) > 0)) throw new Error('المورد غير مسجل ضريبياً؛ اجعل نسبة الضريبة 0% قبل الاستلام');
       const validLines = lines.filter(l => l.product_id);
       if (!validLines.length) throw new Error('أضف منتجاً واحداً على الأقل');
       if (validLines.some(l => number(l.quantity) <= 0 || number(l.unit_factor) <= 0 || number(l.unit_cost) < 0)) throw new Error('راجع الكمية والتكلفة ومعامل التحويل');
