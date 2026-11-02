@@ -34,6 +34,10 @@ export default function ProductForm({ product, onClose }) {
         vat_category: cat,
         vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
         tax_rate: cat === 'S' ? 15 : 0,
+        is_ingredient: !!form.is_ingredient,
+        track_inventory: form.is_ingredient ? true : !!form.track_inventory,
+        show_in_menu: form.is_ingredient ? false : !!form.show_in_menu,
+        show_in_store: form.is_ingredient ? false : !!form.show_in_store,
       };
       if (isEdit) { const { error } = await supabase.from('products').update(payload).eq('id', product.id); if (error) throw error; }
       else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; }
