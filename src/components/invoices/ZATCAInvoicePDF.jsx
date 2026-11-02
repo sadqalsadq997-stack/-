@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { generateZATCAQR } from '@/lib/zatca';
 import { format } from 'date-fns';
 import QRCode from 'qrcode';
