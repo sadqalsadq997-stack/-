@@ -139,8 +139,13 @@ export default function POSTerminal() {
     const amount = Number(quantity);
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) throw new Error('الوزن أو الكمية غير صحيحة');
     const unit = totalGross == null
-      ? { ...product.unit, gross: Math.round(product.unit.gross * amount) }
-      : { ...product.unit, gross: Math.round(totalGross * 100) };
+      ? {
+          ...product.unit,
+          net: Math.round(product.unit.net * amount),
+          vat: Math.round(product.unit.vat * amount),
+          gross: Math.round(product.unit.gross * amount),
+        }
+      : unitParts({ ...product, base_price: totalGross, tax_inclusive: true });
     const lineKey = `${product.id}:${unitName}:${Date.now()}:${Math.random().toString(36).slice(2,6)}`;
     setCart(prev => [...prev, {
       lineKey, product_id: product.id, name: product.name_ar || product.name,
@@ -383,15 +388,17 @@ export default function POSTerminal() {
                 {item.displayQty && <p className="text-[11px] text-muted-foreground">{item.displayQty}</p>}
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => updateQty(item.lineKey || item.product_id, -1)} aria-label="إنقاص"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-destructive/10 hover:text-destructive">
-                  <Minus className="h-3 w-3" />
-                </button>
-                <span className="w-6 text-center text-sm font-bold">{item.displayQty ? '1' : item.qty}</span>
-                <button onClick={() => updateQty(item.lineKey || item.product_id, 1)} aria-label="زيادة"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary/10 hover:text-primary">
-                  <Plus className="h-3 w-3" />
-                </button>
+                {item.displayQty ? (
+                  <button onClick={() => setCart(prev=>prev.filter(row=>row.lineKey!==item.lineKey))} aria-label="حذف السطر" className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-destructive"><Trash2 className="h-3 w-3" /></button>
+                ) : (
+                  <>
+                    <button onClick={() => updateQty(item.lineKey || item.product_id, -1)} aria-label="إنقاص"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-destructive/10 hover:text-destructive"><Minus className="h-3 w-3" /></button>
+                    <span className="w-6 text-center text-sm font-bold">{item.qty}</span>
+                    <button onClick={() => updateQty(item.lineKey || item.product_id, 1)} aria-label="زيادة"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted transition-colors hover:bg-primary/10 hover:text-primary"><Plus className="h-3 w-3" /></button>
+                  </>
+                )}
               </div>
             </div>
           ))}
