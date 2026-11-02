@@ -111,3 +111,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.add_table_order_round(UUID, JSONB, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.add_table_order_round(UUID, JSONB, TEXT, TEXT) TO authenticated;
+
+INSERT INTO public.migration_status (migration, note)
+VALUES ('043_normalize_existing_table_rounds', 'Normalizes legacy dine-in round metadata before appending subsequent rounds.')
+ON CONFLICT (migration) DO NOTHING;
