@@ -128,8 +128,8 @@ export default function POSTerminal() {
       return [...prev, {
         lineKey, product_id: product.id, name: product.name_ar || product.name,
         unit: options.unit || product.unit, qty: 1,
-        inventoryQty: options.inventoryQty ?? 1, unitName,
-        displayQty: options.displayQty || null,
+        inventoryQty: options.inventoryQty ?? 1, unitName, baseUnit: product.unit_type || 'piece',
+        displayQty: options.displayQty || null, lockedQty: !!options.lockedQty,
       }];
     });
     setFlashId(product.id);
@@ -150,7 +150,7 @@ export default function POSTerminal() {
     const lineKey = `${product.id}:${unitName}:${Date.now()}:${Math.random().toString(36).slice(2,6)}`;
     setCart(prev => [...prev, {
       lineKey, product_id: product.id, name: product.name_ar || product.name,
-      unit, qty: 1, inventoryQty: amount, unitName,
+      unit, qty: 1, inventoryQty: amount, unitName, baseUnit: product.unit_type || 'kg', lockedQty: true,
       displayQty: `${amount.toLocaleString('en-US',{maximumFractionDigits:3})} ${unitName}`,
     }]);
     setFlashId(product.id);
@@ -386,10 +386,10 @@ export default function POSTerminal() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                 <p className="text-xs font-bold text-primary">{money(fromH(item.unit.gross * item.qty))} ⃁</p>
-                {item.displayQty && <p className="text-[11px] text-muted-foreground">{item.displayQty}</p>}
+                {item.lockedQty && <p className="text-[11px] text-muted-foreground">{item.displayQty}</p>}{!item.lockedQty && item.unitName && item.unitName !== item.baseUnit && <p className="text-[11px] text-muted-foreground">الوحدة: {item.unitName}</p>}
               </div>
               <div className="flex items-center gap-1">
-                {item.displayQty ? (
+                {item.lockedQty ? (
                   <button onClick={() => setCart(prev=>prev.filter(row=>row.lineKey!==item.lineKey))} aria-label="حذف السطر" className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-destructive"><Trash2 className="h-3 w-3" /></button>
                 ) : (
                   <>
@@ -475,7 +475,7 @@ export default function POSTerminal() {
             <div><h3 className="text-lg font-black">اختر وحدة البيع</h3><p className="mt-1 text-sm text-muted-foreground">{unitChoice.name_ar || unitChoice.name}</p></div>
             <div className="grid grid-cols-2 gap-2">
               {(unitChoice.unit_conversions||[]).map((u,index)=>(
-                <button key={index} onClick={()=>{const converted={...unitChoice,unit:unitParts({...unitChoice,base_price:Number(u.price||unitChoice.base_price)}),};addToCart(converted,{unitName:u.name,inventoryQty:Number(u.factor_to_base),displayQty:u.name});setUnitChoice(null);}} className="rounded-xl border border-border p-3 text-right hover:border-primary">
+                <button key={index} onClick={()=>{const converted={...unitChoice,unit:unitParts({...unitChoice,base_price:Number(u.price||unitChoice.base_price)}),};addToCart(converted,{unitName:u.name,inventoryQty:Number(u.factor_to_base),displayQty:null});setUnitChoice(null);}} className="rounded-xl border border-border p-3 text-right hover:border-primary">
                   <p className="font-bold">{u.name}</p><p className="mt-1 text-xs text-muted-foreground">{u.factor_to_base} {unitChoice.unit_type} • {money(Number(u.price||0))} ⃁</p>
                 </button>
               ))}
