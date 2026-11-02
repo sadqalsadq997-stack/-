@@ -53,14 +53,15 @@ export async function buildReceiptHTML(order, seller = {}) {
   }
 
   const rows = items.map(it => {
-    const qty = Number(it.quantity ?? it.qty ?? 1);
-    const unit = Number(it.price ?? it.unit_price ?? 0);
-    const line = it.total != null ? Number(it.total) : unit * qty;
+    const qty = Number(it.display_quantity ?? it.quantity ?? it.qty ?? 1);
+    const line = it.total != null ? Number(it.total) : Number(it.price ?? it.unit_price ?? 0) * Number(it.quantity ?? it.qty ?? 1);
+    const unit = qty > 0 ? line / qty : line;
+    const unitLabel = it.unit_name ? ` ${esc(it.unit_name)}` : '';
     const cat = it.vat_category || 'S';
     const tag = cat !== 'S' ? ` <span class="u">(${vatShort(cat)})</span>` : '';
-    return `<tr><td class="nm">${esc(it.name || it.product_name)}${tag}${narrow ? '' : `<div class="u">${n2(unit)} × ${qty}</div>`}</td><td class="c">${qty}</td><td class="l">${n2(line)}</td></tr>`;
+    return `<tr><td class="nm">${esc(it.name || it.product_name)}${tag}${narrow ? '' : `<div class="u">${n2(unit)} × ${qty}${unitLabel}</div>`}</td><td class="c">${qty}${unitLabel}</td><td class="l">${n2(line)}</td></tr>`;
   }).join('');
-  const count = items.reduce((s2, it) => s2 + Number(it.quantity ?? it.qty ?? 1), 0);
+  const count = items.reduce((s2, it) => s2 + Number(it.display_quantity ?? it.quantity ?? it.qty ?? 1), 0);
   const logo = /^https:\/\//.test(seller.logo_url || '') ? `<img src="${esc(seller.logo_url)}" alt="" class="logo"/>` : '';
   const title = isCN ? ['إشعار دائن', isB2B ? 'Credit Note — Tax Invoice' : 'Credit Note'] : isProforma ? ['فاتورة مبدئية', 'Pro-forma — ليست فاتورة ضريبية']
     : isB2B ? ['فاتورة ضريبية', 'Tax Invoice'] : ['فاتورة ضريبية مبسطة', 'Simplified Tax Invoice'];
