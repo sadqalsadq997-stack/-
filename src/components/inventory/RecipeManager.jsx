@@ -112,21 +112,27 @@ export default function RecipeManager() {
     if (!rows.length && !recipeExists) return toast.error('أضف مكوّناً واحداً على الأقل');
     if (!rows.length && recipeExists && !window.confirm('هل تريد حذف الوصفة وإرجاع خصم مخزون المنتج نفسه؟')) return;
     const seen = new Set();
-    const payload = rows.map(row => {
-      const quantity = Number(row.quantity_per_sale);
-      const waste = Number(row.waste_percent || 0);
-      if (!row.ingredient_product_id || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(waste) || waste < 0 || waste > 100) {
-        throw new Error('تحقق من المكوّن والكمية ونسبة الهدر');
-      }
-      if (seen.has(row.ingredient_product_id)) throw new Error('لا تكرر المكوّن نفسه في الوصفة');
-      seen.add(row.ingredient_product_id);
-      return {
-        ingredient_product_id: row.ingredient_product_id,
-        quantity_per_sale: quantity,
-        unit: row.unit,
-        waste_percent: waste,
-      };
-    });
+    let payload;
+    try {
+      payload = rows.map(row => {
+        const quantity = Number(row.quantity_per_sale);
+        const waste = Number(row.waste_percent || 0);
+        if (!row.ingredient_product_id || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(waste) || waste < 0 || waste > 100) {
+          throw new Error('تحقق من المكوّن والكمية ونسبة الهدر');
+        }
+        if (seen.has(row.ingredient_product_id)) throw new Error('لا تكرر المكوّن نفسه في الوصفة');
+        seen.add(row.ingredient_product_id);
+        return {
+          ingredient_product_id: row.ingredient_product_id,
+          quantity_per_sale: quantity,
+          unit: row.unit,
+          waste_percent: waste,
+        };
+      });
+    } catch (error) {
+      toast.error(error.message);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -241,10 +247,10 @@ export default function RecipeManager() {
               <p className="text-xs text-muted-foreground">تكلفة المكونات التقديرية لكل وحدة</p>
               <p className="text-lg font-black text-primary">{sar(estimatedCost)}</p>
             </div>
-            <button onClick={saveRecipe} disabled={saving || loadingRecipe || ingredientsLoading}
+            <button onClick={saveRecipe} disabled={saving || loadingRecipe || ingredientsLoading || (!rows.length && !recipeExists)}
               className="flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {saving ? 'جارٍ الحفظ...' : rows.length ? 'حفظ الوصفة' : 'حذف الوصفة'}
+              {saving ? 'جارٍ الحفظ...' : rows.length ? 'حفظ الوصفة' : recipeExists ? 'حذف الوصفة' : 'أضف مكوّناً'}
             </button>
           </div>
         </div>
