@@ -37,7 +37,7 @@ export default function KitchenDisplay() {
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('orders')
-      .select('id, order_number, status, items, created_at, source, order_type, table_number, notes')
+      .select('id, order_number, daily_order_number, status, items, created_at, source, order_type, table_number, notes')
       .in('status', ['pending', 'preparing'])
       .order('created_at').limit(80);
     const list = data || [];
@@ -124,7 +124,7 @@ export default function KitchenDisplay() {
                   {pn ? (
                     <p className="flex items-center gap-1.5 text-4xl font-black leading-none text-white"><BellRing className="h-6 w-6 text-amber-400" />{pn}</p>
                   ) : (
-                    <p className="text-lg font-black text-white">#{o.order_number?.slice(-4) || o.id.slice(-4)}</p>
+                    <p className="text-lg font-black text-white">#{o.daily_order_number ?? o.order_number?.slice(-4) ?? o.id.slice(-4)}</p>
                   )}
                   <p className="mt-1 text-[11px] text-slate-400">
                     {o.table_number ? `طاولة ${o.table_number}` : o.order_type === 'dine_in' ? 'محلي' : 'سفري'}
