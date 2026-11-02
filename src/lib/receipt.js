@@ -43,6 +43,15 @@ export async function buildReceiptHTML(order, seller = {}) {
     } catch { /* بدون QR */ }
   }
 
+  let pagerQr = '';
+  if (seller.pager_public_token && order.invoice_no && !isProforma && !isCN) {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://felsy.org';
+      const pagerUrl = `${origin}/pager/${seller.pager_public_token}`;
+      pagerQr = await QRCode.toDataURL(pagerUrl, { width: 220, margin: 1, errorCorrectionLevel: 'M' });
+    } catch { /* البيجر اختياري ولا يمنع طباعة الفاتورة */ }
+  }
+
   const rows = items.map(it => {
     const qty = Number(it.quantity ?? it.qty ?? 1);
     const unit = Number(it.price ?? it.unit_price ?? 0);
@@ -115,6 +124,7 @@ ${Number(order.rounding_amount || order.rounding) ? `<div class="row sm"><span>�
 ${order.payment_method && !isCN ? `<div class="row" style="margin-top:4px"><span>طريقة الدفع</span><span class="b">${esc(PAY[order.payment_method] || order.payment_method)}</span></div>` : ''}
 ${Number(order.amount_paid) > 0 ? `<div class="row"><span>المدفوع</span><span>${n2(order.amount_paid)}</span></div><div class="row"><span>الباقي</span><span>${n2(order.change_due)}</span></div>` : ''}
 ${qr ? `<img class="qr" src="${qr}" alt="QR"/>` : ''}
+${pagerQr ? `<div class="center sm muted" style="margin-top:6px">لمتابعة حالة الطلب: امسح الرمز وأدخل رقم الفاتورة</div><img class="qr" src="${pagerQr}" alt="متابعة الطلب"/>` : ''}
 <div class="center b" style="margin-top:4px">${isCN ? 'تم الإرجاع' : 'شكراً لزيارتكم'}</div>
 ${order.zatca_qr ? '<div class="center sm muted">فاتورة إلكترونية مرسلة لهيئة الزكاة والضريبة والجمارك</div>' : ''}
 <div class="center sm muted" style="margin-top:2px">Felsy.org</div>
@@ -127,10 +137,20 @@ export async function loadSeller(supabase) {
   const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
   let br = {};
   try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
+  let branchData = {};
+  if (br.id) {
+    const { data: current } = await supabase.from('branches')
+      .select('zatca_seller_name,zatca_vat_number,vat_number,address,phone,logo_url,pager_public_token')
+      .eq('id', br.id).maybeSingle();
+    branchData = current || {};
+  }
   return {
-    name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
-    vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
-    address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
+    name: branchData.zatca_seller_name || br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
+    vat_number: branchData.zatca_vat_number || branchData.vat_number || br.zatca_vat_number || br.vat_number || data?.vat_number,
+    address: branchData.address || br.address || data?.address,
+    phone: branchData.phone || br.phone || data?.phone,
+    logo_url: branchData.logo_url || br.logo_url || data?.logo_url,
+    pager_public_token: branchData.pager_public_token || br.pager_public_token || null,
   };
 }
 
