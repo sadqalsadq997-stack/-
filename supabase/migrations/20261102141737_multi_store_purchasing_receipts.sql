@@ -16,6 +16,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_tenant_warehouse_product_uidx 
 ALTER TABLE public.purchase_invoice_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS purchase_invoice_items_tenant_access ON public.purchase_invoice_items;
 CREATE POLICY purchase_invoice_items_tenant_access ON public.purchase_invoice_items FOR ALL TO authenticated USING(tenant_id IN(SELECT public.current_tenant_ids())) WITH CHECK(tenant_id IN(SELECT public.current_tenant_ids()));
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.purchase_invoice_items TO authenticated;
 CREATE OR REPLACE FUNCTION public.create_purchase_receipt(p_branch uuid, p_warehouse uuid, p_supplier uuid, p_supplier_name text, p_supplier_vat text, p_invoice_number text, p_invoice_date date, p_paid_amount numeric, p_notes text, p_lines jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
