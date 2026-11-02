@@ -88,6 +88,7 @@ export default function Products() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-foreground truncate">{p.name_ar || p.name}</p>
                   <div className="flex items-center gap-2 mt-0.5">
+                    {p.is_ingredient && <span className="text-xs bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full font-bold">مادة خام</span>}
                     {p.categories && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{p.categories.name_ar || p.categories.name}</span>}
                     {p.barcode && <span className="text-xs text-muted-foreground">{p.barcode}</span>}
                     {p.track_inventory && p.min_stock_alert != null && (
@@ -98,8 +99,9 @@ export default function Products() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary">{formatSAR(p.base_price)}</p>
-                  {p.cost_price != null && <p className="text-xs text-muted-foreground">التكلفة: {formatSAR(p.cost_price)}</p>}
+                  {!p.is_ingredient && <p className="font-bold text-primary">{formatSAR(p.base_price)}</p>}
+                  {p.cost_price != null && <p className="text-xs text-muted-foreground">{p.is_ingredient ? 'تكلفة الوحدة:' : 'التكلفة:'} {formatSAR(p.cost_price)}</p>}
+                  {p.is_ingredient && <p className="text-[10px] text-muted-foreground">{p.unit_type || 'piece'}</p>}
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => toggleActive.mutate({ id: p.id, is_active: p.is_active })}
