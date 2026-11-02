@@ -71,6 +71,9 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   }).join('');
   async function openPrint() {
     const qrImg = await QRCode.toDataURL(qrData, { width: 180, margin: 1 });
+    const pagerQrImg = branch?.pager_public_token && order?.invoice_no
+      ? await QRCode.toDataURL(`${window.location.origin}/pager/${branch.pager_public_token}`, { width: 180, margin: 1 })
+      : '';
     await printHTML(`<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="UTF-8"/>
 <title>فاتورة ضريبية — ${esc(invoiceNumber)}</title>
@@ -207,6 +210,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     <div><strong>ضريبة القيمة المضافة:</strong> ${vatAmount.toFixed(2)} ⃁</div>
     <div class="zatca-hash">TLV: ${qrData.substring(0, 60)}...</div>
   </div>
+  ${pagerQrImg ? `<div style="width:100px;flex-shrink:0;text-align:center;font-size:9px;color:#555"><img class="qr-img" src="${pagerQrImg}" alt="QR متابعة الطلب"/><strong>متابعة الطلب</strong><div>امسح الرمز وأدخل رقم الفاتورة</div></div>` : ""}
 </div>
 
 <!-- التذييل -->
