@@ -27,7 +27,7 @@ export default function AddStockDialog({ product, onClose }) {
         p_delta: type === 'restock' ? amount : -amount,
         p_type: type,
         p_reason: notes || null,
-        p_unit_cost: type === 'restock' && unitCost ? Number(unitCost) : null,
+        p_unit_cost: type === 'restock' && unitCost ? Number(unitCost) / conversionFactor : null,
         p_branch: branchId,
       });
       if (error) throw error;
@@ -71,7 +71,7 @@ export default function AddStockDialog({ product, onClose }) {
         {type === 'restock' && stockUnit !== 'base' && <p className="text-xs text-primary">سيضيف النظام {Number(qty||0)*conversionFactor} {product.unit_type} إلى المخزون الأساسي.</p>}
         {type === 'restock' && (
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">تكلفة الوحدة الجديدة (اختياري)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">تكلفة وحدة التوريد (اختياري)</label>
             <input type="number" min="0" step="0.01" value={unitCost} onChange={e => setUnitCost(e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
