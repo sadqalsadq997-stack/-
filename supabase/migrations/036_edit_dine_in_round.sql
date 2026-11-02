@@ -158,3 +158,6 @@ REVOKE ALL ON FUNCTION public.replace_table_order_round(UUID, UUID, JSONB, TEXT)
 GRANT EXECUTE ON FUNCTION public.replace_table_order_round(UUID, UUID, JSONB, TEXT) TO authenticated;
 COMMENT ON FUNCTION public.replace_table_order_round(UUID, UUID, JSONB, TEXT)
 IS 'Replaces only one unstarted dine-in round and recalculates the aggregate open bill.';
+INSERT INTO public.migration_status (migration, note)
+VALUES ('036_edit_dine_in_round', 'Allows editing a single pending dine-in round without replacing the full open table bill.')
+ON CONFLICT (migration) DO NOTHING;
