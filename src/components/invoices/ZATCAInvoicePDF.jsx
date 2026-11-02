@@ -37,7 +37,8 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
 
   // الفاتورة المبسطة تعرض TLV QR، أما فاتورة الشركات فتستخدم QR المعتمد من ZATCA فقط.
   const isB2B = Boolean(order?.is_b2b);
-  const hasSellerVat = Boolean(String(vatNumberRaw || '').trim());
+  const vatNumberDigits = String(vatNumberRaw || '').replace(/\\D/g, '');
+  const hasSellerVat = /^\\d{15}$/.test(vatNumberDigits);
   const qrData = zatcaInvoice?.qr_code || order?.zatca_qr || (!isB2B && hasSellerVat ? generateZATCAQR({
     sellerName: sellerNameRaw, vatNumber: vatNumberRaw,
     invoiceDate: issuedAt.toISOString(),
@@ -139,6 +140,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 .zatca-info{flex:1;font-size:10.5px;color:#555;line-height:2.2}
 .zatca-badge{display:inline-flex;align-items:center;gap:5px;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;border-radius:8px;padding:4px 10px;font-size:10px;font-weight:700;margin-bottom:8px}
 .zatca-hash{font-family:monospace;font-size:9.5px;color:#999;word-break:break-all;margin-top:6px}
+.invoice-warning{margin:10px 0;padding:10px;border:1px solid #e7b44b;background:#fff8e6;color:#805b12;border-radius:8px;font-size:11px}
 
 /* التذييل */
 .footer{text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid #eee;font-size:10.5px;color:#aaa;line-height:2}
@@ -226,6 +228,7 @@ ${qrImg ? `<!-- QR Code ZATCA -->
   </div>
 </div>` : ''}
 
+${!hasSellerVat ? '<div class="invoice-warning">تنبيه: أدخل رقم ضريبة القيمة المضافة الصحيح المكوّن من 15 رقماً في إعدادات المنشأة قبل اعتماد الفاتورة الضريبية.</div>' : ''}
 <!-- التذييل -->
 <div class="footer">
   <div>شكراً لتعاملكم معنا — يسعدنا خدمتكم دائماً</div>
