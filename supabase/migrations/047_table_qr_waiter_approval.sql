@@ -134,8 +134,13 @@ BEGIN
   END IF;
 
   SELECT * INTO v_table FROM public.tables_map WHERE public_token = p_token LIMIT 1;
-  IF v_table.id IS NULL OR v_table.branch_id IS NULL OR NOT public.tenant_is_paid(v_table.tenant_id) THEN
+  IF v_table.id IS NULL OR v_table.branch_id IS NULL OR NOT public.tenant_is_paid(v_table.tenant_id)
+     OR NOT EXISTS (SELECT 1 FROM public.branches b WHERE b.id=v_table.branch_id AND b.tenant_id=v_table.tenant_id AND coalesce(b.is_active,true))
+     OR v_table.status IN ('cleaning','reserved') THEN
     RAISE EXCEPTION 'الطاولة غير متاحة حالياً';
+  END IF;
+  IF (SELECT count(*) FROM public.table_guest_requests r WHERE r.table_id=v_table.id AND r.status='pending_approval') >= 5 THEN
+    RAISE EXCEPTION 'لدى هذه الطاولة طلبات كثيرة بانتظار الويتر؛ انتظر اعتماد أحدها';
   END IF;
 
   IF p_request_type = 'edit_round' THEN
