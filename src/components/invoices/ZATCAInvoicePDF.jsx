@@ -25,7 +25,6 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const subtotal = Number(order?.subtotal ?? (order?.total ? order.total / 1.15 : 0));
   const vatAmount = Number(order?.tax_amount ?? (order?.total ? order.total - subtotal : 0));
   const total = Number(order?.total ?? 0);
-  const discount = Number(order?.discount_amount ?? order?.discount ?? 0);
   const discountNet = Number(order?.discount_net ?? discount);
   const linesNet = Number(order?.lines_net ?? (subtotal + discountNet));
   const issuedAt = new Date(zatcaInvoice?.issue_date || order?.invoiced_at || order?.created_at || Date.now());
