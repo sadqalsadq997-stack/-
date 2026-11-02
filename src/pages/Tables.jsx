@@ -290,7 +290,7 @@ export default function Tables() {
   const { data: products = [] } = useQuery({
     queryKey: ['products-for-order'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('id,name,name_ar,base_price,tax_inclusive,tax_rate,vat_category,vat_exemption_code').eq('is_active', true).order('name_ar');
+      const { data, error } = await supabase.from('products').select('id,name,name_ar,base_price,tax_inclusive,tax_rate,vat_category,vat_exemption_code').eq('is_active', true).eq('is_ingredient', false).order('name_ar');
       if (error) return [];
       return data || [];
     },
