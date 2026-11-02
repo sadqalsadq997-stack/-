@@ -120,7 +120,7 @@ export default function KitchenDisplay() {
       result = await supabase.rpc('set_kitchen_task_status',{
         p_task_id:card.taskId,p_status:status,p_employee_id:session?.empId || null,
       });
-    } else if (card.order.order_type === 'dine_in') {
+    } else if (card.order.order_type === 'dine_in' && card.roundId) {
       result = await supabase.rpc('set_table_order_round_status',{
         p_order_id:card.order.id,p_round_id:card.roundId,p_status:status,
       });
