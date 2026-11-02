@@ -30,6 +30,7 @@ const ALL_ITEMS = [
   { path: '/estore',          icon: Store,           label: 'المتجر الإلكتروني'     },
   { path: '/invoices',        icon: Receipt,         label: 'الفواتير'              },
   { path: '/suppliers',       icon: Truck,           label: 'الموردين'              },
+  { path: '/purchases',       icon: Receipt,         label: 'المشتريات والاستلام'   },
   { path: '/expenses',        icon: CreditCard,      label: 'المصروفات'             },
   { path: '/analytics',       icon: BarChart3,       label: 'التحليلات'             },
   { path: '/employees',       icon: UserCog,         label: 'الموظفون'              },
