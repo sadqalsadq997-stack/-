@@ -18,8 +18,8 @@ const STATUS = {
 };
 
 // ── مودال إضافة طلب ──────────────────────────────────────────────
-function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null }) {
-  const [cart, setCart] = useState(() => (initialOrder?.items || []).map(i => ({ id: i.product_id || i.id, name: i.name_ar || i.name, price: Number(i.price ?? i.unit_price ?? 0), qty: Number(i.qty ?? i.quantity ?? 1) })));
+function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null, initialRoundId = null, initialRoundNumber = null }) {
+  const [cart, setCart] = useState(() => (initialOrder?.items || []).filter(i => !initialRoundId || i.round_id === initialRoundId).map(i => ({ id: i.product_id || i.id, name: i.name_ar || i.name, price: Number(i.price ?? i.unit_price ?? 0), qty: Number(i.qty ?? i.quantity ?? 1) })));
   const [notes, setNotes] = useState(initialOrder?.notes || '');
   const qc = useQueryClient();
   const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id; } catch { return null; } })();
@@ -44,8 +44,9 @@ function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null
       // الأسعار والكميات يعاد التحقق منها داخل قاعدة البيانات، وتضاف الجولة
       // إلى نفس الفاتورة المفتوحة للطاولة مع قفل يمنع تداخل طلبات النادلين.
       const { data, error } = initialOrder
-        ? await supabase.rpc('replace_open_table_order', {
+        ? await supabase.rpc('replace_table_order_round', {
             p_order_id: initialOrder.id,
+            p_round_id: initialRoundId,
             p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
             p_notes: notes,
           })
@@ -63,7 +64,7 @@ function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null
     onSuccess: (ord) => {
       qc.invalidateQueries({ queryKey: ['tables'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      toast.success(initialOrder ? 'تم تعديل الطلب المفتوح وإعادة حساب الفاتورة' : 'تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
+      toast.success(initialOrder ? 'تم تعديل الجولة وإعادة حساب الفاتورة بالكامل' : 'تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
       onOrderSent(ord);
     },
     onError: (e) => toast.error(e.message || 'فشل الإرسال'),
@@ -76,7 +77,7 @@ function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <ChefHat className="w-5 h-5 text-primary" />
-            <h2 className="font-black text-lg">{initialOrder ? 'تعديل الطلب المفتوح' : 'طلب جديد'} — طاولة #{table.table_number}</h2>
+            <h2 className="font-black text-lg">{initialOrder ? `تعديل الجولة ${initialRoundNumber || ''}` : 'طلب جديد'} — طاولة #{table.table_number}</h2>
           </div>
           <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
@@ -272,7 +273,8 @@ function CheckoutModal({ table, order, onClose, onDone }) {
 export default function Tables() {
   const [showAdd, setShowAdd]       = useState(false);
   const [form, setForm]             = useState({ table_number: '', seats: 4, shape: 'square' });
-  const [orderModal, setOrderModal] = useState(null);   // { table }
+  const [orderModal, setOrderModal] = useState(null);   // { table, order?, roundId?, roundNumber? }
+  const [roundPicker, setRoundPicker] = useState(null);
   const [checkModal, setCheckModal] = useState(null);   // { table, order }
   const qc = useQueryClient();
 
@@ -327,17 +329,32 @@ export default function Tables() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tables'] }); toast.success('تم الحذف'); },
   });
 
-  // فتح محرر الفاتورة المفتوحة — يسمح بالتعديل قبل بدء التجهيز فقط
+  // اختيار الجولة المراد تعديلها: يسمح بتعديل أي جولة لم يبدأ تجهيزها،
+  // حتى لو كانت جولة أخرى على الطاولة قيد التجهيز.
   const openEditOrder = async (table) => {
     if (!table.current_order_id) { toast.error('لا يوجد طلب مفتوح لهذه الطاولة'); return; }
     const { data, error } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
     if (error || !data) { toast.error(error?.message || 'تعذر تحميل الطلب'); return; }
-    if (data.status !== 'pending' || data.invoice_no) { toast.error('يمكن تعديل الطلب قبل بدء التجهيز فقط'); return; }
-    if ((data.items || []).some(item => !['pending', undefined, null].includes(item.round_status))) {
-      toast.error('بدأ تجهيز إحدى جولات الطلب؛ أضف جولة جديدة بدلاً من تعديل الطلب السابق');
+    if (data.invoice_no || ['completed', 'cancelled'].includes(data.status)) {
+      toast.error('الفاتورة مغلقة ولا يمكن تعديلها'); return;
+    }
+    const grouped = new Map();
+    (data.items || []).forEach(item => {
+      const key = item.round_id || 'legacy';
+      if (!grouped.has(key)) grouped.set(key, {
+        roundId: item.round_id || null,
+        roundNumber: item.round_number || 1,
+        status: item.round_status || data.status || 'pending',
+        items: [],
+      });
+      grouped.get(key).items.push(item);
+    });
+    const rounds = [...grouped.values()].filter(round => round.status === 'pending' && round.roundId);
+    if (!rounds.length) {
+      toast.error('لا توجد جولة قابلة للتعديل؛ أضف جولة جديدة بدلاً من تغيير جولة بدأ تجهيزها');
       return;
     }
-    setOrderModal({ table, order: data });
+    setRoundPicker({ table, order: data, rounds });
   };
 
   // فتح مودال الدفع مع جلب آخر طلب للطاولة
@@ -473,12 +490,42 @@ export default function Tables() {
         </div>
       )}
 
+      {/* اختيار الجولة السابقة القابلة للتعديل */}
+      {roundPicker && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" dir="rtl">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-black text-lg">اختر الجولة التي تريد تعديلها</h3>
+              <button onClick={() => setRoundPicker(null)}><X className="h-5 w-5 text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-2">
+              {roundPicker.rounds.map(round => (
+                <button key={round.roundId}
+                  onClick={() => {
+                    setOrderModal({ table: roundPicker.table, order: roundPicker.order, roundId: round.roundId, roundNumber: round.roundNumber });
+                    setRoundPicker(null);
+                  }}
+                  className="w-full rounded-xl border border-border p-3 text-right hover:border-primary hover:bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">الجولة {round.roundNumber}</span>
+                    <span className="text-xs text-emerald-600">لم يبدأ تجهيزها</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{round.items.map(item => item.name).join('، ')}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* مودال إضافة طلب */}
       {orderModal && (
         <OrderModal
           table={orderModal.table}
           products={products}
           initialOrder={orderModal.order || null}
+          initialRoundId={orderModal.roundId || null}
+          initialRoundNumber={orderModal.roundNumber || null}
           onClose={() => setOrderModal(null)}
           onOrderSent={(ord) => {
             setOrderModal(null);
