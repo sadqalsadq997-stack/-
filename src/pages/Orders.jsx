@@ -1,9 +1,10 @@
 /**
  * صفحة الطلبات — مع عرض حالة ZATCA وزر إعادة الإرسال
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { loadSession } from '@/lib/security/session';
 import {
   Receipt, Search, Eye, Loader2, CheckCircle2, Clock,
   XCircle, ChefHat, Shield, RefreshCw, AlertCircle, Printer, Undo2
@@ -31,7 +32,10 @@ export default function Orders() {
   const [selected, setSelected] = useState(null);
   const [retrying, setRetrying] = useState(null);
   const [returning, setReturning] = useState(null);
+  const [employeeSession, setEmployeeSession] = useState(null);
   const qc = useQueryClient();
+
+  useEffect(() => { loadSession().then(setEmployeeSession).catch(() => setEmployeeSession(null)); }, []);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
@@ -297,7 +301,9 @@ export default function Orders() {
                 if (!window.confirm('تأكيد أنك استلمت كامل قيمة الطلب نقداً؟ بعد الاعتماد سيظهر الطلب للمطبخ.')) return;
                 const { error } = await supabase.from('orders').update({
                   status: 'pending', payment_method: 'cash', amount_paid: selected.total,
-                  change_due: 0, cashier_name: sessionStorage.getItem('pin_employee_name') || 'كاشير',
+                  change_due: 0,
+                  cashier_name: employeeSession?.empName || sessionStorage.getItem('pin_employee_name') || 'كاشير',
+                  cashier_employee_id: employeeSession?.empId || null,
                 }).eq('id', selected.id).eq('status', 'awaiting_payment');
                 if (error) { toast.error(error.message || 'تعذر اعتماد الدفع'); return; }
                 toast.success('تم اعتماد استلام الدفع وإرسال الطلب للمطبخ');
