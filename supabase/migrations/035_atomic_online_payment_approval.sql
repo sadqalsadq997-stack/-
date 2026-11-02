@@ -37,3 +37,7 @@ $$;
 
 COMMENT ON FUNCTION public.guard_order_workflow_transitions()
 IS 'Enforces atomic payment approval for online orders and blocks cancellation after preparation starts.';
+
+INSERT INTO public.migration_status (migration, note)
+VALUES ('035_atomic_online_payment_approval', 'Prevents payment fields from being written while an online order remains awaiting payment; requires atomic cashier approval.')
+ON CONFLICT (migration) DO NOTHING;
