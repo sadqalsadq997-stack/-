@@ -160,8 +160,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     </div>
   </div>
   <div class="invoice-title">
-    <h1>فاتورة ضريبية</h1>
-    <p>Tax Invoice</p>
+    <h1>${isB2B ? 'فاتورة ضريبية' : 'فاتورة ضريبية مبسطة'}</h1>
+    <p>${isB2B ? 'Tax Invoice' : 'Simplified Tax Invoice'}</p>
     <div style="margin-top:8px;font-size:10px;color:#c0392b;font-weight:700">رقم الطلب: ${esc(String(orderDisplayNumber))}</div>
   </div>
   <div class="buyer-info">
