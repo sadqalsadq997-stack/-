@@ -180,6 +180,7 @@ function AppRoutes() {
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
       <Route path="/m/:slug"       element={<PublicMenu />} />
+      <Route path="/t/:tableToken"   element={<PublicMenu />} />
       <Route path="/loyalty/:id"   element={<LoyaltyCard />} />
       <Route path="/wallet/:token" element={<LoyaltyQR />} />
       <Route path="/auth/login"    element={<OwnerLogin />} />
