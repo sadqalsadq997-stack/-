@@ -64,7 +64,7 @@ export default function POSTerminal() {
     queryFn: async () => {
       const { data, error } = await supabase.from('products')
         .select('id, name, name_ar, base_price, tax_inclusive, tax_rate, vat_category, vat_exemption_code, image_url, category_id, barcode, sku, is_active')
-        .eq('is_active', true).order('sort_order', { nullsFirst: false });
+        .eq('is_active', true).eq('is_ingredient', false).order('sort_order', { nullsFirst: false });
       if (error) toast.error('تعذر تحميل المنتجات');
       return (data || []).map(p => ({ ...p, unit: unitParts(p) }));
     },
