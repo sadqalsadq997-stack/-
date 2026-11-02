@@ -174,3 +174,6 @@ REVOKE ALL ON FUNCTION public.add_table_order_round(UUID, JSONB, TEXT, TEXT) FRO
 GRANT EXECUTE ON FUNCTION public.add_table_order_round(UUID, JSONB, TEXT, TEXT) TO authenticated;
 COMMENT ON FUNCTION public.add_table_order_round(UUID, JSONB, TEXT, TEXT)
 IS 'Atomically appends a separately tracked dine-in round to the open table bill.';
+INSERT INTO public.migration_status (migration, note)
+VALUES ('035_dine_in_round_tracking', 'Backfills open dine-in order rounds and tracks each newly added round independently.')
+ON CONFLICT (migration) DO NOTHING;
