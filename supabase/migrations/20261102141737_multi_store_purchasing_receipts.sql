@@ -52,9 +52,10 @@ BEGIN
     v_net_total:=v_net_total+v_net; v_tax_total:=v_tax_total+v_tax;
   END LOOP;
   v_total:=v_net_total+v_tax_total;
+  IF v_supplier_vat IS NULL AND v_tax_total>0 THEN RAISE EXCEPTION 'المورد غير مسجل ضريبياً — لا يمكن احتساب ضريبة قيمة مضافة على فاتورته'; END IF;
   IF v_paid>v_total THEN RAISE EXCEPTION 'المبلغ المدفوع أكبر من إجمالي الفاتورة'; END IF;
-  INSERT INTO public.purchase_invoices(tenant_id,branch_id,supplier_id,warehouse_id,supplier_name,supplier_vat,invoice_number,invoice_date,net_amount,vat_amount,notes,invoice_kind,expense_account,paid,paid_amount,payment_status,paid_at)
-  VALUES(v_tenant,p_branch,p_supplier,p_warehouse,v_supplier_name,v_supplier_vat,trim(p_invoice_number),coalesce(p_invoice_date,current_date),v_net_total,v_tax_total,p_notes,'tax','1300',v_paid>=v_total,v_paid,CASE WHEN v_paid>=v_total THEN 'paid' WHEN v_paid>0 THEN 'partial' ELSE 'unpaid' END,CASE WHEN v_paid>=v_total THEN current_date ELSE NULL END)
+  INSERT INTO public.purchase_invoices(tenant_id,branch_id,supplier_id,warehouse_id,supplier_name,supplier_vat,invoice_number,invoice_date,net_amount,vat_amount,notes,invoice_kind,expense_account,deductible,non_deductible_reason,paid,paid_amount,payment_status,paid_at)
+  VALUES(v_tenant,p_branch,p_supplier,p_warehouse,v_supplier_name,v_supplier_vat,trim(p_invoice_number),coalesce(p_invoice_date,current_date),v_net_total,v_tax_total,p_notes,'tax','1300',v_supplier_vat IS NOT NULL,CASE WHEN v_supplier_vat IS NULL THEN 'المورد غير مسجل ضريبياً' ELSE NULL END,v_paid>=v_total,v_paid,CASE WHEN v_paid>=v_total THEN 'paid' WHEN v_paid>0 THEN 'partial' ELSE 'unpaid' END,CASE WHEN v_paid>=v_total THEN current_date ELSE NULL END)
   RETURNING id INTO v_invoice;
   FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines) LOOP
     v_product:=(v_line->>'product_id')::uuid; v_qty:=(v_line->>'quantity')::numeric;
