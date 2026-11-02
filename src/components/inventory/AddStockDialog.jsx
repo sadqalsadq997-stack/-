@@ -9,12 +9,17 @@ export default function AddStockDialog({ product, onClose }) {
   const [type, setType]       = useState('restock');
   const [notes, setNotes]     = useState('');
   const [unitCost, setUnitCost] = useState(String(product.cost_price || ''));
+  const [stockUnit, setStockUnit] = useState('base');
+  const selectedConversion = (product.unit_conversions || []).find(u => u.name === stockUnit);
+  const conversionFactor = selectedConversion ? Number(selectedConversion.factor_to_base) : 1;
 
   const save = useMutation({
     mutationFn: async () => {
-      const amount = Number(qty);
-      if (!amount || amount <= 0) throw new Error('الكمية غير صحيحة');
+      const enteredAmount = Number(qty);
+      const amount = enteredAmount * conversionFactor;
+      if (!enteredAmount || enteredAmount <= 0 || !Number.isFinite(amount) || amount > 1000000) throw new Error('الكمية غير صحيحة');
       if (type === 'wastage' && !notes.trim()) throw new Error('اكتب سبب الهدر أو التلف');
+      if (type !== 'restock' && stockUnit !== 'base') throw new Error('استخدم وحدة المخزون الأساسية للاستهلاك والهدر والتسوية');
       let branchId = null;
       try { branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
       const { error } = await supabase.rpc('inventory_manual_move', {
@@ -49,11 +54,21 @@ export default function AddStockDialog({ product, onClose }) {
             </button>
           ))}
         </div>
+        {type === 'restock' && (product.unit_conversions || []).length > 0 && (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">وحدة التوريد</label>
+            <select value={stockUnit} onChange={e=>setStockUnit(e.target.value)} className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm">
+              <option value="base">الوحدة الأساسية ({product.unit_type})</option>
+              {(product.unit_conversions || []).map((u,i)=><option key={i} value={u.name}>{u.name} = {u.factor_to_base} {product.unit_type}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">الكمية</label>
           <input type="number" min="0.001" step="0.001" value={qty} onChange={e => setQty(e.target.value)} placeholder="0"
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
+        {type === 'restock' && stockUnit !== 'base' && <p className="text-xs text-primary">سيضيف النظام {Number(qty||0)*conversionFactor} {product.unit_type} إلى المخزون الأساسي.</p>}
         {type === 'restock' && (
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">تكلفة الوحدة الجديدة (اختياري)</label>
