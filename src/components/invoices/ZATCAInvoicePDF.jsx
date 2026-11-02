@@ -33,13 +33,14 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const issueTimeISO = format(issuedAt, 'HH:mm:ss');
   const orderDisplayNumber = order?.daily_order_number ?? order?.order_number ?? '—';
 
-  // استخدام QR الحقيقي من ZATCA إن وُجد
-  const qrData = zatcaInvoice?.qr_code || generateZATCAQR({
+  // الفاتورة المبسطة تعرض TLV QR، أما فاتورة الشركات فتستخدم QR المعتمد من ZATCA فقط.
+  const isB2B = Boolean(order?.is_b2b);
+  const qrData = zatcaInvoice?.qr_code || order?.zatca_qr || (!isB2B ? generateZATCAQR({
     sellerName: sellerNameRaw, vatNumber: vatNumberRaw,
     invoiceDate: issuedAt.toISOString(),
     invoiceTotal: total,
     vatAmount,
-  });
+  }) : '');
 
   // بيانات ZATCA
   const invoiceNumber = zatcaInvoice?.invoice_number || order?.invoice_no || '';
@@ -84,7 +85,7 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   }).join('');
 
   async function openPrint() {
-    const qrImg = await QRCode.toDataURL(qrData, { width: 180, margin: 1 });
+    const qrImg = qrData ? await QRCode.toDataURL(qrData, { width: 180, margin: 1 }) : '';
     await printHTML(`<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="UTF-8"/>
 <title>فاتورة ضريبية — ${esc(invoiceNumber || orderDisplayNumber)}</title>
@@ -208,7 +209,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   </table>
 </div>
 
-<!-- QR Code ZATCA -->
+${qrImg ? `<!-- QR Code ZATCA -->
 <div class="qr-section">
   <img class="qr-img" src="${qrImg}" alt="QR ZATCA" />
   <div class="zatca-info">
@@ -220,7 +221,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     <div><strong>ضريبة القيمة المضافة:</strong> ${vatAmount.toFixed(2)} ⃁</div>
     <div class="zatca-hash">TLV: ${qrData.substring(0, 60)}...</div>
   </div>
-</div>
+</div>` : ''}
 
 <!-- التذييل -->
 <div class="footer">
