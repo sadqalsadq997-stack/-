@@ -45,7 +45,6 @@ import BlogList from "@/pages/blog/BlogList";
 import BlogPost from "@/pages/blog/BlogPost";
 import PublicMenu            from "@/pages/PublicMenu";
 import KitchenDisplay        from "@/pages/KitchenDisplay";
-import KioskIntegration      from "@/pages/KioskIntegration";
 import CarOrders             from "@/pages/CarOrders";
 import LoyaltyCard           from "@/pages/LoyaltyCard";
 import LoyaltyCardDesigner   from "@/pages/LoyaltyCardDesigner";
@@ -210,7 +209,6 @@ function AppRoutes() {
                   <Route path="/tables"             element={<Tables />} />
                   <Route path="/kitchen"            element={<KitchenDisplay />} />
                   <Route path="/pager"              element={<Pager />} />
-                  <Route path="/kiosk"              element={<KioskIntegration />} />
                   <Route path="/customers"          element={<Customers />} />
                   <Route path="/suppliers"          element={<Suppliers />} />
                   <Route path="/expenses"           element={<Expenses />} />
