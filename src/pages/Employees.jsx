@@ -331,9 +331,10 @@ export default function Employees() {
             <p className="text-xs text-muted-foreground">المبيعات تسجل عند إصدار الفاتورة، وإنجاز المطبخ يسجل عند إتمام كل قسم.</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {title:'أكثر كاشير مبيعاً',icon:DollarSign,employee:[...performance].sort((a,b)=>Number(b.sales_total)-Number(a.sales_total))[0],value:p=>`${Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`},
+            {title:'أكثر موظف يستلم مهاماً',icon:ChefHat,employee:[...performance].sort((a,b)=>Number(b.kitchen_tasks_assigned)-Number(a.kitchen_tasks_assigned))[0],value:p=>`${Number(p.kitchen_tasks_assigned||0)} مهمة مستلمة`},
             {title:'أكثر موظف مطبخ إنجازاً',icon:Award,employee:[...performance].sort((a,b)=>Number(b.kitchen_tasks_completed)-Number(a.kitchen_tasks_completed))[0],value:p=>`${Number(p.kitchen_tasks_completed||0)} مهمة مكتملة`},
             {title:'أكثر ويتر اعتماداً',icon:UserCheck,employee:[...performance].sort((a,b)=>Number(b.waiter_approvals)-Number(a.waiter_approvals))[0],value:p=>`${Number(p.waiter_approvals||0)} طلب معتمد`},
           ].map((card,index)=>(
@@ -347,7 +348,7 @@ export default function Employees() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[650px] text-xs">
             <thead><tr className="border-b border-border text-muted-foreground">
-              {['الموظف','الدور','فواتير الكاشير','مبيعات الكاشير','مهام المطبخ المكتملة','طلبات الويتر المعتمدة','متوسط وقت التجهيز'].map(x=><th key={x} className="p-2 text-right">{x}</th>)}
+              {['الموظف','الدور','فواتير الكاشير','مبيعات الكاشير','مهام مستلمة','مهام مكتملة','طلبات الويتر المعتمدة','متوسط وقت التجهيز'].map(x=><th key={x} className="p-2 text-right">{x}</th>)}
             </tr></thead>
             <tbody>
               {performance.map(p=>(
@@ -356,12 +357,13 @@ export default function Employees() {
                   <td className="p-2">{ROLE_LABELS[p.role]||p.role}</td>
                   <td className="p-2 tabular-nums">{Number(p.sales_count||0)}</td>
                   <td className="p-2 tabular-nums">{Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س</td>
+                  <td className="p-2 tabular-nums">{Number(p.kitchen_tasks_assigned||0)}</td>
                   <td className="p-2 tabular-nums">{Number(p.kitchen_tasks_completed||0)}</td>
                   <td className="p-2 tabular-nums">{Number(p.waiter_approvals||0)}</td>
                   <td className="p-2 tabular-nums">{p.avg_kitchen_minutes ? `${p.avg_kitchen_minutes} دقيقة` : '—'}</td>
                 </tr>
               ))}
-              {performance.length===0 && <tr><td colSpan={7} className="p-5 text-center text-muted-foreground">لا توجد أنشطة مسجلة لهذه الفترة</td></tr>}
+              {performance.length===0 && <tr><td colSpan={8} className="p-5 text-center text-muted-foreground">لا توجد أنشطة مسجلة لهذه الفترة</td></tr>}
             </tbody>
           </table>
         </div>
