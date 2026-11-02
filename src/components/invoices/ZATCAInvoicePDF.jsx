@@ -25,7 +25,7 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const subtotal = Number(order?.subtotal ?? (order?.total ? order.total / 1.15 : 0));
   const vatAmount = Number(order?.tax_amount ?? (order?.total ? order.total - subtotal : 0));
   const total = Number(order?.total ?? 0);
-  const discountNet = Number(order?.discount_net ?? discount);
+  const discountNet = Number(order?.discount_net ?? order?.discount_amount ?? 0);
   const linesNet = Number(order?.lines_net ?? (subtotal + discountNet));
   const issuedAt = new Date(zatcaInvoice?.issue_date || order?.invoiced_at || order?.created_at || Date.now());
   const dateStr = format(issuedAt, 'yyyy-MM-dd HH:mm:ss');
@@ -48,6 +48,15 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
 
   const payLabel = { cash: 'نقدي', card: 'بطاقة', mixed: 'مختلط', credit: 'آجل', online: 'أونلاين' }[order?.payment_method] || order?.payment_method || 'نقدي';
   const typeLabel = { dine_in: 'محلي', takeaway: 'سفري', delivery: 'توصيل', online: 'أونلاين' }[order?.order_type] || '';
+  const buyer = order?.buyer || {};
+  const buyerName = buyer.name || order?.customer_name || 'عميل نقدي';
+  const buyerVat = buyer.vat_number || order?.customer_vat || '';
+  const buyerAddress = [buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].filter(Boolean).join('، ');
+  const taxBreakdownRows = (Array.isArray(order?.tax_breakdown) ? order.tax_breakdown : []).map(b => {
+    const cat = b.category === 'S' ? 'قياسية' : b.category === 'Z' ? 'صفرية' : b.category === 'E' ? 'معفاة' : 'خارج النطاق';
+    return `<tr><td>${cat} — أساس خاضع ${Number(b.rate || 0)}%</td><td>${Number(b.taxable || 0).toFixed(2)} ⃁</td></tr>
+      <tr class="vat-row"><td>ضريبة ${cat}</td><td>${Number(b.tax || 0).toFixed(2)} ⃁</td></tr>`;
+  }).join('');
 
   const itemRows = items.map((item, i) => {
     const qty = Number(item.quantity ?? item.qty ?? 1);
@@ -149,9 +158,10 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   </div>
   <div class="buyer-info">
     <div class="buyer-label">بيانات العميل</div>
-    <div style="font-weight:700;font-size:13px">${esc(order?.customer_name || 'عميل نقدي')}</div>
+    <div style="font-weight:700;font-size:13px">${esc(buyerName)}</div>
     ${order?.customer_phone ? `<div style="font-size:11px;color:#666">${esc(order.customer_phone)}</div>` : ''}
-    ${order?.customer_vat ? `<div style="font-size:11px;color:#666">ر.ض: ${esc(order.customer_vat)}</div>` : ''}
+    ${buyerVat ? `<div style="font-size:11px;color:#666">الرقم الضريبي: ${esc(buyerVat)}</div>` : ''}
+    ${buyerAddress ? `<div style="font-size:11px;color:#666">${esc(buyerAddress)}</div>` : ''}
   </div>
 </div>
 
@@ -185,7 +195,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     <tr><td>قيمة الأصناف قبل الخصم والضريبة</td><td>${linesNet.toFixed(2)} ⃁</td></tr>
     ${discountNet > 0 ? `<tr><td>الخصم قبل الضريبة</td><td style="color:#c0392b">- ${discountNet.toFixed(2)} ⃁</td></tr>` : ''}
     <tr><td>الإجمالي غير شامل الضريبة</td><td>${subtotal.toFixed(2)} ⃁</td></tr>
-    <tr class="vat-row"><td>ضريبة القيمة المضافة حسب الفئات</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
+    ${taxBreakdownRows}
+    <tr class="vat-row"><td>إجمالي ضريبة القيمة المضافة</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
     <tr class="grand"><td>الإجمالي المطلوب</td><td>${total.toFixed(2)} ⃁</td></tr>
   </table>
 </div>
