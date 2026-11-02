@@ -6,7 +6,7 @@ import { Moon, Sun, Car, Palette,
   UtensilsCrossed, Warehouse, Receipt, UserCog,
   Store, CreditCard, LogOut, Sparkles, GitBranch,
   ChevronDown, ChefHat, Gift, User, Headphones, Globe, Crown,
-  Plug, Shield, BellRing
+  Shield, BellRing
 , BookOpen} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,6 @@ const ALL_ITEMS = [
   { path: '/tables',          icon: UtensilsCrossed, label: 'الطاولات',   food: true },
   { path: '/kitchen',         icon: ChefHat,         label: 'المطبخ',     food: true },
   { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني' },
-  { path: '/kiosk',           icon: Plug,            label: 'الكشك والبيجر', food: true },
   { path: '/products',        icon: Package,         label: 'المتجر'                },
   { path: '/categories',      icon: Layers,          label: 'التصنيفات'             },
   { path: '/inventory',       icon: Warehouse,       label: 'المخزون'               },
