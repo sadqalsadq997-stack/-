@@ -43,6 +43,20 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const invoiceUuid = zatcaInvoice?.invoice_uuid || order?.invoice_uuid || '';
   const zatcaStatus = zatcaInvoice?.zatca_status || order?.zatca_status || 'pending';
   const phaseTwoQr = Boolean(zatcaInvoice?.qr_code || order?.zatca_qr);
+  const taxBreakdown = Array.isArray(order?.tax_breakdown) ? order.tax_breakdown : [];
+  const taxBreakdownRows = taxBreakdown.map(entry => {
+    const label = entry.category === 'S' ? 'مبيعات خاضعة' : entry.category === 'Z' ? 'مبيعات صفرية' : entry.category === 'E' ? 'مبيعات معفاة' : 'خارج نطاق الضريبة';
+    const rate = Number(entry.rate || 0);
+    return `<tr><td>${label} (${rate}%) — الوعاء ${Number(entry.taxable || 0).toFixed(2)} ⃁</td><td>${Number(entry.tax || 0).toFixed(2)} ⃁</td></tr>`;
+  }).join('');
+  const buyer = order?.buyer || {};
+  const buyerName = buyer.name || order?.customer_name || 'عميل نقدي';
+  const buyerVat = buyer.vat_number || order?.customer_vat || '';
+  const buyerAddress = [buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].filter(Boolean).join('، ');
+  const statusLabel = {
+    pending: 'بانتظار الإرسال', signed: 'موقّعة', reported: 'مُبلّغة للهيئة',
+    cleared: 'معتمدة من الهيئة', error: 'تعذر الإرسال', rejected: 'مرفوضة',
+  }[zatcaStatus] || zatcaStatus;
   const payLabel = { cash: 'نقدي', card: 'بطاقة', mixed: 'مختلط', credit: 'آجل', online: 'أونلاين' }[order?.payment_method] || order?.payment_method || 'نقدي';
   const typeLabel = { dine_in: 'محلي', takeaway: 'سفري', delivery: 'توصيل', online: 'أونلاين' }[order?.order_type] || '';
 
@@ -137,9 +151,10 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   </div>
   <div class="buyer-info">
     <div class="buyer-label">بيانات العميل</div>
-    <div style="font-weight:700;font-size:13px">${esc(order?.customer_name || 'عميل نقدي')}</div>
+    <div style="font-weight:700;font-size:13px">${esc(buyerName)}</div>
     ${order?.customer_phone ? `<div style="font-size:11px;color:#666">${esc(order.customer_phone)}</div>` : ''}
-    ${order?.customer_vat ? `<div style="font-size:11px;color:#666">ر.ض: ${esc(order.customer_vat)}</div>` : ''}
+    ${buyerVat ? `<div style="font-size:11px;color:#666">الرقم الضريبي: ${esc(buyerVat)}</div>` : ''}
+    ${buyerAddress ? `<div style="font-size:11px;color:#666">${esc(buyerAddress)}</div>` : ''}
   </div>
 </div>
 
@@ -172,7 +187,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   <table class="totals-table">
     <tr><td>المجموع قبل الضريبة</td><td>${subtotal.toFixed(2)} ⃁</td></tr>
     ${discount > 0 ? `<tr><td>الخصم</td><td style="color:#c0392b">- ${discount.toFixed(2)} ⃁</td></tr>` : ''}
-    <tr class="vat-row"><td>ضريبة القيمة المضافة حسب تصنيف الأصناف</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
+    ${taxBreakdownRows}<tr class="vat-row"><td>إجمالي ضريبة القيمة المضافة</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
     <tr class="grand"><td>الإجمالي المطلوب</td><td>${total.toFixed(2)} ⃁</td></tr>
   </table>
 </div>
@@ -186,6 +201,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     ${vatNumber ? `<div><strong>الرقم الضريبي:</strong> ${vatNumber}</div>` : ''}
     <div><strong>تاريخ الإصدار:</strong> ${issueDateISO} — ${issueTimeISO}</div>
     <div><strong>رقم الفاتورة:</strong> ${esc(invoiceNumber || '—')}</div>
+    <div><strong>حالة الإرسال:</strong> ${esc(statusLabel)}</div>
+    ${invoiceUuid ? `<div><strong>UUID:</strong> <span style="font-family:monospace;font-size:9px">${esc(invoiceUuid)}</span></div>` : ''}
     <div><strong>المبلغ الإجمالي:</strong> ${total.toFixed(2)} ⃁</div>
     <div><strong>ضريبة القيمة المضافة:</strong> ${vatAmount.toFixed(2)} ⃁</div>
     <div class="zatca-hash">TLV: ${qrData.substring(0, 60)}...</div>
