@@ -18,9 +18,9 @@ const STATUS = {
 };
 
 // ── مودال إضافة طلب ──────────────────────────────────────────────
-function OrderModal({ table, products, onClose, onOrderSent }) {
-  const [cart, setCart] = useState([]);
-  const [notes, setNotes] = useState('');
+function OrderModal({ table, products, onClose, onOrderSent, initialOrder = null }) {
+  const [cart, setCart] = useState(() => (initialOrder?.items || []).map(i => ({ id: i.product_id || i.id, name: i.name_ar || i.name, price: Number(i.price ?? i.unit_price ?? 0), qty: Number(i.qty ?? i.quantity ?? 1) })));
+  const [notes, setNotes] = useState(initialOrder?.notes || '');
   const qc = useQueryClient();
   const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id; } catch { return null; } })();
   const cashierName = sessionStorage.getItem('pin_employee_name') || 'كاشير';
@@ -43,20 +43,27 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
       if (!cart.length) throw new Error('أضف منتجاً واحداً على الأقل');
       // الأسعار والكميات يعاد التحقق منها داخل قاعدة البيانات، وتضاف الجولة
       // إلى نفس الفاتورة المفتوحة للطاولة مع قفل يمنع تداخل طلبات النادلين.
-      const { data, error } = await supabase.rpc('add_table_order_round', {
-        p_table_id: table.id,
-        p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
-        p_notes: notes,
-        p_cashier_name: cashierName,
-      });
+      const { data, error } = initialOrder
+        ? await supabase.rpc('replace_open_table_order', {
+            p_order_id: initialOrder.id,
+            p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
+            p_notes: notes,
+          })
+        : await supabase.rpc('add_table_order_round', {
+            p_table_id: table.id,
+            p_items: cart.map(i => ({ id: i.id, qty: i.qty })),
+            p_notes: notes,
+            p_cashier_name: cashierName,
+          });
       if (error) throw error;
-      if (!data?.order?.id) throw new Error('لم يتم إنشاء الطلب');
-      return data.order;
+      const order = data?.order || data;
+      if (!order?.id) throw new Error('لم يتم حفظ الطلب');
+      return order;
     },
     onSuccess: (ord) => {
       qc.invalidateQueries({ queryKey: ['tables'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      toast.success('تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
+      toast.success(initialOrder ? 'تم تعديل الطلب المفتوح وإعادة حساب الفاتورة' : 'تمت إضافة الجولة إلى فاتورة الطاولة المفتوحة وإرسالها للمطبخ');
       onOrderSent(ord);
     },
     onError: (e) => toast.error(e.message || 'فشل الإرسال'),
@@ -69,7 +76,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <ChefHat className="w-5 h-5 text-primary" />
-            <h2 className="font-black text-lg">طلب جديد — طاولة #{table.table_number}</h2>
+            <h2 className="font-black text-lg">{initialOrder ? 'تعديل الطلب المفتوح' : 'طلب جديد'} — طاولة #{table.table_number}</h2>
           </div>
           <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
@@ -125,7 +132,7 @@ function OrderModal({ table, products, onClose, onOrderSent }) {
               <button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || !cart.length}
                 className="w-full h-10 bg-primary text-primary-foreground rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 disabled:opacity-50">
                 {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
-                إرسال للمطبخ
+                {initialOrder ? 'حفظ تعديل الطلب' : 'إرسال للمطبخ'}
               </button>
             </div>
           </div>
@@ -312,6 +319,15 @@ export default function Tables() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tables'] }); toast.success('تم الحذف'); },
   });
 
+  // فتح محرر الفاتورة المفتوحة — يسمح بالتعديل قبل بدء التجهيز فقط
+  const openEditOrder = async (table) => {
+    if (!table.current_order_id) { toast.error('لا يوجد طلب مفتوح لهذه الطاولة'); return; }
+    const { data, error } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
+    if (error || !data) { toast.error(error?.message || 'تعذر تحميل الطلب'); return; }
+    if (data.status !== 'pending' || data.invoice_no) { toast.error('يمكن تعديل الطلب قبل بدء التجهيز فقط'); return; }
+    setOrderModal({ table, order: data });
+  };
+
   // فتح مودال الدفع مع جلب آخر طلب للطاولة
   const openCheckout = async (table) => {
     if (table.current_order_id) {
@@ -414,11 +430,18 @@ export default function Tables() {
                     <ShoppingCart className="w-3.5 h-3.5" />إضافة طلب
                   </button>
                   {isOccupied && (
+                    <>
+                    <button
+                      onClick={() => openEditOrder(t)}
+                      className="w-full h-8 bg-blue-600/10 hover:bg-blue-600/20 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+                      <Save className="w-3.5 h-3.5" />تعديل الطلب المفتوح
+                    </button>
                     <button
                       onClick={() => openCheckout(t)}
                       className="w-full h-8 bg-green-600/10 hover:bg-green-600/20 text-green-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
                       <CreditCard className="w-3.5 h-3.5" />إغلاق الفاتورة
                     </button>
+                    </>
                   )}
                   {/* تغيير الحالة */}
                   <div className="flex gap-1 flex-wrap">
@@ -441,6 +464,7 @@ export default function Tables() {
         <OrderModal
           table={orderModal.table}
           products={products}
+          initialOrder={orderModal.order || null}
           onClose={() => setOrderModal(null)}
           onOrderSent={(ord) => {
             setOrderModal(null);
