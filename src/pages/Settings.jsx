@@ -71,7 +71,11 @@ export default function Settings() {
         toast.error('تم حفظ بيانات المنشأة، لكن تعذر تحديث بيانات الفرع: ' + branchError.message);
         return;
       }
-      if (branchData) localStorage.setItem('activeBranch', JSON.stringify({ ...activeBranch, ...branchData }));
+      if (branchData) {
+        const nextBranch = { ...activeBranch, ...branchData };
+        localStorage.setItem('activeBranch', JSON.stringify(nextBranch));
+        window.dispatchEvent(new CustomEvent('felsy:business-updated', { detail: nextBranch }));
+      }
     }
     setSaving(false);
     toast.success('تم حفظ بيانات المنشأة والفرع');
