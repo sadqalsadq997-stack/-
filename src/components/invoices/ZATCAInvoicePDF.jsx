@@ -66,7 +66,8 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const buyerAddress = [buyer.building, buyer.street, buyer.district, buyer.city, buyer.postal].filter(Boolean).join('، ');
   const taxBreakdownRows = (Array.isArray(order?.tax_breakdown) ? order.tax_breakdown : []).map(b => {
     const cat = b.category === 'S' ? 'قياسية' : b.category === 'Z' ? 'صفرية' : b.category === 'E' ? 'معفاة' : 'خارج النطاق';
-    return `<tr><td>${cat} — أساس خاضع ${Number(b.rate || 0)}%</td><td>${Number(b.taxable || 0).toFixed(2)} ⃁</td></tr>
+    const reason = b.reason ? ` — ${esc(b.reason)}` : '';
+    return `<tr><td>${cat} — أساس ${Number(b.rate || 0)}%${reason}</td><td>${Number(b.taxable || 0).toFixed(2)} ⃁</td></tr>
       <tr class="vat-row"><td>ضريبة ${cat}</td><td>${Number(b.tax || 0).toFixed(2)} ⃁</td></tr>`;
   }).join('');
 
