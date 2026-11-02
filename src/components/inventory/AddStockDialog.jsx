@@ -14,6 +14,7 @@ export default function AddStockDialog({ product, onClose }) {
     mutationFn: async () => {
       const amount = Number(qty);
       if (!amount || amount <= 0) throw new Error('الكمية غير صحيحة');
+      if (type === 'wastage' && !notes.trim()) throw new Error('اكتب سبب الهدر أو التلف');
       let branchId = null;
       try { branchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
       const { error } = await supabase.rpc('inventory_manual_move', {
@@ -38,7 +39,7 @@ export default function AddStockDialog({ product, onClose }) {
           <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <p className="text-sm text-muted-foreground">المنتج: <span className="font-medium text-foreground">{product.name_ar || product.name}</span></p>
-        <p className="text-sm text-muted-foreground">المخزون الحالي: <span className="font-bold text-foreground">{product.stock_quantity || 0}</span></p>
+        <p className="text-sm text-muted-foreground">المخزون الحالي: <span className="font-bold text-foreground">{product.stock_quantity || 0} {product.unit_type || ''}</span></p>
 
         <div className="grid grid-cols-2 gap-2">
           {[['restock','توريد'],['consumption','استهلاك'],['wastage','هدر / تالف'],['adjustment','تسوية خصم']].map(([v, l]) => (
@@ -50,7 +51,7 @@ export default function AddStockDialog({ product, onClose }) {
         </div>
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">الكمية</label>
-          <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} placeholder="0"
+          <input type="number" min="0.001" step="0.001" value={qty} onChange={e => setQty(e.target.value)} placeholder="0"
             className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
         </div>
         {type === 'restock' && (
