@@ -14,54 +14,52 @@ import { printHTML, esc, printFonts } from '@/lib/print';
 export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }) {
   const printRef = useRef(null);
 
-  const sellerName = esc(branch?.zatca_seller_name || branch?.name_ar || branch?.name || 'البائع');
-  const vatNumber  = esc(branch?.vat_number || branch?.zatca_vat_number || '');
-  const crNumber   = esc(branch?.cr_number || '');
-  const city       = esc(branch?.zatca_city || branch?.address || 'الرياض');
-  const logo       = /^https:\/\//.test(branch?.logo_url || '') ? esc(branch.logo_url) : '';
-  const phone      = esc(branch?.phone || '');
+  const sellerNameRaw = branch?.zatca_seller_name || branch?.name_ar || branch?.name || 'البائع';
+  const vatNumberRaw = branch?.vat_number || branch?.zatca_vat_number || '';
+  const sellerName = esc(sellerNameRaw);
+  const vatNumber = esc(vatNumberRaw);
+  const crNumber = esc(branch?.cr_number || '');
+  const city = esc(branch?.zatca_city || branch?.city || branch?.address || 'الرياض');
+  const logo = /^https:\/\//.test(branch?.logo_url || '') ? esc(branch.logo_url) : '';
+  const phone = esc(branch?.phone || '');
 
-  const items = order?.items || [];
-  const subtotal   = order?.subtotal || (order?.total ? order.total / 1.15 : 0);
-  const vatAmount  = order?.tax_amount || (order?.total ? order.total - subtotal : 0);
-  const total      = order?.total || 0;
-  const discount   = order?.discount || 0;
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const subtotal = Number(order?.subtotal ?? 0);
+  const vatAmount = Number(order?.tax_amount ?? 0);
+  const total = Number(order?.total ?? 0);
+  const discount = Number(order?.discount_amount ?? order?.discount ?? 0);
+  const issuedAt = order?.invoiced_at || order?.created_at || new Date().toISOString();
+  const issuedDate = new Date(issuedAt);
+  const dateStr = format(issuedDate, 'yyyy-MM-dd HH:mm:ss');
+  const issueDateISO = format(issuedDate, 'yyyy-MM-dd');
+  const issueTimeISO = format(issuedDate, 'HH:mm:ss');
+  const dailyOrderNumber = order?.daily_order_number ?? order?.order_number ?? '—';
 
-  // استخدام QR الحقيقي من ZATCA إن وُجد
-  const qrData = zatcaInvoice?.qr_code || generateZATCAQR({
-    sellerName, vatNumber,
-    invoiceDate:  order?.created_at || new Date().toISOString(),
-    invoiceTotal: total,
-    vatAmount,
+  const qrData = zatcaInvoice?.qr_code || order?.zatca_qr || generateZATCAQR({
+    sellerName: sellerNameRaw, vatNumber: vatNumberRaw,
+    invoiceDate: issuedDate.toISOString(), invoiceTotal: total, vatAmount,
   });
-
-  // بيانات ZATCA
-  const invoiceNumber = zatcaInvoice?.invoice_number || order?.order_number || '';
-  const invoiceUuid   = zatcaInvoice?.invoice_uuid || order?.invoice_uuid || '';
-  const zatcaStatus   = zatcaInvoice?.zatca_status || order?.zatca_status || 'pending';
-
+  const invoiceNumber = zatcaInvoice?.invoice_number || order?.invoice_no || order?.order_number || '';
+  const invoiceUuid = zatcaInvoice?.invoice_uuid || order?.invoice_uuid || '';
+  const zatcaStatus = zatcaInvoice?.zatca_status || order?.zatca_status || 'pending';
+  const phaseTwoQr = Boolean(zatcaInvoice?.qr_code || order?.zatca_qr);
   const payLabel = { cash: 'نقدي', card: 'بطاقة', mixed: 'مختلط', credit: 'آجل', online: 'أونلاين' }[order?.payment_method] || order?.payment_method || 'نقدي';
   const typeLabel = { dine_in: 'محلي', takeaway: 'سفري', delivery: 'توصيل', online: 'أونلاين' }[order?.order_type] || '';
 
   const itemRows = items.map((item, i) => {
-    const lineTotal = (item.price || 0) * (item.quantity || item.qty || 1);
-    const lineVAT   = lineTotal - (lineTotal / 1.15);
-    return `
-      <tr>
-        <td>${i + 1}</td>
-        <td style="text-align:right">${esc(item.name_ar || item.name || 'منتج')}</td>
-        <td>${item.quantity || item.qty || 1}</td>
-        <td>${(item.price || 0).toFixed(2)}</td>
-        <td>${lineVAT.toFixed(2)}</td>
-        <td style="font-weight:700">${lineTotal.toFixed(2)}</td>
-      </tr>`;
+    const qty = Number(item.quantity ?? item.qty ?? 1);
+    const unitPrice = Number(item.price ?? item.unit_price ?? 0);
+    const lineTotal = Number(item.total ?? unitPrice * qty);
+    const vatCategory = item.vat_category || 'S';
+    const taxRate = Number(item.tax_rate ?? (vatCategory === 'S' ? 15 : 0));
+    const lineVAT = vatCategory === 'S' && taxRate > 0 ? lineTotal - lineTotal / (1 + taxRate / 100) : 0;
+    return '\n<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + esc(item.name_ar || item.name || 'منتج') + '</td><td>' + qty + '</td><td>' + unitPrice.toFixed(2) + '</td><td>' + lineVAT.toFixed(2) + '</td><td style="font-weight:700">' + lineTotal.toFixed(2) + '</td></tr>';
   }).join('');
-
   async function openPrint() {
     const qrImg = await QRCode.toDataURL(qrData, { width: 180, margin: 1 });
     await printHTML(`<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="UTF-8"/>
-<title>فاتورة ضريبية — ${esc(order?.order_number || '')}</title>
+<title>فاتورة ضريبية — ${esc(invoiceNumber)}</title>
 <style>
 ${printFonts()}
 *{margin:0;padding:0;box-sizing:border-box;font-family:'SaudiRiyal','Cairo',sans-serif}
@@ -135,7 +133,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   <div class="invoice-title">
     <h1>فاتورة ضريبية</h1>
     <p>Tax Invoice</p>
-    <div style="margin-top:8px;font-size:10px;color:#c0392b;font-weight:700">${esc(order?.order_number || '—')}</div>
+    <div style="margin-top:8px;font-size:10px;color:#c0392b;font-weight:700">رقم الطلب: ${esc(String(dailyOrderNumber))}</div>
   </div>
   <div class="buyer-info">
     <div class="buyer-label">بيانات العميل</div>
@@ -147,7 +145,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 
 <!-- بيانات الفاتورة -->
 <div class="invoice-meta">
-  <div class="meta-box"><label>رقم الفاتورة</label><span>${esc(order?.order_number || '—')}</span></div>
+  <div class="meta-box"><label>رقم الفاتورة الضريبية</label><span>${esc(invoiceNumber || '—')}</span></div>
+  <div class="meta-box"><label>رقم الطلب اليومي</label><span>${esc(String(dailyOrderNumber))}</span></div>
   <div class="meta-box"><label>التاريخ والوقت</label><span>${dateStr}</span></div>
   <div class="meta-box"><label>طريقة الدفع</label><span>${esc(payLabel)}</span></div>
   <div class="meta-box"><label>نوع الطلب</label><span>${typeLabel || 'محلي'}</span></div>
@@ -161,7 +160,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
       <th>الصنف</th>
       <th>الكمية</th>
       <th>السعر</th>
-      <th>الضريبة 15%</th>
+      <th>ضريبة القيمة المضافة</th>
       <th>الإجمالي</th>
     </tr>
   </thead>
@@ -173,7 +172,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   <table class="totals-table">
     <tr><td>المجموع قبل الضريبة</td><td>${subtotal.toFixed(2)} ⃁</td></tr>
     ${discount > 0 ? `<tr><td>الخصم</td><td style="color:#c0392b">- ${discount.toFixed(2)} ⃁</td></tr>` : ''}
-    <tr class="vat-row"><td>ضريبة القيمة المضافة (15%)</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
+    <tr class="vat-row"><td>ضريبة القيمة المضافة حسب تصنيف الأصناف</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
     <tr class="grand"><td>الإجمالي المطلوب</td><td>${total.toFixed(2)} ⃁</td></tr>
   </table>
 </div>
@@ -182,10 +181,11 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 <div class="qr-section">
   <img class="qr-img" src="${qrImg}" alt="QR ZATCA" />
   <div class="zatca-info">
-    <div class="zatca-badge">✓ فاتورة إلكترونية متوافقة مع ZATCA Phase 2</div>
+    <div class="zatca-badge">${phaseTwoQr ? '✓ رمز الفاتورة الإلكتروني' : 'رمز QR للفاتورة المبسطة'}</div>
     <div><strong>اسم البائع:</strong> ${sellerName}</div>
     ${vatNumber ? `<div><strong>الرقم الضريبي:</strong> ${vatNumber}</div>` : ''}
     <div><strong>تاريخ الإصدار:</strong> ${issueDateISO} — ${issueTimeISO}</div>
+    <div><strong>رقم الفاتورة:</strong> ${esc(invoiceNumber || '—')}</div>
     <div><strong>المبلغ الإجمالي:</strong> ${total.toFixed(2)} ⃁</div>
     <div><strong>ضريبة القيمة المضافة:</strong> ${vatAmount.toFixed(2)} ⃁</div>
     <div class="zatca-hash">TLV: ${qrData.substring(0, 60)}...</div>
