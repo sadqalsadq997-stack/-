@@ -51,6 +51,7 @@ export default function RecipeManager() {
     let alive = true;
     async function loadRecipe() {
       if (!productId) {
+        setLoadingRecipe(false);
         setRows([]);
         setNotes('');
         setRecipeExists(false);
