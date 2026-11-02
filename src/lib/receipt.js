@@ -124,12 +124,13 @@ ${order.zatca_qr ? '<div class="center sm muted">فاتورة إلكترونية
 
 /** بيانات البائع للفاتورة (اسم المنشأة والرقم الضريبي) من الفرع النشط أو الإعدادات */
 export async function loadSeller(supabase) {
-  const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
+  const { data } = await supabase.from('app_settings').select('business_name, vat_number, cr_number, address, city, phone, logo_url').limit(1).maybeSingle();
   let br = {};
   try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
   return {
     name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
     vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
+    cr_number: br.cr_number || data?.cr_number, city: br.city || data?.city,
     address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
   };
 }
