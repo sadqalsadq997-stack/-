@@ -238,7 +238,7 @@ export default function POSTerminal() {
       const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
       const branchId = (() => { try { return JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { return null; } })();
       const items = cart.map(i => ({
-        product_id: i.product_id, name: i.name, quantity: i.qty, inventory_quantity: i.inventoryQty ?? i.qty, unit_name: i.unitName || null,
+        product_id: i.product_id, name: i.name, quantity: i.qty, display_quantity: i.lockedQty ? i.inventoryQty : i.qty, inventory_quantity: i.inventoryQty ?? i.qty, unit_name: i.unitName || null,
         price: fromH(i.unit.gross), net: fromH(i.unit.net), vat: fromH(i.unit.vat), total: fromH(i.unit.gross * i.qty),
         vat_category: i.unit.cat, ...(i.unit.code ? { vat_exemption_code: i.unit.code } : {}),
       }));
