@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowRight, Save, Loader2, ImagePlus, X } from 'lucide-react';
 import { uploadImage } from '@/lib/images';
@@ -12,9 +12,10 @@ export default function ProductForm({ product, onClose }) {
     name: '', name_ar: '', base_price: '', cost_price: '', barcode: '', sku: '',
     category_id: '', unit_type: 'piece', is_active: true, show_in_menu: true,
     show_in_store: false, track_inventory: false, min_stock_alert: 5, tax_rate: 15,
-    tax_inclusive: false, ...product,
+    tax_inclusive: false, is_ingredient: false, ...product,
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const qc = useQueryClient();
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -96,10 +97,11 @@ export default function ProductForm({ product, onClose }) {
             ['show_in_menu', 'يظهر في القائمة'],
             ['show_in_store', 'يظهر في المتجر'],
             ['track_inventory', 'تتبع المخزون'],
+            ['is_ingredient', 'مادة خام / مكوّن لوصفة'],
             ['tax_inclusive', 'السعر شامل الضريبة'],
           ].map(([k, l]) => (
             <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
-              <div onClick={() => set(k, !form[k])}
+              <div onClick={() => { const next = !form[k]; set(k, next); if (k === 'is_ingredient' && next) { set('track_inventory', true); set('show_in_menu', false); set('show_in_store', false); } }}
                 className={`w-10 h-5 rounded-full relative transition-colors ${form[k] ? 'bg-primary' : 'bg-muted'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form[k] ? 'right-0.5' : 'left-0.5'}`} />
               </div>
@@ -109,6 +111,8 @@ export default function ProductForm({ product, onClose }) {
         </div>
       </div>
 
+      {isEdit && !form.is_ingredient && <RecipeEditor product={product} />}
+
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="px-5 py-2.5 text-sm rounded-xl border border-border hover:bg-muted">إلغاء</button>
         <button onClick={() => { if (!form.name && !form.name_ar) return toast.error('الاسم مطلوب'); save.mutate(); }} disabled={save.isPending}
@@ -117,6 +121,130 @@ export default function ProductForm({ product, onClose }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// وصفة المنتج: تُخصم المقادير تلقائياً عند إصدار فاتورة البيع.
+function RecipeEditor({ product }) {
+  const qc = useQueryClient();
+  const [lines, setLines] = useState([]);
+  const [notes, setNotes] = useState('');
+  const { data: ingredients = [] } = useQuery({
+    queryKey: ['recipe-ingredients', product.tenant_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('products')
+        .select('id,name,name_ar,unit_type,cost_price,stock_quantity')
+        .eq('is_ingredient', true).eq('track_inventory', true).eq('is_active', true).order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const { data: recipe, isLoading } = useQuery({
+    queryKey: ['product-recipe', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('product_recipes')
+        .select('id,notes,product_recipe_items(id,ingredient_product_id,quantity_per_sale,unit,waste_percent)')
+        .eq('product_id', product.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    setLines((recipe?.product_recipe_items || []).map(item => ({
+      ingredient_product_id: item.ingredient_product_id,
+      quantity_per_sale: String(item.quantity_per_sale),
+      unit: item.unit,
+      waste_percent: String(item.waste_percent ?? 0),
+    })));
+    setNotes(recipe?.notes || '');
+  }, [recipe]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const items = lines.filter(line => line.ingredient_product_id && Number(line.quantity_per_sale) > 0)
+        .map(line => ({
+          ingredient_product_id: line.ingredient_product_id,
+          quantity_per_sale: Number(line.quantity_per_sale),
+          unit: line.unit,
+          waste_percent: Number(line.waste_percent || 0),
+        }));
+      const { data, error } = await supabase.rpc('save_product_recipe', {
+        p_product_id: product.id, p_items: items, p_notes: notes || null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['product-recipe', product.id] });
+      qc.invalidateQueries({ queryKey: ['inventory-products'] });
+      toast.success(lines.length ? 'تم حفظ المقادير وربطها بالمخزون' : 'تم حذف الوصفة');
+    },
+    onError: e => toast.error(e.message || 'تعذر حفظ الوصفة'),
+  });
+
+  const cost = lines.reduce((sum, line) => {
+    const ingredient = ingredients.find(item => item.id === line.ingredient_product_id);
+    return sum + Number(ingredient?.cost_price || 0) * Number(line.quantity_per_sale || 0) * (1 + Number(line.waste_percent || 0) / 100);
+  }, 0);
+
+  const updateLine = (index, patch) => setLines(current => current.map((line, i) => i === index ? { ...line, ...patch } : line));
+  return (
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-black">مقادير الوصفة لكل عملية بيع</h3>
+          <p className="mt-1 text-xs text-muted-foreground">عند إصدار الفاتورة، يخصم النظام الكمية المحددة مع نسبة الهدر من مخزون المواد الخام تلقائياً.</p>
+        </div>
+        <span className="rounded-lg bg-primary/10 px-2 py-1 text-xs font-bold text-primary">تكلفة تقديرية: {cost.toLocaleString('ar-SA',{maximumFractionDigits:2})} ⃁</span>
+      </div>
+      {isLoading ? <p className="text-sm text-muted-foreground">جارٍ تحميل الوصفة...</p> : (
+        <div className="space-y-3">
+          {lines.map((line,index) => {
+            const ingredient = ingredients.find(item => item.id === line.ingredient_product_id);
+            return (
+              <div key={index} className="grid grid-cols-12 items-end gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                <div className="col-span-12 sm:col-span-5">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">المادة الخام</label>
+                  <select value={line.ingredient_product_id} onChange={e => {
+                    const selected = ingredients.find(item => item.id === e.target.value);
+                    updateLine(index,{ingredient_product_id:e.target.value,unit:selected?.unit_type || 'piece'});
+                  }} className="h-10 w-full rounded-lg border border-border bg-background px-2 text-xs">
+                    <option value="">اختر المادة</option>
+                    {ingredients.map(item => <option key={item.id} value={item.id}>{item.name_ar || item.name} — مخزون {Number(item.stock_quantity || 0)}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-4 sm:col-span-2">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">الكمية</label>
+                  <input type="number" min="0.001" step="0.001" value={line.quantity_per_sale} onChange={e => updateLine(index,{quantity_per_sale:e.target.value})} className="h-10 w-full rounded-lg border border-border bg-background px-2 text-xs" />
+                </div>
+                <div className="col-span-4 sm:col-span-2">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">الوحدة</label>
+                  <input value={ingredient?.unit_type || line.unit} readOnly className="h-10 w-full rounded-lg border border-border bg-muted px-2 text-xs" />
+                </div>
+                <div className="col-span-3 sm:col-span-2">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">الهدر %</label>
+                  <input type="number" min="0" max="100" step="0.1" value={line.waste_percent} onChange={e => updateLine(index,{waste_percent:e.target.value})} className="h-10 w-full rounded-lg border border-border bg-background px-2 text-xs" />
+                </div>
+                <button type="button" onClick={() => setLines(current => current.filter((_,i) => i !== index))} className="col-span-1 mb-1 flex h-9 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">×</button>
+              </div>
+            );
+          })}
+          {ingredients.length === 0 && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">لا توجد مواد خام بعد. أضف المنتج أولاً مع تفعيل «مادة خام / مكوّن» و«تتبع المخزون».</p>}
+          <button type="button" onClick={() => setLines(current => [...current,{ingredient_product_id:'',quantity_per_sale:'1',unit:'piece',waste_percent:'0'}])} disabled={!ingredients.length}
+            className="rounded-xl border border-dashed border-primary/50 px-4 py-2 text-sm font-bold text-primary disabled:opacity-40">+ إضافة مكوّن</button>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">ملاحظات الوصفة</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder="مثلاً: حجم الحصة، طريقة التحضير..." />
+          </div>
+          <div className="flex justify-end">
+            <button type="button" onClick={() => save.mutate()} disabled={save.isPending || (lines.length > 0 && lines.some(line => !line.ingredient_product_id || Number(line.quantity_per_sale) <= 0))}
+              className="flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">
+              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ المقادير
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
