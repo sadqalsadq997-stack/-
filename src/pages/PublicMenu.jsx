@@ -13,7 +13,7 @@ import MenuView, { MENU_THEMES } from '@/components/menu/MenuView';
 const THEME_IDS = MENU_THEMES.map(t => t.id);
 
 export default function PublicMenu() {
-  const { slug } = useParams();
+  const { slug, tableToken } = useParams();
   const { pathname, search } = useLocation();
   const [data, setData] = useState(undefined);
   const storeMode = pathname.startsWith('/store');
@@ -22,7 +22,10 @@ export default function PublicMenu() {
     let alive = true;
     (async () => {
       let d = null;
-      if (slug) {
+      if (tableToken) {
+        const r = await supabase.rpc('public_table_menu', { p_token: tableToken });
+        d = r.data;
+      } else if (slug) {
         const r = await supabase.rpc('public_menu_by_slug', { p_slug: slug });
         d = r.data;
       } else {
@@ -44,7 +47,7 @@ export default function PublicMenu() {
       }
     })().catch(() => alive && setData(null));
     return () => { alive = false; };
-  }, [slug, search, storeMode]);
+  }, [slug, tableToken, search, storeMode]);
 
   if (data === undefined) {
     return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-500" /></div>;
@@ -58,7 +61,19 @@ export default function PublicMenu() {
   const theme = THEME_IDS.includes(params.get('theme')) ? params.get('theme') : (data.theme || 'fresh');
   const color = /^#[0-9a-f]{6}$/i.test(params.get('color') || '') ? params.get('color') : data.color;
 
-  const placeOrder = async ({ items, phone, notes }) => {
+  const placeOrder = async ({ items, phone, notes, request_type, round_id }) => {
+    if (tableToken) {
+      const { data: request, error } = await supabase.rpc('public_request_table_order', {
+        p_token: tableToken,
+        p_items: items,
+        p_phone: phone,
+        p_notes: notes,
+        p_request_type: request_type || 'new_order',
+        p_round_id: round_id || null,
+      });
+      if (error) throw error;
+      return request;
+    }
     const { data: o, error } = await supabase.rpc('public_place_order', {
       p_branch: data.branch?.id, p_items: items, p_phone: phone, p_notes: notes,
     });
@@ -66,5 +81,6 @@ export default function PublicMenu() {
     return o;
   };
 
-  return <MenuView data={data} theme={theme} color={color} onPlaceOrder={placeOrder} storeMode={storeMode} />;
+  return <MenuView data={data} theme={theme} color={color} onPlaceOrder={placeOrder}
+    storeMode={storeMode} tableMode={Boolean(tableToken)} tableInfo={data.table || null} />;
 }
