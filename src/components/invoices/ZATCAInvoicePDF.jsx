@@ -25,7 +25,9 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const subtotal = Number(order?.subtotal ?? (order?.total ? order.total / 1.15 : 0));
   const vatAmount = Number(order?.tax_amount ?? (order?.total ? order.total - subtotal : 0));
   const total = Number(order?.total ?? 0);
-  const discountNet = Number(order?.discount_net ?? order?.discount_amount ?? 0);
+  const discountNet = Number(order?.discount_net ?? 0);
+  const discountDisplay = Number(order?.discount_net != null ? order.discount_net : (order?.discount_amount ?? order?.discount ?? 0));
+  const discountLabel = order?.discount_net != null ? 'الخصم قبل الضريبة' : 'الخصم';
   const linesNet = Number(order?.lines_net ?? (subtotal + discountNet));
   const issuedAt = new Date(zatcaInvoice?.issue_date || order?.invoiced_at || order?.created_at || Date.now());
   const dateStr = format(issuedAt, 'yyyy-MM-dd HH:mm:ss');
@@ -201,7 +203,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 <div class="totals-section">
   <table class="totals-table">
     <tr><td>قيمة الأصناف قبل الخصم والضريبة</td><td>${linesNet.toFixed(2)} ⃁</td></tr>
-    ${discountNet > 0 ? `<tr><td>الخصم قبل الضريبة</td><td style="color:#c0392b">- ${discountNet.toFixed(2)} ⃁</td></tr>` : ''}
+    ${discountDisplay > 0 ? `<tr><td>${discountLabel}</td><td style="color:#c0392b">- ${discountDisplay.toFixed(2)} ⃁</td></tr>` : ''}
     <tr><td>الإجمالي غير شامل الضريبة</td><td>${subtotal.toFixed(2)} ⃁</td></tr>
     ${taxBreakdownRows}
     <tr class="vat-row"><td>إجمالي ضريبة القيمة المضافة</td><td>${vatAmount.toFixed(2)} ⃁</td></tr>
