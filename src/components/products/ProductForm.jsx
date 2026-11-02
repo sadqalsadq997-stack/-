@@ -40,7 +40,7 @@ export default function ProductForm({ product, onClose }) {
       if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
       const payload = {
         ...form,
-        unit_conversions: (form.unit_conversions || []).filter(u => u.name?.trim() && Number(u.factor_to_base)>0).map(u=>({name:u.name.trim(),factor_to_base:Number(u.factor_to_base),price:Number(u.price||0)})),
+        unit_conversions: (form.unit_conversions || []).filter(u => u.name?.trim() && Number(u.factor_to_base)>0).map(u=>({name:u.name.trim(),factor_to_base:Number(u.factor_to_base),price:Number(u.price||form.base_price||0)})),
         scale_plu: form.scale_plu?.trim() || null,
         scale_prefix: form.scale_prefix || '20',
         scale_value_divisor: Number(form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)),
@@ -109,7 +109,7 @@ export default function ProductForm({ product, onClose }) {
           <div className="col-span-2 rounded-xl border border-border bg-muted/20 p-3 space-y-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">سلوك البيع في نقطة البيع</label>
-              <select value={form.sale_behavior || 'standard'} onChange={e => set('sale_behavior',e.target.value)}
+              <select value={form.sale_behavior || 'standard'} onChange={e => { const behavior=e.target.value; set('sale_behavior',behavior); if (behavior==='scale_barcode' && !['kg','g'].includes(form.unit_type)) set('unit_type','kg'); if (behavior==='manual_weight' && !['kg','g','liter','ml'].includes(form.unit_type)) set('unit_type','kg'); }}
                 className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm">
                 <option value="standard">منتج ثابت — قطعة / باركود عادي</option>
                 <option value="scale_barcode">منتج ميزان — باركود سعر أو وزن</option>
@@ -122,7 +122,7 @@ export default function ProductForm({ product, onClose }) {
               <div className="grid grid-cols-2 gap-3">
                 <Field label="PLU (حتى 5 أرقام)"><input value={form.scale_plu || ''} onChange={e=>set('scale_plu',e.target.value.replace(/\D/g,'').slice(0,5))} placeholder="مثال 01234" className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
                 <Field label="بادئة الميزان"><input value={form.scale_prefix || '20'} onChange={e=>set('scale_prefix',e.target.value.replace(/\D/g,'').slice(0,2))} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
-                <Field label="القيمة داخل الباركود"><select value={form.scale_value_type || 'price'} onChange={e=>set('scale_value_type',e.target.value)} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"><option value="price">إجمالي السعر</option><option value="weight">الوزن</option></select></Field>
+                <Field label="القيمة داخل الباركود"><select value={form.scale_value_type || 'price'} onChange={e=>{set('scale_value_type',e.target.value);set('scale_value_divisor',e.target.value==='weight'?1000:100);}} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary"><option value="price">إجمالي السعر</option><option value="weight">الوزن</option></select></Field>
                 <Field label="مقسوم القيمة"><input type="number" min="1" step="1" value={form.scale_value_divisor || (form.scale_value_type==='weight'?1000:100)} onChange={e=>set('scale_value_divisor',e.target.value)} className="w-full h-10 bg-background border border-border rounded-lg px-2 text-xs focus:outline-none focus:border-primary" /></Field>
                 <p className="col-span-2 text-[11px] text-muted-foreground">القالب: بادئة من خانتين + PLU من 5 خانات + قيمة من 5 خانات + رقم تحقق EAN‑13. عند اختيار السعر يحسب النظام الوزن من سعر الكيلو، وعند اختيار الوزن يضربه في سعر الوحدة.</p>
               </div>
