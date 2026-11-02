@@ -37,8 +37,8 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
 
   // الفاتورة المبسطة تعرض TLV QR، أما فاتورة الشركات فتستخدم QR المعتمد من ZATCA فقط.
   const isB2B = Boolean(order?.is_b2b);
-  const vatNumberDigits = String(vatNumberRaw || '').replace(/\\D/g, '');
-  const hasSellerVat = /^\\d{15}$/.test(vatNumberDigits);
+  const vatNumberDigits = String(vatNumberRaw || '').replace(/\D/g, '');
+  const hasSellerVat = /^\d{15}$/.test(vatNumberDigits);
   const qrData = zatcaInvoice?.qr_code || order?.zatca_qr || (!isB2B && hasSellerVat ? generateZATCAQR({
     sellerName: sellerNameRaw, vatNumber: vatNumberRaw,
     invoiceDate: issuedAt.toISOString(),
