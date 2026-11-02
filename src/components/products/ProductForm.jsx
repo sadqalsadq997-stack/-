@@ -28,7 +28,7 @@ export default function ProductForm({ product, onClose }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const cat = vatCategoryOf(form);
+      const cat = form.is_ingredient ? 'S' : vatCategoryOf(form);
       if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
       const payload = {
         ...form,
