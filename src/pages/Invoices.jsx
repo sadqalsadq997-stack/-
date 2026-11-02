@@ -85,6 +85,8 @@ export default function Invoices() {
         zatca_seller_name: data?.zatca_seller_name || seller?.name,
         vat_number: data?.vat_number || seller?.vat_number,
         logo_url: data?.logo_url || seller?.logo_url,
+        cr_number: data?.cr_number || seller?.cr_number,
+        city: data?.city || seller?.city,
         address: data?.address || seller?.address,
         phone: data?.phone || seller?.phone,
       };
