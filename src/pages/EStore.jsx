@@ -13,7 +13,7 @@ export default function EStore() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['store-products'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('*').order('name');
+      const { data, error } = await supabase.from('products').select('*').eq('is_ingredient', false).order('name');
       if (error) throw error;
       return data || [];
     },
