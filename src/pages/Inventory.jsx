@@ -64,7 +64,7 @@ export default function Inventory() {
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'أصناف تتبع المخزون', value: products.length, color: 'text-sage-600', bg: 'bg-sage-50' },
+          { label: 'أصناف تتبع المخزون', value: products.filter(p => !hasRecipe(p)).length, color: 'text-sage-600', bg: 'bg-sage-50' },
           { label: 'مخزون منخفض', value: lowCount, color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'نفذ المخزون', value: outCount, color: 'text-red-600', bg: 'bg-red-50' },
         ].map(s => (
