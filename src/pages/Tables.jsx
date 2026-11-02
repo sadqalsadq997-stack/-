@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { loadSession } from '@/lib/security/session';
 import {
   LayoutGrid, Plus, Loader2, X, Save, Users,
   ChefHat, Receipt, CreditCard, ShoppingCart, CheckCircle2, Clock, Printer,
@@ -310,7 +311,10 @@ export default function Tables() {
   const [roundPicker, setRoundPicker] = useState(null);
   const [checkModal, setCheckModal] = useState(null);   // { table, order }
   const [qrTable, setQrTable] = useState(null);
+  const [employeeSession, setEmployeeSession] = useState(null);
   const qc = useQueryClient();
+
+  useEffect(() => { loadSession().then(setEmployeeSession).catch(() => setEmployeeSession(null)); }, []);
 
   const { data: tables = [], isLoading } = useQuery({
     queryKey: ['tables'],
@@ -340,7 +344,7 @@ export default function Tables() {
 
   const approveGuestRequest = useMutation({
     mutationFn: async (id) => {
-      const { data, error } = await supabase.rpc('approve_table_guest_request', { p_request_id: id });
+      const { data, error } = await supabase.rpc('approve_table_guest_request', { p_request_id: id, p_employee_id: employeeSession?.empId || null });
       if (error) throw error;
       return data;
     },
