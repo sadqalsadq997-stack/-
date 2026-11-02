@@ -68,7 +68,7 @@ export default function Invoices() {
 
   // ── جلب بيانات الفرع ──
   const { data: branch } = useQuery({
-    queryKey: ['active-branch'],
+    queryKey: ['invoice-active-branch'],
     queryFn: async () => {
       let activeBranchId = null;
       try { activeBranchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
