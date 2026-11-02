@@ -47,7 +47,7 @@ BEGIN
   FOR UPDATE;
   IF v_order.id IS NULL THEN RAISE EXCEPTION 'الفاتورة غير مفتوحة أو لا تملك صلاحية الوصول'; END IF;
 
-  SELECT coalesce(max(nullif(item->>'round_number','')::INTEGER), 1)
+  SELECT max(nullif(item->>'round_number','')::INTEGER)
   INTO v_round_number
   FROM jsonb_array_elements(coalesce(v_order.items, '[]'::JSONB)) item
   WHERE item->>'round_id' = p_round_id::TEXT;
