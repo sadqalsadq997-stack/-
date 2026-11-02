@@ -45,6 +45,13 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const invoiceNumber = zatcaInvoice?.invoice_number || order?.invoice_no || '';
   const zatcaStatus = zatcaInvoice?.zatca_status || order?.zatca_status || 'pending';
   const zatcaApproved = ['reported', 'cleared'].includes(zatcaStatus);
+  const zatcaStatusLabel = {
+    reported: 'تم الإبلاغ لدى الهيئة',
+    cleared: 'تمت الموافقة من الهيئة',
+    pending: 'بانتظار الإرسال',
+    rejected: 'مرفوضة من الهيئة',
+    error: 'يوجد خطأ في الإرسال',
+  }[zatcaStatus] || 'حالة غير محددة';
 
   const payLabel = { cash: 'نقدي', card: 'بطاقة', mixed: 'مختلط', credit: 'آجل', online: 'أونلاين' }[order?.payment_method] || order?.payment_method || 'نقدي';
   const typeLabel = { dine_in: 'محلي', takeaway: 'سفري', delivery: 'توصيل', online: 'أونلاين' }[order?.order_type] || '';
@@ -205,7 +212,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 <div class="qr-section">
   <img class="qr-img" src="${qrImg}" alt="QR ZATCA" />
   <div class="zatca-info">
-    <div class="zatca-badge">${zatcaApproved ? '✓ تم اعتماد/إرسال الفاتورة إلكترونياً' : 'رمز تحقق QR — حالة الإرسال: ' + esc(zatcaStatus)}</div>
+    <div class="zatca-badge">${zatcaApproved ? '✓ ' + zatcaStatusLabel : 'رمز تحقق QR — ' + zatcaStatusLabel}</div>
     <div><strong>اسم البائع:</strong> ${sellerName}</div>
     ${vatNumber ? `<div><strong>الرقم الضريبي:</strong> ${vatNumber}</div>` : ''}
     <div><strong>تاريخ الإصدار:</strong> ${issueDateISO} — ${issueTimeISO}</div>
