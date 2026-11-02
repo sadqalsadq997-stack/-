@@ -156,7 +156,7 @@ export default function Inventory() {
                         <p className="text-xs text-muted-foreground">{p.categories?.name_ar || p.categories?.name || p.unit_type || '—'}</p>
                       </div>
                       <div className="text-center">
-                        <p className={`text-${recipeManaged ? 'sm' : '2xl'} font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-500'}`}>{recipeManaged ? 'يُخصم بالمقادير' : stock.toLocaleString('ar-SA')}</p>
+                        <p className={`font-black ${recipeManaged ? 'text-sm' : 'text-2xl'} ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-500'}`}>{recipeManaged ? 'يُخصم بالمقادير' : stock.toLocaleString('ar-SA')}</p>
                         <p className="text-xs text-muted-foreground">{recipeManaged ? 'مكونات الوصفة' : (p.unit_type || 'الوحدة')}</p>
                       </div>
                       <div className="text-center">
