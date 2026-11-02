@@ -12,9 +12,14 @@ export default function ProductForm({ product, onClose }) {
     name: '', name_ar: '', base_price: '', cost_price: '', barcode: '', sku: '',
     category_id: '', unit_type: 'piece', is_active: true, show_in_menu: true,
     show_in_store: false, track_inventory: false, min_stock_alert: 5, tax_rate: 15,
-    tax_inclusive: false, ...product,
+    tax_inclusive: false, is_ingredient: false, ...product,
   });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k, v) => setForm(f => {
+    if (k === 'is_ingredient' && v) return { ...f, is_ingredient: true, track_inventory: true, show_in_menu: false, show_in_store: false, base_price: '' };
+    if (f.is_ingredient && ['show_in_menu', 'show_in_store'].includes(k)) return { ...f, [k]: false };
+    if (f.is_ingredient && k === 'track_inventory') return { ...f, track_inventory: true };
+    return { ...f, [k]: v };
+  });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -33,6 +38,10 @@ export default function ProductForm({ product, onClose }) {
         vat_category: cat,
         vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
         tax_rate: cat === 'S' ? 15 : 0,
+        is_ingredient: Boolean(form.is_ingredient),
+        track_inventory: form.is_ingredient ? true : Boolean(form.track_inventory),
+        show_in_menu: form.is_ingredient ? false : Boolean(form.show_in_menu),
+        show_in_store: form.is_ingredient ? false : Boolean(form.show_in_store),
       };
       if (isEdit) { const { error } = await supabase.from('products').update(payload).eq('id', product.id); if (error) throw error; }
       else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; }
@@ -60,12 +69,14 @@ export default function ProductForm({ product, onClose }) {
             </div>
           ))}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">سعر البيع (⃁)</label>
-            <input type="number" step="0.01" value={form.base_price||''} onChange={e => set('base_price', e.target.value)}
-              className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
+            {!form.is_ingredient && <>
+              <label className="text-xs text-muted-foreground mb-1 block">سعر البيع (⃁)</label>
+              <input type="number" step="0.01" value={form.base_price||''} onChange={e => set('base_price', e.target.value)}
+                className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
+            </>}
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">سعر التكلفة (⃁)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">{form.is_ingredient ? 'تكلفة وحدة المخزون (⃁)' : 'سعر التكلفة (⃁)'}</label>
             <input type="number" step="0.01" value={form.cost_price||''} onChange={e => set('cost_price', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
@@ -88,11 +99,12 @@ export default function ProductForm({ product, onClose }) {
 
         <ImagePicker value={form.image_url} onChange={(url) => set('image_url', url)} />
 
-        <VatPicker form={form} set={set} />
+        {!form.is_ingredient && <VatPicker form={form} set={set} />}
 
         <div className="grid grid-cols-2 gap-3">
           {[
             ['is_active', 'المنتج مفعّل'],
+            ['is_ingredient', 'مادة خام / مكوّن وصفة'],
             ['show_in_menu', 'يظهر في القائمة'],
             ['show_in_store', 'يظهر في المتجر'],
             ['track_inventory', 'تتبع المخزون'],
@@ -107,6 +119,7 @@ export default function ProductForm({ product, onClose }) {
             </label>
           ))}
         </div>
+        {form.is_ingredient && <p className="rounded-xl border border-amber-300/50 bg-amber-500/10 p-3 text-xs leading-6 text-amber-800">هذه مادة خام للمخزون والوصفات، ولن تظهر كمنتج للبيع أو في المنيو. ستُخصم كميتها تلقائياً عند بيع المنتجات المرتبطة بها.</p>}
       </div>
 
       <div className="flex justify-end gap-3">
