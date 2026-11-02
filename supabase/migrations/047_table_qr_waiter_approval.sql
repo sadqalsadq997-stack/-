@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS public.table_guest_requests (
   table_number TEXT NOT NULL,
   order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
   round_id UUID,
+  round_number SMALLINT,
   request_type TEXT NOT NULL DEFAULT 'new_order' CHECK (request_type IN ('new_order','edit_round')),
   items JSONB NOT NULL DEFAULT '[]'::JSONB,
   customer_phone TEXT,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.table_guest_requests (
   processed_at TIMESTAMPTZ,
   processed_by UUID
 );
+ALTER TABLE public.table_guest_requests ADD COLUMN IF NOT EXISTS round_number SMALLINT;
 CREATE INDEX IF NOT EXISTS table_guest_requests_pending_idx
   ON public.table_guest_requests(tenant_id, branch_id, created_at DESC)
   WHERE status = 'pending_approval';
@@ -120,6 +122,7 @@ DECLARE
   v_item JSONB;
   v_product RECORD;
   v_qty INTEGER;
+  v_round_number INTEGER;
   v_snapshot JSONB := '[]'::JSONB;
   v_total NUMERIC := 0;
   v_request UUID;
@@ -141,15 +144,16 @@ BEGIN
     WHERE id = v_table.current_order_id AND status NOT IN ('completed','cancelled')
     FOR UPDATE;
     IF v_order.id IS NULL OR v_order.invoice_no IS NOT NULL THEN RAISE EXCEPTION 'الفاتورة مغلقة ولا يمكن تعديلها'; END IF;
-    IF NOT EXISTS (
-      SELECT 1 FROM jsonb_array_elements(coalesce(v_order.items,'[]'::JSONB)) item
-      WHERE item->>'round_id' = p_round_id::TEXT
-        AND coalesce(item->>'round_status','pending') = 'pending'
-    ) THEN RAISE EXCEPTION 'بدأ تجهيز هذه الجولة؛ لا يمكن تعديلها الآن'; END IF;
+    SELECT max(nullif(item->>'round_number','')::INTEGER) INTO v_round_number
+    FROM jsonb_array_elements(coalesce(v_order.items,'[]'::JSONB)) item
+    WHERE item->>'round_id' = p_round_id::TEXT
+      AND coalesce(item->>'round_status','pending') = 'pending';
+    IF v_round_number IS NULL THEN RAISE EXCEPTION 'بدأ تجهيز هذه الجولة؛ لا يمكن تعديلها الآن'; END IF;
   END IF;
 
   FOR v_item IN SELECT value FROM jsonb_array_elements(p_items) LOOP
-    v_qty := greatest(1, least(99, coalesce((v_item->>'qty')::INTEGER, 0)));
+    v_qty := greatest(0, least(99, coalesce((v_item->>'qty')::INTEGER, 0)));
+    IF v_qty = 0 THEN CONTINUE; END IF;
     SELECT p.id, coalesce(p.name_ar,p.name) AS product_name, pp.gross
     INTO v_product
     FROM public.products p
@@ -166,13 +170,15 @@ BEGIN
     v_total := v_total + v_product.gross*v_qty;
   END LOOP;
 
+  IF jsonb_array_length(v_snapshot) = 0 THEN RAISE EXCEPTION 'أضف صنفاً واحداً على الأقل'; END IF;
+
   INSERT INTO public.table_guest_requests(
-    tenant_id,branch_id,table_id,table_number,order_id,round_id,request_type,
+    tenant_id,branch_id,table_id,table_number,order_id,round_id,round_number,request_type,
     items,customer_phone,notes
   ) VALUES (
     v_table.tenant_id,v_table.branch_id,v_table.id,v_table.table_number,
     CASE WHEN p_request_type='edit_round' THEN v_order.id ELSE v_table.current_order_id END,
-    p_round_id,p_request_type,v_snapshot,left(nullif(trim(p_phone),''),24),
+    p_round_id,v_round_number,p_request_type,v_snapshot,left(nullif(trim(p_phone),''),24),
     left(nullif(trim(p_notes),''),1000)
   ) RETURNING id INTO v_request;
 
@@ -209,6 +215,12 @@ BEGIN
   UPDATE public.table_guest_requests
   SET status='approved',order_id=v_order_id,processed_at=now(),processed_by=auth.uid()
   WHERE id=v_req.id;
+  IF v_req.request_type='edit_round' THEN
+    UPDATE public.table_guest_requests
+    SET status='cancelled',reject_reason='تم اعتماد تعديل آخر لهذه الجولة',processed_at=now(),processed_by=auth.uid()
+    WHERE id<>v_req.id AND order_id=v_req.order_id AND round_id=v_req.round_id
+      AND request_type='edit_round' AND status='pending_approval';
+  END IF;
   RETURN jsonb_build_object('request_id',v_req.id,'order_id',v_order_id,'status','approved');
 END;
 $$;
