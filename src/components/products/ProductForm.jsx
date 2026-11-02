@@ -213,7 +213,7 @@ function RecipeEditor({ product }) {
                     updateLine(index,{ingredient_product_id:e.target.value,unit:selected?.unit_type || 'piece'});
                   }} className="h-10 w-full rounded-lg border border-border bg-background px-2 text-xs">
                     <option value="">اختر المادة</option>
-                    {ingredients.map(item => <option key={item.id} value={item.id}>{item.name_ar || item.name} — مخزون {Number(item.stock_quantity || 0)}</option>)}
+                    {ingredients.map(item => <option key={item.id} value={item.id} disabled={lines.some((other,otherIndex) => otherIndex !== index && other.ingredient_product_id === item.id)}>{item.name_ar || item.name} — مخزون {Number(item.stock_quantity || 0)}</option>)}
                   </select>
                 </div>
                 <div className="col-span-4 sm:col-span-2">
