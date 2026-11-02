@@ -333,10 +333,10 @@ export default function Employees() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            {title:'أكثر كاشير مبيعاً',icon:DollarSign,employee:[...performance].sort((a,b)=>Number(b.sales_total)-Number(a.sales_total))[0],value:p=>`${Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`},
-            {title:'أكثر موظف يستلم مهاماً',icon:ChefHat,employee:[...performance].sort((a,b)=>Number(b.kitchen_tasks_assigned)-Number(a.kitchen_tasks_assigned))[0],value:p=>`${Number(p.kitchen_tasks_assigned||0)} مهمة مستلمة`},
-            {title:'أكثر موظف مطبخ إنجازاً',icon:Award,employee:[...performance].sort((a,b)=>Number(b.kitchen_tasks_completed)-Number(a.kitchen_tasks_completed))[0],value:p=>`${Number(p.kitchen_tasks_completed||0)} مهمة مكتملة`},
-            {title:'أكثر ويتر اعتماداً',icon:UserCheck,employee:[...performance].sort((a,b)=>Number(b.waiter_approvals)-Number(a.waiter_approvals))[0],value:p=>`${Number(p.waiter_approvals||0)} طلب معتمد`},
+            {title:'أكثر كاشير مبيعاً',icon:DollarSign,employee:[...performance.filter(p=>p.role==='cashier')].sort((a,b)=>Number(b.sales_total)-Number(a.sales_total))[0],value:p=>`${Number(p.sales_total||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`},
+            {title:'أكثر موظف يستلم مهاماً',icon:ChefHat,employee:[...performance.filter(p=>p.role==='kitchen')].sort((a,b)=>Number(b.kitchen_tasks_assigned)-Number(a.kitchen_tasks_assigned))[0],value:p=>`${Number(p.kitchen_tasks_assigned||0)} مهمة مستلمة`},
+            {title:'أكثر موظف مطبخ إنجازاً',icon:Award,employee:[...performance.filter(p=>p.role==='kitchen')].sort((a,b)=>Number(b.kitchen_tasks_completed)-Number(a.kitchen_tasks_completed))[0],value:p=>`${Number(p.kitchen_tasks_completed||0)} مهمة مكتملة`},
+            {title:'أكثر ويتر اعتماداً',icon:UserCheck,employee:[...performance.filter(p=>p.role==='waiter')].sort((a,b)=>Number(b.waiter_approvals)-Number(a.waiter_approvals))[0],value:p=>`${Number(p.waiter_approvals||0)} طلب معتمد`},
           ].map((card,index)=>(
             <div key={index} className="rounded-xl bg-muted/40 p-3">
               <p className="flex items-center gap-2 text-xs text-muted-foreground"><card.icon className="h-4 w-4" />{card.title}</p>
