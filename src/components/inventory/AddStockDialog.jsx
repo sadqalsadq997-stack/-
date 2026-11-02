@@ -48,7 +48,7 @@ export default function AddStockDialog({ product, onClose }) {
 
         <div className="grid grid-cols-2 gap-2">
           {[['restock','توريد'],['consumption','استهلاك'],['wastage','هدر / تالف'],['adjustment','تسوية خصم']].map(([v, l]) => (
-            <button key={v} onClick={() => setType(v)}
+            <button key={v} onClick={() => { setType(v); setStockUnit('base'); }}
               className={`rounded-xl py-2 text-sm font-medium transition-colors ${type === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
               {l}
             </button>
