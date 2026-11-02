@@ -299,7 +299,15 @@ export default function Tables() {
   const addTable = useMutation({
     mutationFn: async () => {
       if (!form.table_number) throw new Error('رقم الطاولة مطلوب');
-      const { error } = await supabase.from('tables_map').insert({ ...form, status: 'available', seats: Number(form.seats) });
+      let activeBranchId = null;
+      try { activeBranchId = JSON.parse(localStorage.getItem('activeBranch') || '{}').id || null; } catch { /* */ }
+      if (!activeBranchId) throw new Error('اختر الفرع النشط أولاً حتى ترتبط الطاولة بفرعها');
+      const { error } = await supabase.from('tables_map').insert({
+        ...form,
+        branch_id: activeBranchId,
+        status: 'available',
+        seats: Number(form.seats),
+      });
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tables'] }); setShowAdd(false); setForm({ table_number: '', seats: 4, shape: 'square' }); toast.success('تمت الإضافة'); },
@@ -334,7 +342,9 @@ export default function Tables() {
       const { data } = await supabase.from('orders').select('*').eq('id', table.current_order_id).single();
       setCheckModal({ table, order: data });
     } else {
-      const { data } = await supabase.from('orders').select('*').eq('table_number', table.table_number).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).single().catch(() => ({ data: null }));
+      let query = supabase.from('orders').select('*').eq('table_number', table.table_number).eq('status', 'pending').eq('order_type', 'dine_in');
+      if (table.branch_id) query = query.eq('branch_id', table.branch_id);
+      const { data } = await query.order('created_at', { ascending: false }).limit(1).single().catch(() => ({ data: null }));
       setCheckModal({ table, order: data });
     }
   };
