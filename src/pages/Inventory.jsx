@@ -25,7 +25,7 @@ export default function Inventory() {
     queryKey: ['inventory-products'],
     queryFn: async () => {
       const { data, error } = await supabase.from('products')
-        .select('*, categories(name_ar, name)')
+        .select('*, categories(name_ar, name), product_recipes(id)')
         .eq('track_inventory', true).order('name');
       if (error) throw error;
       return data || [];
@@ -42,15 +42,17 @@ export default function Inventory() {
     },
   });
 
+  const hasRecipe = p => Array.isArray(p.product_recipes) ? p.product_recipes.length > 0 : Boolean(p.product_recipes?.id);
+
   const filtered = products.filter(p => {
     const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.name_ar?.includes(search);
-    if (filter === 'low') return matchSearch && (p.stock_quantity || 0) <= (p.min_stock_alert || 5);
-    if (filter === 'out') return matchSearch && (p.stock_quantity || 0) <= 0;
+    if (filter === 'low') return matchSearch && !hasRecipe(p) && (p.stock_quantity || 0) <= (p.min_stock_alert || 5);
+    if (filter === 'out') return matchSearch && !hasRecipe(p) && (p.stock_quantity || 0) <= 0;
     return matchSearch;
   });
 
-  const lowCount = products.filter(p => (p.stock_quantity || 0) <= (p.min_stock_alert || 5)).length;
-  const outCount = products.filter(p => (p.stock_quantity || 0) <= 0).length;
+  const lowCount = products.filter(p => !hasRecipe(p) && (p.stock_quantity || 0) <= (p.min_stock_alert || 5)).length;
+  const outCount = products.filter(p => !hasRecipe(p) && (p.stock_quantity || 0) <= 0).length;
 
   return (
     <div dir="rtl" className="space-y-5">
@@ -140,30 +142,32 @@ export default function Inventory() {
                 {filtered.map(p => {
                   const stock = Number(p.stock_quantity || 0);
                   const alert = Number(p.min_stock_alert || 5);
-                  const isLow = stock <= alert;
-                  const isOut = stock <= 0;
+                  const recipeManaged = hasRecipe(p);
+                  const isLow = !recipeManaged && stock <= alert;
+                  const isOut = !recipeManaged && stock <= 0;
                   return (
                     <div key={p.id} className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/20">
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-2 font-bold text-foreground">
                           {p.name_ar || p.name}
                           {p.is_ingredient && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700">مادة خام</span>}
+                          {recipeManaged && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">مخزون بالمقادير</span>}
                         </p>
                         <p className="text-xs text-muted-foreground">{p.categories?.name_ar || p.categories?.name || p.unit_type || '—'}</p>
                       </div>
                       <div className="text-center">
-                        <p className={`text-2xl font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-500'}`}>{stock.toLocaleString('ar-SA')}</p>
-                        <p className="text-xs text-muted-foreground">{p.unit_type || 'الوحدة'}</p>
+                        <p className={`text-${recipeManaged ? 'sm' : '2xl'} font-black ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-green-500'}`}>{recipeManaged ? 'يُخصم بالمقادير' : stock.toLocaleString('ar-SA')}</p>
+                        <p className="text-xs text-muted-foreground">{recipeManaged ? 'مكونات الوصفة' : (p.unit_type || 'الوحدة')}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground">{alert.toLocaleString('ar-SA')}</p>
                         <p className="text-xs text-muted-foreground">حد التنبيه</p>
                       </div>
                       {(isOut || isLow) && <AlertTriangle className={`h-5 w-5 ${isOut ? 'text-red-500' : 'text-amber-500'}`} />}
-                      <button onClick={() => setAddStockProduct(p)}
+                      {!recipeManaged && <button onClick={() => setAddStockProduct(p)}
                         className="flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary/20">
                         <Plus className="h-3.5 w-3.5" />تعديل
-                      </button>
+                      </button>}
                     </div>
                   );
                 })}
