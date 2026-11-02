@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, Plug, FileCheck, UserCircle, Palette, ImagePlus,
+  Settings as SettingsIcon, Building2, Printer, Shield, Save, Loader2, FileCheck, UserCircle, Palette, ImagePlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ZatcaCenter from './ZatcaCenter';
@@ -115,9 +115,6 @@ export default function Settings() {
               <t.icon className="h-4 w-4 flex-shrink-0" />{t.label}
             </button>
           ))}
-          <Link to="/kiosk" className="hidden items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/50 lg:flex">
-            <Plug className="h-4 w-4" /> الكشك وأجهزة البيجر
-          </Link>
         </nav>
 
         <div className="min-w-0 flex-1">
