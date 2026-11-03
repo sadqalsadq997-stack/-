@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import OfflineIndicator from './OfflineIndicator';
 import SmartNotifications from '@/components/SmartNotifications';
 import { Menu, Moon, Sun } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -21,12 +22,14 @@ function useDarkMode() {
 }
 
 export default function AppLayout() {
+  const { lang } = useI18n();
+  const isEnglish = lang === 'en';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useDarkMode();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background flex" dir="rtl">
+    <div className="min-h-screen bg-background flex" dir={isEnglish ? "ltr" : "rtl"}>
       {/* Sidebar desktop */}
       <div className="hidden md:block">
         <Sidebar dark={dark} setDark={setDark} onCollapse={setSidebarCollapsed} />
@@ -36,7 +39,7 @@ export default function AppLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute right-0 top-0 h-full z-50">
+          <div className={`absolute ${isEnglish ? "left-0" : "right-0"} top-0 h-full z-50`}>
             <Sidebar dark={dark} setDark={setDark} />
           </div>
         </div>
@@ -45,7 +48,7 @@ export default function AppLayout() {
       {/* Main content */}
       <main
         className={`flex-1 transition-all duration-300 min-h-screen flex flex-col ${
-          sidebarCollapsed ? 'md:mr-[68px]' : 'md:mr-[252px]'
+          isEnglish ? (sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[252px]') : (sidebarCollapsed ? 'md:mr-[68px]' : 'md:mr-[252px]')
         }`}
       >
         {/* Mobile top bar */}

@@ -6,7 +6,7 @@ import { Moon, Sun, Car, Palette,
   UtensilsCrossed, Warehouse, Receipt, UserCog,
   Store, CreditCard, LogOut, Sparkles, GitBranch,
   ChevronDown, ChefHat, Gift, User, Headphones, Globe, Crown,
-  Plug, Shield, BellRing
+  Plug, Shield, BellRing, Languages
 , BookOpen} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { canAccess, ROLE_LABELS } from '@/lib/permissions';
 import { loadSession, clearSession } from '@/lib/security/session';
 import Logo, { LogoMark } from '@/components/brand/Logo';
 import AccountNumber from '@/components/AccountNumber';
+import { useI18n } from '@/lib/i18n';
 
 const ALL_ITEMS = [
   { path: '/',                icon: LayoutDashboard, label: 'لوحة التحكم'           },
@@ -49,7 +50,21 @@ const FOOD_INDUSTRIES = ['restaurant', 'cafe'];
 // الدور الافتراضي "موظف" (أقل صلاحية) — لا يُفترض "مدير" أبداً
 const GUEST_SESSION = { role: 'employee', perms: {}, name: '' };
 
+const EN_MENU_LABELS = {
+  '/': 'Dashboard', '/pos': 'Point of Sale', '/orders': 'Orders', '/tables': 'Tables',
+  '/kitchen': 'Kitchen Display', '/pager': 'Digital Pager', '/kiosk': 'Kiosk & Pager',
+  '/products': 'Products', '/categories': 'Categories', '/inventory': 'Inventory',
+  '/customers': 'Customers', '/estore': 'Online Store', '/invoices': 'Invoices',
+  '/suppliers': 'Suppliers', '/expenses': 'Expenses', '/analytics': 'Analytics',
+  '/employees': 'Team Members', '/loyalty': 'Loyalty Program', '/car-orders': 'Vehicle Orders',
+  '/ai': 'AI Assistant', '/support': 'Help & Support', '/domain': 'Domain',
+  '/theme': 'Appearance', '/accounting': 'Accounting', '/zatca-admin': 'E-Invoicing',
+  '/settings': 'Settings'
+};
+
 export default function Sidebar({ dark, setDark, onCollapse }) {
+  const { lang, switchLang } = useI18n();
+  const isEnglish = lang === 'en';
   const [collapsed,    setCollapsed]    = useState(false);
   const [branches,     setBranches]     = useState([]);
   const [activeBranch, setActiveBranch] = useState(() => {
@@ -108,8 +123,9 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
 
   return (
     <aside className={cn(
-      'fixed right-0 top-0 h-screen bg-sidebar text-sidebar-foreground',
-      'z-50 transition-all duration-300 flex flex-col border-l border-sidebar-border',
+      'fixed top-0 h-screen bg-sidebar text-sidebar-foreground',
+      isEnglish ? 'left-0 border-r' : 'right-0 border-l',
+      'z-50 transition-all duration-300 flex flex-col border-sidebar-border',
       collapsed ? 'w-[68px]' : 'w-[252px]'
     )}>
 
@@ -148,19 +164,19 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70"
           >
             <GitBranch className="w-3.5 h-3.5 text-sidebar-primary flex-shrink-0" />
-            <span className="text-xs truncate flex-1 text-right">
+            <span className={`text-xs truncate flex-1 ${isEnglish ? 'text-left' : 'text-right'}`}>
               {activeBranch?.name_ar || activeBranch?.name || 'اختر فرعاً'}
             </span>
             <ChevronDown className={cn('w-3 h-3 transition-transform', branchOpen && 'rotate-180')} />
           </button>
           {branchOpen && (
-            <div className="absolute right-3 left-3 top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden">
+            <div className={`absolute ${isEnglish ? 'left-3 right-3' : 'right-3 left-3'} top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden`}>
               {branches.map(b => (
                 <button
                   key={b.id}
                   onClick={() => selectBranch(b)}
                   className={cn(
-                    'w-full text-right px-3 py-2.5 text-xs hover:bg-sidebar-accent transition-colors',
+                    `w-full ${isEnglish ? 'text-left' : 'text-right'} px-3 py-2.5 text-xs hover:bg-sidebar-accent transition-colors`,
                     activeBranch?.id === b.id && 'text-sidebar-primary bg-sidebar-accent'
                   )}
                 >
@@ -189,11 +205,11 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             >
               <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
               {!collapsed && (
-                <span className="text-[13px] font-medium truncate">{item.label}</span>
+                <span className="text-[13px] font-medium truncate">{isEnglish ? (EN_MENU_LABELS[item.path] || item.label) : item.label}</span>
               )}
               {collapsed && (
-                <div className="absolute right-full mr-2.5 px-2.5 py-1.5 bg-sidebar border border-sidebar-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
-                  {item.label}
+                <div className={`absolute ${isEnglish ? 'left-full ml-2.5' : 'right-full mr-2.5'} px-2.5 py-1.5 bg-sidebar border border-sidebar-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg`}>
+                  {isEnglish ? (EN_MENU_LABELS[item.path] || item.label) : item.label}
                 </div>
               )}
             </Link>
@@ -203,6 +219,15 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
 
       {/* ─── الأسفل ─── */}
       <div className="p-2.5 border-t border-sidebar-border space-y-1">
+        <button
+          onClick={() => switchLang(isEnglish ? 'ar' : 'en')}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-sidebar-accent transition-colors text-sidebar-foreground/60"
+          aria-label={isEnglish ? 'Switch to Arabic' : 'Switch to English'}
+          title={isEnglish ? 'Switch to Arabic' : 'Switch to English'}
+        >
+          <Languages className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span className="text-[13px]">{isEnglish ? 'العربية' : 'English'}</span>}
+        </button>
         {setDark && (
           <button
             onClick={() => setDark(d => !d)}
@@ -211,7 +236,7 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             {dark
               ? <Sun  className="w-4 h-4 text-amber-400 flex-shrink-0" />
               : <Moon className="w-4 h-4 flex-shrink-0" />}
-            {!collapsed && <span className="text-[13px]">{dark ? 'وضع نهاري' : 'وضع ليلي'}</span>}
+            {!collapsed && <span className="text-[13px]">{isEnglish ? (dark ? 'Light mode' : 'Dark mode') : (dark ? 'وضع نهاري' : 'وضع ليلي')}</span>}
           </button>
         )}
         <button
@@ -225,7 +250,7 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
           className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-destructive/15 text-sidebar-foreground/45 hover:text-destructive transition-colors"
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span className="text-[13px]">تسجيل الخروج</span>}
+          {!collapsed && <span className="text-[13px]">{isEnglish ? 'Sign out' : 'تسجيل الخروج'}</span>}
         </button>
       </div>
     </aside>
