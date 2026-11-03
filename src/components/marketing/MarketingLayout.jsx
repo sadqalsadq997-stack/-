@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig, useScroll, useSpring } from 'framer-motion';
-import { Menu, X, Phone, Mail, MapPin, ChevronDown, MessageCircle } from 'lucide-react';
+import { Menu, X, Phone, Mail, MapPin, ChevronDown, MessageCircle, Instagram, Music2 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import zatcaLogo from '@/assets/zatca-logo-wide.png';
 import { SITE, SOLUTIONS, getHead } from '@/content/seo';
@@ -42,6 +42,7 @@ const NAV = [
   { to: '/zatca-e-invoicing', label: 'الفوترة الإلكترونية' },
   { to: '/pricing', label: 'الأسعار' },
   { to: '/blog', label: 'المدونة' },
+  { to: '/careers', label: 'الوظائف' },
 ];
 
 export default function MarketingLayout({ children, path, head }) {
@@ -109,6 +110,7 @@ export default function MarketingLayout({ children, path, head }) {
                 className="max-h-[80vh] overflow-y-auto border-t border-slate-100 lg:hidden">
                 <div className="flex flex-col gap-0.5 px-4 py-3">
                   <Link to="/pricing" className="rounded-lg px-3 py-2.5 font-bold text-slate-800 hover:bg-slate-50">الأسعار</Link>
+                  <Link to="/careers" className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">الوظائف</Link>
                   {SOLUTIONS.map(s => (
                     <Link key={s.slug} to={`/${s.slug}`} className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">{s.nav}</Link>
                   ))}
@@ -143,6 +145,7 @@ export default function MarketingLayout({ children, path, head }) {
                 {SOLUTIONS.slice(4).map(s => <li key={s.slug}><Link to={`/${s.slug}`} className="hover:text-white">{s.nav}</Link></li>)}
                 <li><Link to="/pricing" className="hover:text-white">الأسعار</Link></li>
                 <li><Link to="/blog" className="hover:text-white">المدونة</Link></li>
+                <li><Link to="/careers" className="hover:text-white">الوظائف</Link></li>
               </ul>
             </nav>
             <div>
@@ -151,6 +154,8 @@ export default function MarketingLayout({ children, path, head }) {
                 <li><a href={`tel:${SITE.phone}`} className="inline-flex items-center gap-2 hover:text-white"><Phone className="h-4 w-4" /><span dir="ltr">{SITE.phoneLocal}</span></a></li>
                 <li><a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><MessageCircle className="h-4 w-4" /><span>واتساب: <span dir="ltr">{SITE.phoneLocal}</span></span></a></li>
                 <li><a href={`mailto:${SITE.email}`} className="inline-flex items-center gap-2 hover:text-white"><Mail className="h-4 w-4" />{SITE.email}</a></li>
+                <li><a href="https://www.instagram.com/felsy.sa/" target="_blank" rel="noopener noreferrer" aria-label="Felsy on Instagram" className="inline-flex items-center gap-2 hover:text-white"><Instagram className="h-4 w-4" /><span>Instagram: @felsy.sa</span></a></li>
+                <li><a href="https://www.tiktok.com/@felsy.sa" target="_blank" rel="noopener noreferrer" aria-label="Felsy on TikTok" className="inline-flex items-center gap-2 hover:text-white"><Music2 className="h-4 w-4" /><span>TikTok: @felsy.sa</span></a></li>
                 <li className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />الرياض، المملكة العربية السعودية</li>
               </ul>
             </div>

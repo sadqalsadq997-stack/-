@@ -19,7 +19,7 @@ export const SITE = {
   country: 'SA',
   logo: 'https://felsy.org/logo-square.png',
   ogImage: 'https://felsy.org/og-image.png',
-  sameAs: [],
+  sameAs: ['https://www.instagram.com/felsy.sa/', 'https://www.tiktok.com/@felsy.sa'],
   updated: '2026-10-29',
 };
 
@@ -370,6 +370,11 @@ export const STATIC_PAGES = {
     description: 'الشروط والأحكام لاستخدام منصة فلسي لنقاط البيع: الاشتراك والدفع والإلغاء والاسترجاع والتزامات المستخدم.',
     keywords: 'شروط استخدام فلسي, الشروط والأحكام',
   },
+  '/careers': {
+    title: 'Careers at Felsy | Jobs and Opportunities',
+    description: 'Explore job opportunities at Felsy and submit your application securely online.',
+    keywords: 'Felsy careers, jobs, employment, recruitment, وظائف فلسي, التوظيف',
+  },
   '/privacy': {
     title: 'سياسة الخصوصية — فلسي Felsy',
     description: 'كيف تجمع فلسي بياناتك وتحميها وتعزل بيانات كل منشأة، وحقوقك في الوصول والحذف.',
@@ -388,7 +393,7 @@ export const PRICING_FAQS = [
   { q: 'وش هو التطبيق الخاص بمنشأتي؟', a: `تطبيق جوال باسم وشعار وألوان منشأتك، فيه منيوك وطلباتك وبطاقة الولاء — بـ ${CUSTOM_APP_PRICE} ريال مرة وحدة. تواصل معنا بالواتساب ونبدأ.` },
 ];
 
-export const PUBLIC_ROUTES = ['/', '/pricing', ...SOLUTIONS.map(s => `/${s.slug}`), '/about', '/terms', '/privacy'];
+export const PUBLIC_ROUTES = ['/', '/pricing', ...SOLUTIONS.map(s => `/${s.slug}`), '/about', '/terms', '/privacy', '/careers'];
 
 export const HOME_FAQS = [
   { q: 'وش هو فلسي؟', a: 'فلسي (Felsy) نظام نقاط بيع سحابي سعودي يجمع الكاشير والمحاسبة والمخزون والفوترة الإلكترونية والبيجر الإلكتروني والمتجر الإلكتروني في اشتراك شهري واحد.' },
