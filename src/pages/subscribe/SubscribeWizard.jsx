@@ -407,16 +407,6 @@ export default function SubscribeWizard({ embedded = false }) {
   const go = (k) => { setFormErr(''); setStepKey(k); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const back = () => { if (stepKey === 'payment' && order?.status === 'pending_review') return; go(steps[Math.max(0, index - 1)]); };
 
-  function isAdultDate(value) {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return false;
-    const today = new Date();
-    let age = today.getUTCFullYear() - date.getUTCFullYear();
-    const beforeBirthday = today.getUTCMonth() < date.getUTCMonth() || (today.getUTCMonth() === date.getUTCMonth() && today.getUTCDate() < date.getUTCDate());
-    if (beforeBirthday) age--;
-    return age >= 18 && date.getTime() <= Date.now();
-  }
-
   function validateInfo() {
     const e = {};
     if (!hasAccount && info.name.trim().length < 2) e.name = 'الاسم مطلوب';
