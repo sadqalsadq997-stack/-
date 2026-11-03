@@ -890,23 +890,30 @@ export default function SuperAdmin() {
 
   const NAV_GROUPS = [
     { title: 'الرئيسية', items: [
-      { id: 'overview', label: 'نظرة عامة', desc: 'ملخص أداء المنصة ومؤشراتها', icon: BarChart3 },
+      { id: 'overview', label: 'الرئيسية', desc: 'إحصائيات المنصة والتنبيهات', icon: BarChart3 },
     ]},
-    { title: 'إدارة العملاء', items: [
-      { id: 'clients', label: 'المنشآت والعملاء', desc: 'إدارة حسابات المنشآت واشتراكاتها', icon: Users },
-      { id: 'orders', label: 'طلبات الاشتراك', desc: 'مراجعة الطلبات والمدفوعات', icon: Landmark },
+    { title: 'إدارة المنصة', items: [
+      { id: 'clients', label: 'المنشآت', desc: 'إدارة الحسابات والاشتراكات', icon: Users },
+      { id: 'finance', label: 'المالية', desc: 'الإيرادات والمدفوعات والفواتير', icon: Landmark },
+      { id: 'team', label: 'فريق فلسي', desc: 'الأقسام والموظفون', icon: UserCog },
+      { id: 'permissions', label: 'الصلاحيات', desc: 'الشاشات والعمليات المسموحة لكل موظف', icon: Shield },
     ]},
-    { title: 'التشغيل والدعم', items: [
-      { id: 'tickets', label: 'مركز الدعم الفني', desc: 'متابعة تذاكر العملاء والردود', icon: MessageSquare },
-      { id: 'team', label: 'فريق فلسي', desc: 'إدارة فريق المنصة ومحتواها', icon: UserCog },
+    { title: 'التشغيل والتقنية', items: [
+      { id: 'tickets', label: 'الدعم الفني', desc: 'التذاكر وتوزيعها على الموظفين', icon: MessageSquare },
+      { id: 'development', label: 'مركز المبرمجين', desc: 'الأعطال والبلاغات التقنية والإصلاحات', icon: Server },
     ]},
-    { title: 'النمو والإيرادات', items: [
-      { id: 'pricing', label: 'الخطط والأسعار', desc: 'إدارة باقات الاشتراك', icon: BadgeDollarSign },
-      { id: 'billing', label: 'الفوترة الدورية', desc: 'إعدادات الفوترة والتحصيل', icon: CreditCard },
-      { id: 'broadcast', label: 'التواصل والإشعارات', desc: 'الرسائل الجماعية للعملاء', icon: Megaphone },
+    { title: 'النمو والتوظيف', items: [
+      { id: 'careers', label: 'الوظائف', desc: 'نشر الوظائف ومراجعة المتقدمين', icon: UserCog },
+      { id: 'pricing', label: 'الخطط والأسعار', desc: 'التحكم في باقات وأسعار المنصة', icon: BadgeDollarSign },
     ]},
-    { title: 'المحتوى والذكاء', items: [
-      { id: 'blog', label: 'المحتوى والمدونة', desc: 'إدارة المقالات والمحتوى العام', icon: Newspaper },
+    { title: 'الموقع والظهور الرقمي', items: [
+      { id: 'website', label: 'الموقع والمحتوى', desc: 'الصفحات والمحتوى والأسعار التسويقية', icon: Globe },
+      { id: 'seo', label: 'SEO وGoogle', desc: 'Sitemap والبيانات المنظمة والفهرسة', icon: Search },
+      { id: 'blog', label: 'المدونة والأخبار', desc: 'إدارة المقالات والأخبار', icon: Newspaper },
+    ]},
+    { title: 'إعدادات المنصة', items: [
+      { id: 'settings', label: 'الإعدادات العامة', desc: 'إعدادات المنصة والتشغيل', icon: Settings },
+      { id: 'broadcast', label: 'الإشعارات والتواصل', desc: 'التواصل مع المنشآت والعملاء', icon: Megaphone },
       { id: 'ai', label: 'مساعد فلسي الذكي', desc: 'إعدادات المساعد الذكي', icon: Bot },
     ]},
   ];
@@ -979,6 +986,13 @@ export default function SuperAdmin() {
               <div className="rounded-[26px] border border-slate-200/80 bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.045)] sm:p-7">
                 {tab === 'overview' && <OverviewTab stats={stats} clients={clients} />}
                 {tab === 'orders' && <OrdersTab />}
+                {tab === 'finance' && <BillingTab />}
+                {tab === 'permissions' && <PlatformPermissionsTab />}
+                {tab === 'development' && <DeveloperIncidentsTab />}
+                {tab === 'careers' && <PlatformCareersTab />}
+                {tab === 'website' && <PlatformWebsiteTab />}
+                {tab === 'seo' && <PlatformSeoTab />}
+                {tab === 'settings' && <PlatformSettingsTab />}
                 {tab === 'pricing' && <PricingTab />}
                 {tab === 'billing' && <BillingTab />}
                 {tab === 'broadcast' && <BroadcastTab clients={clients} />}
