@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { LogoMark } from '@/components/brand/Logo';
 import SubscribersTab from '@/components/owner/SubscribersTab';
 import BlogManager from '@/components/owner/BlogManager';
+import WorkforceHub from '@/components/owner/WorkforceHub';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('ar-SA');
 const fmtSAR = (n) => `${fmt(n)} ⃁`;
@@ -895,7 +896,7 @@ export default function SuperAdmin() {
     { title: 'إدارة المنصة', items: [
       { id: 'clients', label: 'المنشآت', desc: 'إدارة الحسابات والاشتراكات', icon: Users },
       { id: 'finance', label: 'المالية', desc: 'الإيرادات والمدفوعات والفواتير', icon: Landmark },
-      { id: 'team', label: 'فريق فلسي', desc: 'الأقسام والموظفون', icon: UserCog },
+      { id: 'hr', label: 'الموارد البشرية', desc: 'ملفات الموظفين والرواتب والمهام والحسابات', icon: UserCog },
       { id: 'permissions', label: 'الصلاحيات', desc: 'الشاشات والعمليات المسموحة لكل موظف', icon: Shield },
     ]},
     { title: 'التشغيل والتقنية', items: [
@@ -1000,6 +1001,7 @@ export default function SuperAdmin() {
                 {tab === 'ai' && <AISettingsTab />}
                 {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
                 {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
+                {tab === 'hr' && <WorkforceHub api={callOwnerApi} />}
                 {tab === 'team' && <TeamAndContentTab />}
               </div>
             )}
