@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig, useScroll, useSpring } from 'framer-motion';
 import { Menu, X, Phone, Mail, MapPin, ChevronDown, MessageCircle, Instagram, Music2 } from 'lucide-react';
@@ -47,6 +48,8 @@ const NAV = [
 
 export default function MarketingLayout({ children, path, head }) {
   const location = useLocation();
+  const { lang, switchLang } = useI18n();
+  const en = lang === 'en';
   const current = path || location.pathname;
   useHead(current, head);
   const [scrolled, setScrolled] = useState(false);
@@ -67,7 +70,7 @@ export default function MarketingLayout({ children, path, head }) {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div dir="rtl" lang="ar" className="min-h-screen bg-paper text-ink antialiased">
+      <div dir={en ? "ltr" : "rtl"} lang={lang} className="min-h-screen bg-paper text-ink antialiased">
         <motion.div className="fixed inset-x-0 top-0 z-[60] h-[3px] origin-[100%] bg-sage-500" style={{ scaleX: progress }} />
 
         <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${solid ? 'border-b border-slate-200/80 bg-white/90 backdrop-blur-xl' : 'bg-transparent'}`}>
@@ -97,8 +100,9 @@ export default function MarketingLayout({ children, path, head }) {
               ))}
             </nav>
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link to="/auth/login" className="hidden text-sm font-bold text-slate-700 hover:text-sage-700 sm:block">دخول</Link>
-              <Link to="/auth/signup" className="hidden rounded-full bg-sage-400 px-5 py-2.5 text-sm font-bold text-ink transition-colors hover:bg-sage-500 sm:block">ابدأ بـ 29 ريال</Link>
+              <button type="button" onClick={() => switchLang(en ? "ar" : "en")} className="rounded-full border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{en ? "العربية" : "English"}</button>
+              <Link to="/auth/login" className="hidden text-sm font-bold text-slate-700 hover:text-sage-700 sm:block">{en ? "Login" : "دخول"}</Link>
+              <Link to="/auth/signup" className="hidden rounded-full bg-sage-400 px-5 py-2.5 text-sm font-bold text-ink transition-colors hover:bg-sage-500 sm:block">{en ? "Start from SAR 29" : "ابدأ بـ 29 ريال"}</Link>
               <button className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 lg:hidden" onClick={() => setMenuOpen(o => !o)} aria-label="القائمة" aria-expanded={menuOpen}>
                 {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -126,51 +130,38 @@ export default function MarketingLayout({ children, path, head }) {
 
         <main id="top">{children}</main>
 
-        <footer className="bg-ink px-4 pb-8 pt-16 text-slate-400 sm:px-6">
-          <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
-            <div>
-              <Logo size={40} variant="light" />
-              <p className="mt-4 max-w-xs text-sm leading-relaxed">فلسي (Felsy) نظام نقاط بيع سحابي سعودي: كاشير، محاسبة، فوترة إلكترونية، وبيجر إلكتروني — من 29 ريال شهرياً.</p>
-              <div className="mt-5 inline-flex rounded-xl bg-white px-3 py-2"><img src={zatcaLogo} alt="متوافق مع هيئة الزكاة والضريبة والجمارك" className="h-8 w-auto" /></div>
+        <footer className="bg-[#292a2f] px-4 pt-12 text-[#d5d5d7] sm:px-6">
+          <div className="mx-auto max-w-5xl">
+            <div className="flex justify-center pb-10"><Logo size={54} variant="light" /></div>
+            <div className="divide-y divide-white/15 border-y border-white/15">
+              {[
+                {title: en ? 'Company' : 'الشركة', links: [[en?'About us':'من نحن','/about'],[en?'Careers':'الوظائف','/careers'],[en?'Blog':'المدونة','/blog']]},
+                {title: en ? 'Customer service' : 'خدمة العملاء', links: [[en?'Contact us':'تواصل معنا', '/contact'],[en?'WhatsApp support':'الدعم عبر واتساب', SITE.whatsapp]]},
+                {title: en ? 'Policies' : 'السياسات', links: [[en?'Privacy policy':'سياسة الخصوصية','/privacy'],[en?'Terms & conditions':'الشروط والأحكام','/terms'],[en?'Refund policy':'سياسة الاسترداد','/refund-policy']]}
+              ].map(section => <details key={section.title} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-medium text-white">{section.title}<span className="text-2xl leading-none transition-transform group-open:rotate-45">+</span></summary>
+                <ul className="mt-4 space-y-3 text-sm">{section.links.map(([label,href])=><li key={label}>{href.startsWith('http')?<a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-white">{label}</a>:<Link to={href} className="hover:text-white">{label}</Link>}</li>)}</ul>
+              </details>)}
             </div>
-            <nav aria-label="الحلول">
-              <p className="mb-3 text-sm font-bold text-white">الحلول</p>
-              <ul className="space-y-2 text-sm">
-                {SOLUTIONS.slice(0, 4).map(s => <li key={s.slug}><Link to={`/${s.slug}`} className="hover:text-white">{s.nav}</Link></li>)}
-              </ul>
-            </nav>
-            <nav aria-label="المزيد">
-              <p className="mb-3 text-sm font-bold text-white">المزيد</p>
-              <ul className="space-y-2 text-sm">
-                {SOLUTIONS.slice(4).map(s => <li key={s.slug}><Link to={`/${s.slug}`} className="hover:text-white">{s.nav}</Link></li>)}
-                <li><Link to="/pricing" className="hover:text-white">الأسعار</Link></li>
-                <li><Link to="/blog" className="hover:text-white">المدونة</Link></li>
-                <li><Link to="/careers" className="hover:text-white">الوظائف</Link></li>
-              </ul>
-            </nav>
-            <div>
-              <p className="mb-3 text-sm font-bold text-white">تواصل معنا</p>
-              <ul className="space-y-2.5 text-sm">
-                <li><a href={`tel:${SITE.phone}`} className="inline-flex items-center gap-2 hover:text-white"><Phone className="h-4 w-4" /><span dir="ltr">{SITE.phoneLocal}</span></a></li>
-                <li><a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><MessageCircle className="h-4 w-4" /><span>واتساب: <span dir="ltr">{SITE.phoneLocal}</span></span></a></li>
-                <li><a href={`mailto:${SITE.email}`} className="inline-flex items-center gap-2 hover:text-white"><Mail className="h-4 w-4" />{SITE.email}</a></li>
-                <li><a href="https://www.instagram.com/felsy.sa/" target="_blank" rel="noopener noreferrer" aria-label="Felsy on Instagram" className="inline-flex items-center gap-2 hover:text-white"><Instagram className="h-4 w-4" /><span>Instagram: @felsy.sa</span></a></li>
-                <li><a href="https://www.tiktok.com/@felsy.sa" target="_blank" rel="noopener noreferrer" aria-label="Felsy on TikTok" className="inline-flex items-center gap-2 hover:text-white"><Music2 className="h-4 w-4" /><span>TikTok: @felsy.sa</span></a></li>
-                <li className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />الرياض، المملكة العربية السعودية</li>
-              </ul>
+            <div className="py-8 text-center">
+              <p className="text-sm">{en ? 'Riyadh, Saudi Arabia' : 'الرياض، المملكة العربية السعودية'}</p>
+              <a href={`tel:${SITE.phone}`} className="mt-3 inline-block text-sm" dir="ltr">{SITE.phoneLocal}</a>
+              <div className="mt-8 flex justify-center"><PaymentBadges tone="dark" title="" /></div>
+            </div>
+            <div className="flex flex-col items-center justify-between gap-5 border-t border-white/15 py-6 sm:flex-row">
+              <div className="flex items-center gap-6">
+                <a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="hover:text-white"><MessageCircle className="h-6 w-6" /></a>
+                <a href="https://www.tiktok.com/@felsy.sa" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="hover:text-white"><Music2 className="h-6 w-6" /></a>
+                <a href="https://www.instagram.com/felsy.sa/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-white"><Instagram className="h-6 w-6" /></a>
+              </div>
+              <p className="text-center text-sm">© {new Date().getFullYear()} Felsy. {en ? 'All rights reserved.' : 'جميع الحقوق محفوظة.'}</p>
             </div>
           </div>
-          <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
-            <p className="text-sm font-bold text-white">ادفع بأمان عبر</p>
-            <PaymentBadges tone="dark" title="" />
-          </div>
-          <div className="mx-auto mt-6 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs sm:flex-row">
-            <p>© {new Date().getFullYear()} فلسي Felsy. جميع الحقوق محفوظة.</p>
-            <ul className="flex gap-5">
-              <li><Link to="/about" className="hover:text-white">من نحن</Link></li>
-              <li><Link to="/terms" className="hover:text-white">الشروط والأحكام</Link></li>
-              <li><Link to="/privacy" className="hover:text-white">سياسة الخصوصية</Link></li>
-            </ul>
+          <div className="mt-2 border-t border-white/15 bg-[#202126]">
+            <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-3 px-4 py-6 text-center sm:flex-row sm:gap-6">
+              <img src={zatcaLogo} alt="شعار هيئة الزكاة والضريبة والجمارك" className="h-12 w-auto object-contain" />
+              <div><p className="font-bold text-white">{en ? 'Designed to support ZATCA e-invoicing requirements' : 'متوافق مع متطلبات الفوترة الإلكترونية لهيئة الزكاة والضريبة والجمارك'}</p><p className="mt-1 text-xs text-slate-400">{en ? 'Subject to correct configuration and applicable ZATCA requirements.' : 'يعتمد الامتثال على إعداد المنشأة واستيفاء المتطلبات النظامية المطبقة.'}</p></div>
+            </div>
           </div>
         </footer>
       </div>
