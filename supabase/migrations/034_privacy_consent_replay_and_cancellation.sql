@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS public.privacy_consent_events (
   subject_auth_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   tenant_id uuid REFERENCES public.tenants(id) ON DELETE SET NULL,
   consent_type text NOT NULL CHECK (
-    consent_type IN ('terms', 'privacy_notice', 'marketing', 'analytics', 'session_replay', 'parental_consent')
+    consent_type IN ('terms', 'privacy_notice', 'marketing', 'analytics', 'session_replay', 'parental_consent', 'age_attestation')
   ),
   decision text NOT NULL CHECK (decision IN ('granted', 'denied', 'withdrawn')),
   policy_version text NOT NULL,
