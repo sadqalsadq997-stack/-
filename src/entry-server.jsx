@@ -10,6 +10,7 @@ import SolutionPage from '@/pages/SolutionPage';
 import TermsConditions from '@/pages/TermsConditions';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import AboutUs from '@/pages/AboutUs';
+import Careers from '@/pages/Careers';
 import { SOLUTIONS, PUBLIC_ROUTES, getHead, SITE } from '@/content/seo';
 
 export { PUBLIC_ROUTES, getHead, SITE, SOLUTIONS };
@@ -24,6 +25,7 @@ export function render(url) {
         <Route path="/terms" element={<TermsConditions />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/about" element={<AboutUs />} />
+        <Route path="/careers" element={<Careers />} />
       </Routes>
     </StaticRouter>
   );
