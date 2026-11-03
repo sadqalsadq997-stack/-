@@ -42,6 +42,7 @@ import EStore                from "@/pages/EStore";
 import LoyaltySettings       from "@/pages/LoyaltySettings";
 import BlogList from "@/pages/blog/BlogList";
 import BlogPost from "@/pages/blog/BlogPost";
+import Careers from "@/pages/Careers";
 import PublicMenu            from "@/pages/PublicMenu";
 import KitchenDisplay        from "@/pages/KitchenDisplay";
 import KioskIntegration      from "@/pages/KioskIntegration";
@@ -176,6 +177,7 @@ function AppRoutes() {
       <Route path="/about"         element={<AboutUs />} />
       <Route path="/blog"          element={<BlogList />} />
       <Route path="/blog/:slug"    element={<BlogPost />} />
+      <Route path="/careers"       element={<Careers />} />
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
       <Route path="/m/:slug"       element={<PublicMenu />} />
