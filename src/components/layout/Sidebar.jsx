@@ -14,6 +14,7 @@ import { canAccess, ROLE_LABELS } from '@/lib/permissions';
 import { loadSession, clearSession } from '@/lib/security/session';
 import Logo, { LogoMark } from '@/components/brand/Logo';
 import AccountNumber from '@/components/AccountNumber';
+import { useI18n } from '@/lib/i18n';
 
 const ALL_ITEMS = [
   { path: '/',                icon: LayoutDashboard, label: 'لوحة التحكم'           },
@@ -59,6 +60,9 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
   const [branchOpen, setBranchOpen] = useState(false);
   const location  = useLocation();
   const [sess, setSess] = useState(GUEST_SESSION);
+  const { lang } = useI18n();
+  const isArabic = lang === 'ar';
+  const labelsEn = { 'لوحة التحكم':'Dashboard', 'نقطة البيع':'Point of Sale', 'الطلبات':'Orders', 'الطاولات':'Tables', 'المطبخ':'Kitchen', 'البيجر الإلكتروني':'Digital Pager', 'الكشك والبيجر':'Kiosk & Pager', 'المتجر':'Products', 'التصنيفات':'Categories', 'المخزون':'Inventory', 'العملاء':'Customers', 'المتجر الإلكتروني':'Online Store', 'الفواتير':'Invoices', 'الموردين':'Suppliers', 'المصروفات':'Expenses', 'التحليلات':'Analytics', 'الموظفون':'Team', 'برنامج الولاء':'Loyalty Program', 'طلبات السيارات':'Car Wash Orders', 'المساعد الذكي':'AI Assistant', 'الدعم الفني':'Support', 'الدومين':'Domain', 'تخصيص الواجهة':'Appearance', 'المحاسبة':'Accounting', 'الفوترة الإلكترونية':'E-Invoicing', 'الإعدادات':'Settings' };
 
   useEffect(() => {
     loadSession().then(d => {
@@ -108,8 +112,9 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
 
   return (
     <aside className={cn(
-      'fixed right-0 top-0 h-screen bg-sidebar text-sidebar-foreground',
-      'z-50 transition-all duration-300 flex flex-col border-l border-sidebar-border',
+      'fixed top-0 h-screen bg-sidebar text-sidebar-foreground',
+      isArabic ? 'right-0 border-l' : 'left-0 border-r',
+      'z-50 transition-all duration-300 flex flex-col border-sidebar-border',
       collapsed ? 'w-[68px]' : 'w-[252px]'
     )}>
 
@@ -154,7 +159,7 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             <ChevronDown className={cn('w-3 h-3 transition-transform', branchOpen && 'rotate-180')} />
           </button>
           {branchOpen && (
-            <div className="absolute right-3 left-3 top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden">
+            <div className={`absolute ${isArabic ? 'right-3' : 'left-3'} right-3 left-3 top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden">
               {branches.map(b => (
                 <button
                   key={b.id}
@@ -189,7 +194,7 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             >
               <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
               {!collapsed && (
-                <span className="text-[13px] font-medium truncate">{item.label}</span>
+                <span className="text-[13px] font-medium truncate">{isArabic ? item.label : (labelsEn[item.label] || item.label)}</span>
               )}
               {collapsed && (
                 <div className="absolute right-full mr-2.5 px-2.5 py-1.5 bg-sidebar border border-sidebar-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
