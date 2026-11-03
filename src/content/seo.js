@@ -19,7 +19,7 @@ export const SITE = {
   country: 'SA',
   logo: 'https://felsy.org/logo-square.png',
   ogImage: 'https://felsy.org/og-image.png',
-  sameAs: [],
+  sameAs: ['https://www.instagram.com/felsy.sa/', 'https://www.tiktok.com/@felsy.sa'],
   updated: '2026-10-29',
 };
 
