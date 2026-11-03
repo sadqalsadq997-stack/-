@@ -337,7 +337,7 @@ serve(async (req) => {
 
       case 'update_team_member': {
         const u = (p.updates && typeof p.updates === 'object') ? p.updates as Payload : {};
-        return ok(must(await sb.from('platform_team_members').update(pick(u, ['full_name', 'email', 'phone', 'role', 'notes', 'is_active'])).eq('id', uuid(p.id))));
+        return ok(must(await sb.from('platform_team_members').update(pick(u, ['full_name', 'email', 'phone', 'role', 'department', 'job_title', 'notes', 'is_active', 'permissions'])).eq('id', uuid(p.id))));
       }
 
       case 'delete_team_member':
