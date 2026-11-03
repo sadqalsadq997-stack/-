@@ -1419,3 +1419,91 @@ function TeamAndContentTab() {
     </div>
   );
 }
+
+
+const INCIDENT_LABELS = {
+  category: { bug: 'خلل برمجي', outage: 'توقف خدمة', performance: 'بطء وأداء', security: 'أمن وحماية', deployment: 'نشر وتحديث', request: 'طلب تقني' },
+  severity: { low: 'منخفضة', medium: 'متوسطة', high: 'عالية', critical: 'حرجة' },
+  status: { open: 'جديدة', triaged: 'تم الفرز', in_progress: 'قيد الإصلاح', blocked: 'متوقفة', resolved: 'تم الحل', closed: 'مغلقة' },
+};
+
+function DeveloperIncidentsTab() {
+  const [items, setItems] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', category: 'bug', severity: 'medium', affected_area: '' });
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [incidents, team] = await Promise.all([
+        callOwnerApi('list_platform_incidents'),
+        callOwnerApi('list_team_members'),
+      ]);
+      setItems(incidents || []);
+      setMembers((team || []).filter(m => m.is_active && ['developer','admin'].includes(m.role)));
+    } catch (e) { toast.error('تعذر تحميل سجل الأعطال: ' + (e?.message || '')); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.title.trim() || !form.description.trim()) return toast.error('أدخل عنوان المشكلة ووصفها');
+    setSaving(true);
+    try {
+      await callOwnerApi('create_platform_incident', form);
+      setForm({ title: '', description: '', category: 'bug', severity: 'medium', affected_area: '' });
+      setShowForm(false);
+      toast.success('تم تسجيل البلاغ في سجل أعطال المنصة');
+      await load();
+    } catch (e) { toast.error('تعذر تسجيل البلاغ: ' + (e?.message || '')); }
+    finally { setSaving(false); }
+  };
+  const update = async (id, updates) => {
+    try { await callOwnerApi('update_platform_incident', { id, updates }); await load(); }
+    catch (e) { toast.error('تعذر تحديث البلاغ: ' + (e?.message || '')); }
+  };
+
+  const counts = ['open','triaged','in_progress','blocked'].map(s => ({ status:s, count:items.filter(i=>i.status===s).length }));
+  return <div className="space-y-6">
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div><h2 className="text-xl font-black text-slate-900">مركز المبرمجين والأعطال</h2><p className="mt-1 text-sm text-slate-500">سجل مركزي للأخطاء والتوقفات والبلاغات التقنية، مع الأولوية وحالة المعالجة والتكليف</p></div>
+      <div className="flex gap-2"><button onClick={load} className="rounded-xl border px-3 py-2 text-sm">تحديث</button><button onClick={()=>setShowForm(v=>!v)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">+ تسجيل مشكلة</button></div>
+    </div>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{counts.map(x=><div key={x.status} className="rounded-2xl border bg-slate-50 p-4"><p className="text-xs text-slate-500">{INCIDENT_LABELS.status[x.status]}</p><p className="mt-1 text-2xl font-black">{x.count}</p></div>)}</div>
+    {showForm && <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+      <h3 className="font-bold">بلاغ تقني جديد</h3>
+      <input className="w-full rounded-xl border bg-white p-3 text-sm" placeholder="عنوان المشكلة" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
+      <textarea className="w-full rounded-xl border bg-white p-3 text-sm" rows={4} placeholder="خطوات إعادة المشكلة، النتيجة المتوقعة، والنتيجة الفعلية" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <select className="rounded-xl border bg-white p-3 text-sm" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{Object.entries(INCIDENT_LABELS.category).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select className="rounded-xl border bg-white p-3 text-sm" value={form.severity} onChange={e=>setForm({...form,severity:e.target.value})}>{Object.entries(INCIDENT_LABELS.severity).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <input className="rounded-xl border bg-white p-3 text-sm" placeholder="الصفحة أو الجزء المتأثر" value={form.affected_area} onChange={e=>setForm({...form,affected_area:e.target.value})}/>
+      </div>
+      <div className="flex justify-end gap-2"><button onClick={()=>setShowForm(false)} className="rounded-xl border px-4 py-2 text-sm">إلغاء</button><button disabled={saving} onClick={create} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving?'جارٍ التسجيل...':'حفظ البلاغ'}</button></div>
+    </div>}
+    {loading ? <div className="py-12 text-center text-sm text-slate-500">جارٍ تحميل سجل الأعطال...</div> : items.length===0 ? <div className="rounded-2xl border border-dashed p-10 text-center"><Server className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 font-bold">لا توجد بلاغات مسجلة</p><p className="mt-1 text-xs text-slate-500">يمكن تسجيل الخلل هنا ليظهر لفريق التطوير.</p></div> :
+      <div className="space-y-3">{items.map(item=><article key={item.id} className="rounded-2xl border border-slate-200 p-4">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{item.title}</h3><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px]">{INCIDENT_LABELS.category[item.category]||item.category}</span><span className={`rounded-full px-2 py-1 text-[10px] ${item.severity==='critical'?'bg-red-100 text-red-700':item.severity==='high'?'bg-orange-100 text-orange-700':'bg-slate-100 text-slate-600'}`}>{INCIDENT_LABELS.severity[item.severity]||item.severity}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.description}</p><p className="mt-2 text-xs text-slate-400">{item.affected_area||'لم يحدد الجزء المتأثر'} · {fmtDate(item.created_at)}</p></div>
+          <div className="flex shrink-0 flex-col gap-2 sm:w-44"><select className="rounded-lg border p-2 text-xs" value={item.status} onChange={e=>update(item.id,{status:e.target.value})}>{Object.entries(INCIDENT_LABELS.status).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><select className="rounded-lg border p-2 text-xs" value={item.assigned_to||''} onChange={e=>update(item.id,{assigned_to:e.target.value||null})}><option value="">غير مسند</option>{members.map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+        </div>
+      </article>)}</div>}
+  </div>;
+}
+
+function PlatformPermissionsTab() {
+  const [team,setTeam]=useState([]);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{callOwnerApi('list_team_members').then(setTeam).catch(e=>toast.error(e.message)).finally(()=>setLoading(false));},[]);
+  return <div className="space-y-5"><div><h2 className="text-xl font-black">صلاحيات فريق المنصة</h2><p className="mt-1 text-sm text-slate-500">مراجعة الأعضاء والأدوار. تفعيل الحجب الفعلي لكل شاشة يتطلب ربط هذه الصلاحيات بحارس المسارات وواجهات الخادم قبل منح حسابات الموظفين.</p></div>
+    {loading?<p className="py-8 text-center text-sm text-slate-500">جارٍ التحميل...</p>:team.map(m=><div key={m.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-bold">{m.full_name}</p><p className="text-xs text-slate-500">{m.department||m.role} · {m.job_title||'بدون مسمى'}</p></div><span className={`rounded-full px-3 py-1 text-xs ${m.is_active?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-500'}`}>{m.is_active?'نشط':'موقوف'}</span></div>)}
+    <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">تنبيه أمني: لا تمنح موظفًا دخولًا فعليًا قبل اكتمال تسجيل الدخول الفردي وربط كل عملية بصلاحيات الخادم.</div>
+  </div>;
+}
+function PlatformCareersTab() { return <div className="space-y-3"><h2 className="text-xl font-black">التوظيف والاستقطاب</h2><p className="text-sm text-slate-500">إدارة إعلانات وظائف شركة فلسي والمتقدمين. واجهة التوظيف العامة موجودة في صفحة /careers، لكن ربط لوحة إدارة الوظائف وقاعدة المتقدمين لم يُنشر بعد.</p><a className="inline-flex rounded-xl border px-4 py-2 text-sm font-bold" href="/careers" target="_blank" rel="noreferrer">فتح صفحة الوظائف</a></div>; }
+function PlatformWebsiteTab() { return <div className="space-y-3"><h2 className="text-xl font-black">الموقع والمحتوى</h2><p className="text-sm text-slate-500">إدارة نصوص الموقع التسويقي والأسعار والصفحات. التعديل المباشر للصفحات غير مربوط بالكامل بلوحة المالك حتى الآن.</p><a className="inline-flex rounded-xl border px-4 py-2 text-sm font-bold" href="https://felsy.org" target="_blank" rel="noreferrer">فتح الموقع التسويقي</a></div>; }
+function PlatformSeoTab() { return <div className="space-y-3"><h2 className="text-xl font-black">SEO وظهور Google</h2><p className="text-sm text-slate-500">إدارة Sitemap وبيانات Schema ومتابعة الفهرسة. لا توجد حاليًا وصلة Search Console موثقة داخل لوحة المالك، لذلك لا تعرض هذه الشاشة حالة فهرسة غير متحققة.</p><a className="inline-flex rounded-xl border px-4 py-2 text-sm font-bold" href="https://search.google.com/search-console" target="_blank" rel="noreferrer">فتح Google Search Console</a></div>; }
+function PlatformSettingsTab() { return <div className="space-y-3"><h2 className="text-xl font-black">إعدادات المنصة العامة</h2><p className="text-sm text-slate-500">إعدادات المساعد الذكي والمحتوى متاحة حاليًا ضمن تبويباتها. إعدادات البريد والتنبيهات والتكاملات العامة تحتاج واجهات ربط مستقلة.</p></div>; }
