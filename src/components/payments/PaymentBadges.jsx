@@ -21,9 +21,9 @@ function Badge({ id, label, tone }) {
     <li className={`flex h-10 min-w-[3.75rem] items-center justify-center px-2 ${tone === 'dark' ? 'rounded-lg bg-white px-3 shadow-sm' : 'rounded-lg border border-slate-200 bg-white'}`}
       title={label}>
       {failed ? (
-        <span className={`text-[12px] font-black tracking-tight ${'text-slate-800'}`} dir="ltr">{label}</span>
+        <span className="text-[12px] font-black tracking-tight text-slate-800" dir="ltr">{label}</span>
       ) : (
-        <img src={`/payments/${id}.png`} alt={label} className={`h-7 w-auto max-w-[5.5rem] object-contain ${''}`} width="80" height="24"
+        <img src={`/payments/${id}.png`} alt={label} className="h-7 w-auto max-w-[5.5rem] object-contain" width="80" height="24"
           loading="lazy" onError={() => setFailed(true)} />
       )}
     </li>
