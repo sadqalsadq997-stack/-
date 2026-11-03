@@ -170,13 +170,13 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
             <ChevronDown className={cn('w-3 h-3 transition-transform', branchOpen && 'rotate-180')} />
           </button>
           {branchOpen && (
-            <div className={`absolute ${isEnglish ? 'left-3 right-3' : 'right-3 left-3'} top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden">
+            <div className={`absolute ${isEnglish ? 'left-3 right-3' : 'right-3 left-3'} top-full mt-1 bg-sidebar border border-sidebar-border rounded-xl shadow-2xl z-50 overflow-hidden`}>
               {branches.map(b => (
                 <button
                   key={b.id}
                   onClick={() => selectBranch(b)}
                   className={cn(
-                    'w-full text-right px-3 py-2.5 text-xs hover:bg-sidebar-accent transition-colors',
+                    `w-full ${isEnglish ? 'text-left' : 'text-right'} px-3 py-2.5 text-xs hover:bg-sidebar-accent transition-colors`,
                     activeBranch?.id === b.id && 'text-sidebar-primary bg-sidebar-accent'
                   )}
                 >
@@ -208,7 +208,7 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
                 <span className="text-[13px] font-medium truncate">{isEnglish ? (EN_MENU_LABELS[item.path] || item.label) : item.label}</span>
               )}
               {collapsed && (
-                <div className="absolute right-full mr-2.5 px-2.5 py-1.5 bg-sidebar border border-sidebar-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                <div className={`absolute ${isEnglish ? 'left-full ml-2.5' : 'right-full mr-2.5'} px-2.5 py-1.5 bg-sidebar border border-sidebar-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg`}>
                   {isEnglish ? (EN_MENU_LABELS[item.path] || item.label) : item.label}
                 </div>
               )}
