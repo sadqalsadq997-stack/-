@@ -17,7 +17,8 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   const sellerName = esc(branch?.zatca_seller_name || branch?.name_ar || branch?.name || 'البائع');
   const vatNumber  = esc(branch?.vat_number || branch?.zatca_vat_number || '');
   const crNumber   = esc(branch?.cr_number || '');
-  const city       = esc(branch?.zatca_city || branch?.address || 'الرياض');
+  const city       = esc(branch?.zatca_city || '');
+  const sellerAddress = esc(branch?.address || '');
   const logo       = /^https:\/\//.test(branch?.logo_url || '') ? esc(branch.logo_url) : '';
   const phone      = esc(branch?.phone || '');
 
@@ -36,7 +37,7 @@ export default function ZATCAInvoicePDF({ order, branch, zatcaInvoice, onClose }
   });
 
   // بيانات ZATCA
-  const invoiceNumber = zatcaInvoice?.invoice_number || order?.order_number || '';
+  const invoiceNumber = zatcaInvoice?.invoice_number || order?.invoice_number || '';
   const invoiceUuid   = zatcaInvoice?.invoice_uuid || order?.invoice_uuid || '';
   const zatcaStatus   = zatcaInvoice?.zatca_status || order?.zatca_status || 'pending';
 
@@ -79,7 +80,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 .buyer-label{font-size:10px;color:#888;margin-bottom:4px}
 
 /* رقم الفاتورة والتفاصيل */
-.invoice-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:18px}
+.invoice-meta{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:18px}
 .meta-box label{display:block;font-size:10px;color:#888;margin-bottom:2px}
 .meta-box span{font-weight:700;font-size:12.5px;color:#1a1a1a}
 
@@ -126,7 +127,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
     ${logo ? `<img src="${logo}" style="height:52px;object-fit:contain;margin-bottom:8px;max-width:160px"><br>` : ''}
     <div class="seller-name">${sellerName}</div>
     <div class="seller-sub">
-      ${city ? `<span>📍 ${city}</span><br>` : ''}
+      ${sellerAddress ? `<span>📍 ${sellerAddress}</span><br>` : ''}
+      ${city ? `<span>🏙️ ${city}</span><br>` : ''}
       ${phone ? `<span>📞 ${phone}</span><br>` : ''}
       ${vatNumber ? `<span>🔵 الرقم الضريبي: <strong>${vatNumber}</strong></span><br>` : ''}
       ${crNumber ? `<span>📋 السجل التجاري: <strong>${crNumber}</strong></span>` : ''}
@@ -135,7 +137,7 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
   <div class="invoice-title">
     <h1>فاتورة ضريبية</h1>
     <p>Tax Invoice</p>
-    <div style="margin-top:8px;font-size:10px;color:#c0392b;font-weight:700">${esc(order?.order_number || '—')}</div>
+    <div style="margin-top:8px;font-size:10px;color:#c0392b;font-weight:700">رقم الفاتورة: ${esc(invoiceNumber || '—')}</div>
   </div>
   <div class="buyer-info">
     <div class="buyer-label">بيانات العميل</div>
@@ -147,7 +149,8 @@ body{background:#fff;color:#1a1a1a;padding:28px 36px;font-size:12.5px;line-heigh
 
 <!-- بيانات الفاتورة -->
 <div class="invoice-meta">
-  <div class="meta-box"><label>رقم الفاتورة</label><span>${esc(order?.order_number || '—')}</span></div>
+  <div class="meta-box"><label>رقم الفاتورة</label><span>${esc(invoiceNumber || '—')}</span></div>
+  <div class="meta-box"><label>رقم الطلب</label><span style="display:inline-block;border:1px solid #c0392b;border-radius:7px;padding:3px 8px">${esc(order?.order_number || '—')}</span></div>
   <div class="meta-box"><label>التاريخ والوقت</label><span>${dateStr}</span></div>
   <div class="meta-box"><label>طريقة الدفع</label><span>${esc(payLabel)}</span></div>
   <div class="meta-box"><label>نوع الطلب</label><span>${typeLabel || 'محلي'}</span></div>
