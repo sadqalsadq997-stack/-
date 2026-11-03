@@ -110,6 +110,7 @@ export default function MarketingLayout({ children, path, head }) {
                 className="max-h-[80vh] overflow-y-auto border-t border-slate-100 lg:hidden">
                 <div className="flex flex-col gap-0.5 px-4 py-3">
                   <Link to="/pricing" className="rounded-lg px-3 py-2.5 font-bold text-slate-800 hover:bg-slate-50">الأسعار</Link>
+                  <Link to="/careers" className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">الوظائف</Link>
                   {SOLUTIONS.map(s => (
                     <Link key={s.slug} to={`/${s.slug}`} className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">{s.nav}</Link>
                   ))}
