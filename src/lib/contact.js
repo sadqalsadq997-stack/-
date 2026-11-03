@@ -3,9 +3,9 @@
 // (ملف JS نقي: يستخدمه المتصفح وسكربت prerender وقت البناء)
 // ══════════════════════════════════════════════════════════════════
 export const CONTACT = {
-  phoneLocal: '0563909166',            // للعرض داخل السعودية
+  phoneLocal: '+966563909166',            // للعرض داخل السعودية
   phoneIntl: '+966563909166',          // للروابط tel: و schema.org
-  phoneDisplay: '+966 56 390 9166',
+  phoneDisplay: '+966563909166',
   whatsapp: 'https://wa.me/966563909166',
   email: 'info@felsy.org',
   site: 'https://felsy.org',
