@@ -88,7 +88,7 @@ serve(async (req) => {
       if (business.length < 2) throw new HttpError(400, 'اسم النشاط التجاري مطلوب');
       if (!/^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new HttpError(400, 'البريد الإلكتروني غير صحيح');
       if (password.length < 8 || password.length > 72) throw new HttpError(400, 'كلمة المرور لازم تكون 8 أحرف على الأقل');
-      if (body.accepted_terms !== true) throw new HttpError(400, 'يجب الموافقة على الشروط والأحكام وسياسة الخصوصية');
+      if (body.accepted_terms !== true || body.eligibility_attested !== true) throw new HttpError(400, 'يجب الإقرار باستيفاء متطلبات الأهلية والموافقة على الشروط والأحكام وسياسة الخصوصية');
 
       // نتحقق من السعر قبل إنشاء أي شيء (باقة/مدة غير صالحة = لا حساب)
       if (!freeTrial) {
@@ -135,7 +135,7 @@ serve(async (req) => {
         const session = await passwordSession(email, password);
         await sb.from('security_events').insert({
           event_type: 'signup', user_id: uid, ip_address: ip, success: true,
-          meta: { order: order?.order_number ?? null, free_trial: freeTrial, subject: await sha256Hex(email) },
+          meta: { order: order?.order_number ?? null, free_trial: freeTrial, eligibility_attested: true, subject: await sha256Hex(email) },
         });
         if (freeTrial) {
           const { data: trial } = await sb.from('tenant_subscriptions')
