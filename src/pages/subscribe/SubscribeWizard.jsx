@@ -633,7 +633,7 @@ export default function SubscribeWizard({ embedded = false }) {
                             <div className="space-y-2">
                               <label className="flex items-start gap-2 text-sm text-slate-700">
                                 <input type="checkbox" checked={!!info.acceptedTerms} onChange={e => setInfo({ ...info, acceptedTerms: e.target.checked })} className="mt-1" />
-                                <span>أوافق على <Link to="/terms" className="underline">الشروط والأحكام</Link> و<Link to="/privacy" className="underline">سياسة الخصوصية</Link>.</span>
+                                <span>أقر بأنني مستوفٍ لمتطلبات الأهلية لاستخدام الخدمة، وأوافق على <Link to="/terms" className="underline">الشروط والأحكام</Link> و<Link to="/privacy" className="underline">سياسة الخصوصية</Link>.</span>
                               </label>
                               {errors.acceptedTerms && <p className="text-xs text-red-600">{errors.acceptedTerms}</p>}
                             </div>
