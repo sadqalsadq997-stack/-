@@ -117,16 +117,21 @@ export function I18nProvider({ children }) {
   // يدعم استدعاءين:
   // 1) t('dashboard') — بحث بالمفتاح في قاموس الترجمة
   // 2) t('نص عربي مباشر', 'English text') — نص مباشر بدون قاموس (يُستخدم بكثرة في الصفحة الرئيسية)
-  useEffect(() => {\n    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');\n    document.documentElement.setAttribute('lang', lang);\n    document.documentElement.dataset.language = lang;\n  }, [lang]);\n\n  const t = (arOrKey, en) => {
+  useEffect(() => {
+    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+    document.documentElement.setAttribute('lang', lang);
+    document.documentElement.dataset.language = lang;
+  }, [lang]);
+
+  const t = (arOrKey, en) => {
     if (en !== undefined) return lang === 'ar' ? arOrKey : en;
     return translations[lang]?.[arOrKey] ?? arOrKey;
   };
 
   const switchLang = (l) => {
+    if (!['ar', 'en'].includes(l)) return;
     setLang(l);
-    localStorage.setItem('felsy_lang', l);
-    document.documentElement.setAttribute('dir', l === 'ar' ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', l);
+    try { localStorage.setItem('felsy_lang', l); } catch { /* storage may be unavailable */ }
   };
 
   return (
