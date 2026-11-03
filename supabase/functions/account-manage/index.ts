@@ -1,11 +1,9 @@
 // ══════════════════════════════════════════════════════════════════
 // Edge Function: account-manage — إعدادات حساب المنشأة (للمالك فقط)
 // ──────────────────────────────────────────────────────────────────
-//  cancel_subscription  يوقف التجديد — الاشتراك يبقى شغال لنهاية المدة المدفوعة
-//  resume_subscription  التراجع عن الإلغاء
-//  delete_account       حذف المنشأة وكل بياناتها وحسابات موظفيها نهائياً
-//                       (يتطلب كلمة المرور + كتابة رقم الحساب للتأكيد)
-// انشر بـ: supabase functions deploy account-manage --no-verify-jwt
+// cancel_subscription يوقف التجديد فقط؛ تظل الخدمة فعّالة حتى نهاية
+// الفترة المدفوعة. resume_subscription يعيد التجديد قبل نهاية الفترة.
+// delete_account يحذف المنشأة بعد إعادة التحقق من كلمة المرور.
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -46,14 +44,62 @@ serve(async (req) => {
 
     if (action === 'cancel_subscription' || action === 'resume_subscription') {
       const cancel = action === 'cancel_subscription';
-      const { data: sub } = await sb.from('tenant_subscriptions').select('id, current_period_end')
-        .eq('tenant_id', caller.tenantId).maybeSingle();
+      const { data: sub, error: readError } = await sb.from('tenant_subscriptions')
+        .select('id, current_period_end, cancel_at_period_end')
+        .eq('tenant_id', caller.tenantId)
+        .maybeSingle();
+
+      if (readError) throw new HttpError(500, 'تعذر قراءة حالة الاشتراك، حاول مرة أخرى');
       if (!sub) throw new HttpError(404, 'لا يوجد اشتراك');
-      await sb.from('tenant_subscriptions').update({
-        cancel_at_period_end: cancel, cancelled_at: cancel ? new Date().toISOString() : null,
-      }).eq('id', sub.id);
-      await sb.from('audit_log').insert({ tenant_id: caller.tenantId, action, user_id: caller.userId, meta: {} }).then(() => {}, () => {});
-      return json({ ok: true, cancel_at_period_end: cancel, period_end: sub.current_period_end });
+
+      const periodEnd = new Date(sub.current_period_end);
+      if (!Number.isFinite(periodEnd.getTime())) throw new HttpError(500, 'تاريخ نهاية الاشتراك غير صالح');
+      if (periodEnd.getTime() <= Date.now()) {
+        throw new HttpError(409, 'انتهت الفترة المدفوعة بالفعل؛ اختر تجديد الاشتراك للمتابعة');
+      }
+
+      if (!cancel && !sub.cancel_at_period_end) {
+        return json({ ok: true, cancel_at_period_end: false, period_end: sub.current_period_end });
+      }
+      if (cancel && sub.cancel_at_period_end) {
+        return json({ ok: true, cancel_at_period_end: true, period_end: sub.current_period_end });
+      }
+
+      const requestedAt = new Date().toISOString();
+      const { data: updated, error: updateError } = await sb.from('tenant_subscriptions')
+        .update({
+          cancel_at_period_end: cancel,
+          cancelled_at: cancel ? requestedAt : null,
+          cancellation_requested_at: cancel ? requestedAt : null,
+          cancellation_effective_at: cancel ? sub.current_period_end : null,
+          updated_at: requestedAt,
+        })
+        .eq('id', sub.id)
+        .select('id, cancel_at_period_end, current_period_end')
+        .maybeSingle();
+
+      if (updateError || !updated) {
+        console.error('[account-manage] subscription cancellation update failed', updateError);
+        throw new HttpError(500, 'لم يتم حفظ تغيير الاشتراك. لم نغيّر حالة التجديد؛ حاول مرة أخرى');
+      }
+
+      const { error: auditError } = await sb.from('audit_log').insert({
+        tenant_id: caller.tenantId,
+        action,
+        user_id: caller.userId,
+        meta: {
+          requested_at: requestedAt,
+          effective_at: updated.current_period_end,
+          cancel_at_period_end: updated.cancel_at_period_end,
+        },
+      });
+      if (auditError) console.error('[account-manage] failed to write cancellation audit event', auditError);
+
+      return json({
+        ok: true,
+        cancel_at_period_end: updated.cancel_at_period_end,
+        period_end: updated.current_period_end,
+      });
     }
 
     if (action === 'delete_account') {
@@ -62,8 +108,10 @@ serve(async (req) => {
       const guard = await guardCheck(sb, 'login', device, ip, caller.email);
       if (!guard.allowed) return json({ error: lockedMessage(guard.retry_after), code: 'locked' }, 429);
 
-      const { data: t } = await sb.from('tenants').select('id, account_number').eq('id', caller.tenantId).single();
-      if (String(body.confirm_account ?? '').trim() !== String(t?.account_number)) {
+      const { data: t, error: tenantError } = await sb.from('tenants')
+        .select('id, account_number').eq('id', caller.tenantId).single();
+      if (tenantError || !t) throw new HttpError(500, 'تعذر التحقق من بيانات المنشأة');
+      if (String(body.confirm_account ?? '').trim() !== String(t.account_number)) {
         throw new HttpError(400, 'اكتب رقم الحساب بشكل صحيح للتأكيد');
       }
       const ok = caller.email ? await passwordOk(caller.email, String(body.password || '')) : false;
@@ -75,7 +123,6 @@ serve(async (req) => {
       }
       const { data: res, error } = await sb.rpc('delete_tenant_data', { p_tenant: caller.tenantId });
       if (error) throw new HttpError(500, 'تعذر حذف البيانات، تواصل مع الدعم');
-      // نحذف حسابات الدخول اللي ما تنتمي لمنشأة ثانية
       for (const uid of (res?.users ?? []) as string[]) {
         const { count } = await sb.from('tenant_users').select('id', { count: 'exact', head: true }).eq('auth_id', uid);
         if (!count) await sb.auth.admin.deleteUser(uid).catch(() => {});
