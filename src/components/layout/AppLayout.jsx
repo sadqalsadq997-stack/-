@@ -3,7 +3,8 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import OfflineIndicator from './OfflineIndicator';
 import SmartNotifications from '@/components/SmartNotifications';
-import { Menu, Moon, Sun } from 'lucide-react';
+import { Menu, Moon, Sun, Languages } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -24,9 +25,11 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useDarkMode();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { lang, switchLang } = useI18n();
+  const isArabic = lang === 'ar';
 
   return (
-    <div className="min-h-screen bg-background flex" dir="rtl">
+    <div className="min-h-screen bg-background flex" dir={isArabic ? "rtl" : "ltr"}>
       {/* Sidebar desktop */}
       <div className="hidden md:block">
         <Sidebar dark={dark} setDark={setDark} onCollapse={setSidebarCollapsed} />
@@ -36,7 +39,7 @@ export default function AppLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute right-0 top-0 h-full z-50">
+          <div className={`absolute ${isArabic ? "right-0" : "left-0"} top-0 h-full z-50`}>
             <Sidebar dark={dark} setDark={setDark} />
           </div>
         </div>
@@ -45,16 +48,17 @@ export default function AppLayout() {
       {/* Main content */}
       <main
         className={`flex-1 transition-all duration-300 min-h-screen flex flex-col ${
-          sidebarCollapsed ? 'md:mr-[68px]' : 'md:mr-[252px]'
+          sidebarCollapsed ? (isArabic ? 'md:mr-[68px]' : 'md:ml-[68px]') : (isArabic ? 'md:mr-[252px]' : 'md:ml-[252px]')
         }`}
       >
         {/* Mobile top bar */}
-        <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-30">
-          <button onClick={() => setMobileOpen(true)} className="p-2 rounded-xl hover:bg-muted press-3d">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+          <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-xl hover:bg-muted press-3d">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-lg text-primary tracking-tight">فلسي</span>
+          <span className="font-black text-lg text-primary tracking-tight">Felsy</span>
           <div className="flex items-center gap-1">
+            <button onClick={() => switchLang(isArabic ? "en" : "ar")} className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" title={isArabic ? "Switch to English" : "التبديل إلى العربية"}><Languages className="h-4 w-4" /><span>{isArabic ? "EN" : "عربي"}</span></button>
             <button
               onClick={() => setDark(d => !d)}
               className="p-2 rounded-xl hover:bg-muted press-3d transition-colors"
