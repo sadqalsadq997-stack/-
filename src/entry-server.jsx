@@ -26,6 +26,7 @@ export function render(url) {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/careers" element={<Careers />} />
+        <Route path="/careers/:slug" element={<Careers />} />
       </Routes>
     </StaticRouter>
   );
