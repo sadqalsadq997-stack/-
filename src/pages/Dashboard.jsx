@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AccountNumber from '@/components/AccountNumber';
+import { useI18n } from '@/lib/i18n';
 
 function StatCard({ icon: Icon, label, value, change, color = 'text-primary', bg = 'bg-primary/10' }) {
   const positive = change >= 0;
@@ -63,10 +64,10 @@ function ZATCAStatusBanner() {
       <Link to="/zatca-admin" className="flex items-center gap-3 rounded-2xl border border-red-300 bg-red-50 px-5 py-3.5 hover:bg-red-100">
         <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-red-800">{st.overdue > 0 ? `${st.overdue} فاتورة متأخرة عن الإرسال للهيئة` : `${st.rejected} فاتورة مرفوضة من الهيئة`}</p>
+          <p className="text-sm font-bold text-red-800">{st.overdue > 0 ? `${st.overdue} ${t('zatca_overdue')}` : `${st.rejected} ${t('zatca_rejected')}`}</p>
           <p className="text-xs text-red-700">المهلة النظامية للفاتورة المبسطة 24 ساعة — افتح مركز الفوترة للمعالجة</p>
         </div>
-        <span className="text-xs font-medium text-red-700">معالجة ←</span>
+        <span className="text-xs font-medium text-red-700">{t('zatca_fix')} ←</span>
       </Link>
     );
   }
@@ -85,15 +86,17 @@ function ZATCAStatusBanner() {
     <div className="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3">
       <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
       <div className="flex-1">
-        <p className="text-sm font-bold text-green-800">الفوترة الإلكترونية شغالة ✓</p>
+        <p className="text-sm font-bold text-green-800">{t('zatca_active')} ✓</p>
         <p className="text-xs text-green-700">{st.reported_24h} فاتورة انرسلت للهيئة آخر 24 ساعة{st.pending ? ` · ${st.pending} بالطريق` : ''}</p>
       </div>
-      <Link to="/zatca-admin" className="text-xs font-medium text-green-700 hover:underline">التفاصيل ←</Link>
+      <Link to="/zatca-admin" className="text-xs font-medium text-green-700 hover:underline">{t('zatca_details')} ←</Link>
     </div>
   );
 }
 
 export default function Dashboard() {
+  const { lang, t } = useI18n();
+  const isArabic = lang === 'ar';
   const today = new Date().toISOString().split('T')[0];
 
   const { data: orders = [] } = useQuery({
@@ -126,15 +129,15 @@ export default function Dashboard() {
   const pendingOrders = orders.filter(o => ['pending', 'preparing'].includes(o.status));
   const lowStock = products.filter(p => p.track_inventory && (p.stock_quantity || 0) <= (p.min_stock_alert || 5));
 
-  const formatSAR = (n) => `${Number(n || 0).toLocaleString('ar')} ⃁`;
+  const formatSAR = (n) => `${Number(n || 0).toLocaleString(isArabic ? 'ar-SA' : 'en-US')} ⃁`;
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir={isArabic ? "rtl" : "ltr"} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-foreground">لوحة التحكم</h1>
+          <h1 className="text-2xl font-black text-foreground">{t("dashboard")}</h1>
           <AccountNumber showName className="mt-1" />
-          <p className="text-muted-foreground text-sm">{new Date().toLocaleDateString('ar', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="text-muted-foreground text-sm">{new Date().toLocaleDateString(isArabic ? 'ar-SA' : 'en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl px-3 py-1.5 text-sm font-medium">
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -146,10 +149,10 @@ export default function Dashboard() {
       <ZATCAStatusBanner />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={TrendingUp}   label="مبيعات اليوم"    value={formatSAR(todayRevenue)}  change={12} color="text-emerald-500" bg="bg-emerald-500/10" />
-        <StatCard icon={ShoppingCart} label="طلبات اليوم"    value={todayOrders.length}        change={5}  color="text-sage-500"    bg="bg-sage-500/10" />
-        <StatCard icon={Users}        label="إجمالي العملاء" value={customersCount ?? '…'}      change={3}  color="text-peach-500"  bg="bg-peach-500/10" />
-        <StatCard icon={Package}      label="المنتجات"       value={products.length}                        color="text-amber-500"   bg="bg-amber-500/10" />
+        <StatCard icon={TrendingUp}   label={t("sales_today")}    value={formatSAR(todayRevenue)}  change={12} color="text-emerald-500" bg="bg-emerald-500/10" />
+        <StatCard icon={ShoppingCart} label={t("orders_today")}    value={todayOrders.length}        change={5}  color="text-sage-500"    bg="bg-sage-500/10" />
+        <StatCard icon={Users}        label={t("total_customers")} value={customersCount ?? '…'}      change={3}  color="text-peach-500"  bg="bg-peach-500/10" />
+        <StatCard icon={Package}      label={t("products")}       value={products.length}                        color="text-amber-500"   bg="bg-amber-500/10" />
       </div>
 
       {(pendingOrders.length > 0 || lowStock.length > 0) && (
@@ -177,7 +180,7 @@ export default function Dashboard() {
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-bold text-foreground">آخر الطلبات</h3>
+          <h3 className="font-bold text-foreground">{t('latest_orders')}</h3>
           <Link to="/orders" className="text-sm text-primary hover:underline flex items-center gap-1">
             عرض الكل <ChevronRight className="w-3.5 h-3.5" />
           </Link>
@@ -205,7 +208,7 @@ export default function Dashboard() {
                     : o.status === 'pending'   ? 'bg-amber-500/15 text-amber-600'
                     : 'bg-muted text-muted-foreground'
                   }`}>
-                    {o.status === 'completed' ? 'مكتمل' : o.status === 'pending' ? 'معلق' : o.status === 'preparing' ? 'قيد التحضير' : o.status}
+                    {o.status === 'completed' ? t('completed') : o.status === 'pending' ? t('pending') : o.status === 'preparing' ? t('preparing') : o.status}
                   </span>
                 </div>
               </div>
