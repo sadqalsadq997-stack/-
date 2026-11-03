@@ -300,7 +300,7 @@ export default function SubscribeWizard({ embedded = false }) {
   const [plan, setPlan] = useState(trialMode ? 'pro' : (saved.plan || params.get('plan') || ''));
   const [branches, setBranches] = useState(trialMode ? 3 : (saved.branches || 1));
   const [months, setMonths] = useState(trialMode ? 1 : (saved.months || 12));
-  const [info, setInfo] = useState({ name: '', phone: '', business: '', email: '', birthDate: '', acceptedTerms: false, ...(saved.info || {}), password: '' });
+  const [info, setInfo] = useState({ name: '', phone: '', business: '', email: '', acceptedTerms: false, ...(saved.info || {}), password: '' });
   const [errors, setErrors] = useState({});
   const [quote, setQuote] = useState(null);
   const [order, setOrder] = useState(saved.order || null);
@@ -389,7 +389,7 @@ export default function SubscribeWizard({ embedded = false }) {
   // حفظ التقدم (بدون كلمة المرور)
   useEffect(() => {
     try {
-      const { password, birthDate, acceptedTerms, ...rest } = info;
+      const { password, acceptedTerms, ...rest } = info;
       sessionStorage.setItem(STORE_KEY, JSON.stringify({ plan, branches, months, info: rest, order }));
     } catch { /* */ }
   }, [plan, branches, months, info, order]);
@@ -424,9 +424,7 @@ export default function SubscribeWizard({ embedded = false }) {
     if (info.business.trim().length < 2) e.business = 'اسم النشاط التجاري مطلوب';
     if (!hasAccount && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(info.email.trim())) e.email = 'البريد الإلكتروني غير صحيح';
     if (!hasAccount && info.password.length < 8) e.password = 'كلمة المرور لازم تكون 8 أحرف على الأقل';
-    if (!hasAccount && !/^\\d{4}-\\d{2}-\\d{2}$/.test(info.birthDate || '')) e.birthDate = 'تاريخ الميلاد مطلوب';
-    if (!hasAccount && info.birthDate && !isAdultDate(info.birthDate)) e.birthDate = 'يجب أن يكون عمر صاحب الحساب 18 سنة أو أكثر. إذا كان المستخدم قاصراً، يجب أن ينشئ ولي الأمر الحساب باسمه.';
-    if (!hasAccount && !info.acceptedTerms) e.acceptedTerms = 'يجب الموافقة على الشروط وسياسة الخصوصية وإقرار الأهلية';
+    if (!hasAccount && !info.acceptedTerms) e.acceptedTerms = 'يجب الموافقة على الشروط والأحكام وسياسة الخصوصية';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -453,7 +451,7 @@ export default function SubscribeWizard({ embedded = false }) {
           const { data, error } = await callFunction('billing-order', {
             action: trialMode ? 'signup_trial' : 'signup', plan_code: trialMode ? 'pro' : plan, branches: trialMode ? 3 : (unlimited ? 1 : branches), months: trialMode ? 1 : months,
             name: info.name, phone: info.phone, business_name: info.business, email: info.email.trim(), password: info.password,
-            birth_date: info.birthDate, accepted_terms: info.acceptedTerms,
+            accepted_terms: info.acceptedTerms,
           });
           if (error) throw new Error(error);
           if (data.session) await supabase.auth.setSession(data.session);
@@ -614,11 +612,6 @@ export default function SubscribeWizard({ embedded = false }) {
                             </Field>
                           )}
                           {!hasAccount && (
-                            <Field label="تاريخ الميلاد" error={errors.birthDate}>
-                              <input type="date" value={info.birthDate} onChange={e => setInfo({ ...info, birthDate: e.target.value })} max={new Date().toISOString().slice(0, 10)} className={inputCls(errors.birthDate)} />
-                            </Field>
-                          )}
-                          {!hasAccount && (
                             <Field label="رقم الجوال" error={errors.phone}>
                               <div className={`flex items-center overflow-hidden rounded-xl border bg-white focus-within:ring-4 ${errors.phone ? 'border-red-400 focus-within:ring-red-100' : 'border-beige-300 focus-within:border-sage-600 focus-within:ring-sage-100'}`} dir="ltr">
                                 <span className="flex h-12 items-center border-e border-beige-300 bg-beige px-3 text-sm font-bold text-slate-600">+966</span>
@@ -650,10 +643,9 @@ export default function SubscribeWizard({ embedded = false }) {
                             <div className="space-y-2">
                               <label className="flex items-start gap-2 text-sm text-slate-700">
                                 <input type="checkbox" checked={!!info.acceptedTerms} onChange={e => setInfo({ ...info, acceptedTerms: e.target.checked })} className="mt-1" />
-                                <span>أوافق على <Link to="/terms" className="underline">الشروط والأحكام</Link> و<Link to="/privacy" className="underline">سياسة الخصوصية</Link>، وأقر بأنني أبلغ 18 عاماً أو أكثر ومخوّل بإنشاء حساب المنشأة.</span>
+                                <span>أوافق على <Link to="/terms" className="underline">الشروط والأحكام</Link> و<Link to="/privacy" className="underline">سياسة الخصوصية</Link>.</span>
                               </label>
                               {errors.acceptedTerms && <p className="text-xs text-red-600">{errors.acceptedTerms}</p>}
-                              <p className="text-xs text-slate-500">لا يُسمح للقاصر بإنشاء حساب مالك مستقل. يجب أن ينشئ ولي الأمر أو الممثل البالغ الحساب باسمه، ثم يدير صلاحيات الموظفين من داخل المنشأة.</p>
                             </div>
                           )}
                         </div>
