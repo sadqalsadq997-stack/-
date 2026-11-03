@@ -888,71 +888,113 @@ export default function SuperAdmin() {
 
   if (!authed) return <OwnerLogin onLogin={() => setAuthed(true)} />;
 
-  const TABS = [
-    { id: 'overview',  label: 'نظرة عامة',    icon: BarChart3    },
-    { id: 'clients',   label: 'المشتركين',     icon: Users        },
-    { id: 'orders',    label: 'طلبات الاشتراك', icon: Landmark     },
-    { id: 'tickets',   label: 'التذاكر',       icon: MessageSquare},
-    { id: 'pricing',   label: 'أسعار الخطط',   icon: BadgeDollarSign },
-    { id: 'billing',   label: 'الفوترة الدورية', icon: CreditCard },
-    { id: 'broadcast', label: 'رسائل جماعية',  icon: Megaphone    },
-    { id: 'blog',      label: 'المدونة',        icon: Newspaper    },
-    { id: 'ai',        label: 'مساعد الذكاء',  icon: Bot          },
-    { id: 'team',      label: 'الفريق والمحتوى', icon: UserCog     },
+  const NAV_GROUPS = [
+    { title: 'الرئيسية', items: [
+      { id: 'overview', label: 'نظرة عامة', desc: 'ملخص أداء المنصة ومؤشراتها', icon: BarChart3 },
+    ]},
+    { title: 'إدارة العملاء', items: [
+      { id: 'clients', label: 'المنشآت والعملاء', desc: 'إدارة حسابات المنشآت واشتراكاتها', icon: Users },
+      { id: 'orders', label: 'طلبات الاشتراك', desc: 'مراجعة الطلبات والمدفوعات', icon: Landmark },
+    ]},
+    { title: 'التشغيل والدعم', items: [
+      { id: 'tickets', label: 'مركز الدعم الفني', desc: 'متابعة تذاكر العملاء والردود', icon: MessageSquare },
+      { id: 'team', label: 'فريق فلسي', desc: 'إدارة فريق المنصة ومحتواها', icon: UserCog },
+    ]},
+    { title: 'النمو والإيرادات', items: [
+      { id: 'pricing', label: 'الخطط والأسعار', desc: 'إدارة باقات الاشتراك', icon: BadgeDollarSign },
+      { id: 'billing', label: 'الفوترة الدورية', desc: 'إعدادات الفوترة والتحصيل', icon: CreditCard },
+      { id: 'broadcast', label: 'التواصل والإشعارات', desc: 'الرسائل الجماعية للعملاء', icon: Megaphone },
+    ]},
+    { title: 'المحتوى والذكاء', items: [
+      { id: 'blog', label: 'المحتوى والمدونة', desc: 'إدارة المقالات والمحتوى العام', icon: Newspaper },
+      { id: 'ai', label: 'مساعد فلسي الذكي', desc: 'إعدادات المساعد الذكي', icon: Bot },
+    ]},
   ];
+  const activeItem = NAV_GROUPS.flatMap(g => g.items).find(item => item.id === tab);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gray-100 p-3 text-gray-900 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* رأس */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <LogoMark size={40} />
-            <div>
-              <h1 className="text-xl font-black text-gray-900">لوحة المالك — فلسي</h1>
-              <p className="text-xs text-gray-400">جلسة آمنة · تنتهي خلال 4 ساعات</p>
+    <div dir="rtl" className="min-h-screen bg-[#f4f5f7] text-slate-900">
+      <div className="min-h-screen lg:flex">
+        <aside className="w-full shrink-0 bg-[#17191f] text-white lg:sticky lg:top-0 lg:h-screen lg:w-[280px] lg:overflow-y-auto">
+          <div className="flex items-center gap-3 border-b border-white/10 px-6 py-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white"><LogoMark size={30} /></div>
+            <div><p className="text-base font-black tracking-wide">FELSY</p><p className="mt-0.5 text-[10px] font-medium tracking-[.2em] text-slate-400">PLATFORM CONTROL</p></div>
+          </div>
+          <div className="px-5 py-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[10px] font-bold tracking-[.18em] text-slate-400">مساحة العمل</p>
+              <p className="mt-2 text-sm font-bold text-white">إدارة منصة فلسي</p>
+              <p className="mt-1 text-xs text-slate-400">مالك المنصة · صلاحيات عليا</p>
             </div>
           </div>
-          <button onClick={logout}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm transition-colors">
-            <LogOut className="w-4 h-4" /> خروج
-          </button>
-        </div>
+          <nav className="space-y-6 px-3 pb-6" aria-label="قائمة إدارة المنصة">
+            {NAV_GROUPS.map(group => (
+              <section key={group.title}>
+                <p className="px-3 pb-2 text-[10px] font-bold tracking-[.16em] text-slate-500">{group.title}</p>
+                <div className="space-y-1">
+                  {group.items.map(item => (
+                    <button key={item.id} onClick={() => setTab(item.id)}
+                      aria-current={tab === item.id ? 'page' : undefined}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition-all ${tab === item.id ? 'bg-white text-[#17191f] shadow-lg shadow-black/10' : 'text-slate-300 hover:bg-white/[0.07] hover:text-white'}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tab === item.id ? 'bg-[#e9e7e1] text-slate-900' : 'bg-white/[0.07] text-slate-300'}`}><item.icon className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1"><span className="block text-sm font-bold">{item.label}</span><span className={`mt-1 block truncate text-[10px] ${tab === item.id ? 'text-slate-500' : 'text-slate-500'}`}>{item.desc}</span></span>
+                      {tab === item.id && <span className="h-1.5 w-1.5 rounded-full bg-[#b89b62]" />}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </nav>
+          <div className="border-t border-white/10 px-5 py-4 text-[10px] text-slate-500">Felsy Platform · Secure owner session</div>
+        </aside>
 
-        {/* تبويبات */}
-        <div className="flex gap-1 bg-white p-1 rounded-2xl border border-gray-200 overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-medium transition-all ${
-                tab === t.id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-700'
-              }`}>
-              <t.icon className="w-3.5 h-3.5" /> {t.label}
-            </button>
-          ))}
-        </div>
+        <main className="min-w-0 flex-1">
+          <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-5 py-4 backdrop-blur-xl sm:px-8">
+            <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold tracking-[.18em] text-[#a38b5b]">FELSY / PLATFORM OWNER</p>
+                <h1 className="mt-1 truncate text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{activeItem?.label || 'لوحة مالك المنصة'}</h1>
+                <p className="mt-1 hidden text-xs text-slate-500 sm:block">{activeItem?.desc || 'مركز التحكم الرئيسي لمنصة فلسي'}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-700 sm:inline-flex">جلسة مالك موثقة</span>
+                <button onClick={loadAll} className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">تحديث</span></button>
+                <button onClick={logout} className="flex h-10 items-center gap-2 rounded-xl bg-[#20232b] px-3 text-xs font-bold text-white hover:bg-black"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">خروج</span></button>
+              </div>
+            </div>
+          </header>
 
-        {loading && tab !== 'pricing' && tab !== 'blog' && tab !== 'broadcast' && tab !== 'ai' && tab !== 'billing' ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-red-500" /></div>
-        ) : (
-          <>
-            {tab === 'overview'  && <OverviewTab stats={stats} clients={clients} />}
-            {tab === 'orders'    && <OrdersTab />}
-            {tab === 'pricing'   && <PricingTab />}
-            {tab === 'billing'   && <BillingTab />}
-            {tab === 'broadcast' && <BroadcastTab clients={clients} />}
-            {tab === 'blog'      && <BlogManager api={callOwnerApi} />}
-            {tab === 'ai'        && <AISettingsTab />}
-
-            {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
-
-            {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
-            {tab === 'team' && <TeamAndContentTab />}
-          </>
-        )}
+          <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-7 lg:p-9">
+            {tab === 'overview' && stats && (
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <StatCard icon={Users} label="إجمالي المنشآت" value={fmt(stats.totalClients)} color="bg-slate-100 text-slate-700" />
+                <StatCard icon={CheckCircle2} label="المنشآت النشطة" value={fmt(stats.activeClients)} color="bg-emerald-50 text-emerald-700" />
+                <StatCard icon={TrendingUp} label="إجمالي الإيرادات" value={fmtSAR(stats.totalRevenue)} color="bg-amber-50 text-amber-700" />
+                <StatCard icon={MessageSquare} label="تذاكر مفتوحة" value={fmt(stats.openTickets)} color="bg-rose-50 text-rose-700" />
+              </div>
+            )}
+            {loading && !['pricing','blog','broadcast','ai','billing'].includes(tab) ? (
+              <div className="flex min-h-[300px] items-center justify-center rounded-3xl border border-slate-200 bg-white"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>
+            ) : (
+              <div className="rounded-[26px] border border-slate-200/80 bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.045)] sm:p-7">
+                {tab === 'overview' && <OverviewTab stats={stats} clients={clients} />}
+                {tab === 'orders' && <OrdersTab />}
+                {tab === 'pricing' && <PricingTab />}
+                {tab === 'billing' && <BillingTab />}
+                {tab === 'broadcast' && <BroadcastTab clients={clients} />}
+                {tab === 'blog' && <BlogManager api={callOwnerApi} />}
+                {tab === 'ai' && <AISettingsTab />}
+                {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
+                {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
+                {tab === 'team' && <TeamAndContentTab />}
+              </div>
+            )}
+            <footer className="pb-4 text-center text-[10px] tracking-wide text-slate-400">© {new Date().getFullYear()} FELSY · PLATFORM MANAGEMENT</footer>
+          </div>
+        </main>
       </div>
     </div>
   );
-}
 
 // ── تبويب الدعم الفني — شات كامل بين صاحب النظام والعملاء ──────
 // ── طلبات الاشتراك + اعتماد التحويلات البنكية ──────────────────────
