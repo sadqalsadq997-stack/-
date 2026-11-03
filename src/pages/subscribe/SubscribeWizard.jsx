@@ -389,7 +389,7 @@ export default function SubscribeWizard({ embedded = false }) {
   // حفظ التقدم (بدون كلمة المرور)
   useEffect(() => {
     try {
-      const { password, ...rest } = info;
+      const { password, birthDate, acceptedTerms, ...rest } = info;
       sessionStorage.setItem(STORE_KEY, JSON.stringify({ plan, branches, months, info: rest, order }));
     } catch { /* */ }
   }, [plan, branches, months, info, order]);
