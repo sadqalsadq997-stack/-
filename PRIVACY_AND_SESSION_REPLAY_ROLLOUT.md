@@ -15,15 +15,9 @@ This PR adds database foundations and hardens the existing cancellation endpoint
 
 ## Children and guardian consent
 
-The migration adds a service-role-only request table. It deliberately does not store a child's full date of birth. Guardian contact must be encrypted by the backend before storage; a keyed hash can support lookup and abuse prevention.
+The public signup now requires a date of birth and an explicit adult-owner declaration. The Edge Function independently validates that the proposed owner is at least 18 before creating an auth user or tenant. The full date of birth is not persisted. Terms, privacy notice and adult-age attestation are recorded in the append-only consent log.
 
-**Still required before enabling child accounts:**
-1. Add an age/eligibility step to every signup path, including email and OAuth.
-2. Resolve the applicable minimum age and guardian rules from the user's jurisdiction; do not assume one age threshold for all countries.
-3. If guardian consent is required, do not create/activate the child account until a verified guardian flow succeeds.
-4. Verify guardian control using a suitable independent verification method; an unchecked checkbox or email link alone may not be sufficient in every jurisdiction.
-5. Support consent withdrawal, account restrictions, access/deletion requests and an auditable record of the policy version.
-6. Test bypass attempts against direct Edge Function calls, not only the browser form.
+This blocks direct self-service signup for minors; it does not yet implement a child-account workflow. If a future product feature permits minors to use Felsy as staff or account members, require a verified guardian workflow and apply the country-specific threshold before provisioning access. The parental-consent request table is service-role-only and is not exposed as an active signup path. Do not treat a checkbox as identity verification.
 
 ## Session Replay
 
@@ -40,17 +34,17 @@ The new preference table defaults to `enabled = false`. Before enabling any repl
 
 ## Privacy and legal review
 
-The processing register is intentionally empty until Felsy records actual data categories, purposes, legal bases, processors, retention periods and international transfer safeguards. Do not fill it with generic claims.
+The processing register has an initial inventory for Supabase, Moyasar, Vercel and ZATCA. The Supabase project is hosted in ap-south-1 (Mumbai, India). Legal bases and retention periods are marked pending review where they have not been established; Moyasar and Vercel processing regions still need vendor confirmation. Do not fill it with generic claims.
 
 Before public release, prepare country-specific notices and terms for each market where Felsy is offered, and obtain qualified local legal review. At minimum review Saudi Arabia, UAE, Qatar, Bahrain, Kuwait, Oman, Jordan, Egypt and any other launch market. The database structures are technical controls, not legal advice or proof of compliance.
 
 ## Deployment checklist
 
 1. Review this PR and merge it only after code review.
-2. Apply migration `034_privacy_consent_replay_and_cancellation` to the intended Supabase project.
+2. Migration `20261103_privacy_consent_replay_and_cancellation` has been applied to the connected Supabase production project and its four new tables were verified with RLS enabled and no direct client policies (service-role only).
 3. Deploy the updated `account-manage` Edge Function.
 4. Test cancel, repeated cancel, resume, repeated resume, expired subscription and database failure paths.
 5. Confirm a cancelled recurring subscription is skipped by the billing cron and remains active until the paid period end.
-6. Do not claim child signup is protected until every signup/OAuth path enforces guardian approval server-side.
+6. The current owner signup endpoint enforces an adult age gate server-side; verify all other account-provisioning paths before enabling minor staff accounts.
 7. Do not claim Session Replay is opt-in until the provider SDK itself checks `session_replay_preferences` before recording.
-8. Run the app build, Edge Function checks, SQL migration checks and an end-to-end test in staging before production deployment.
+8. GitHub Actions build and Edge Function type-check passed for this PR. The production Edge Function deployments and live signup/cancellation end-to-end tests remain to be completed.
