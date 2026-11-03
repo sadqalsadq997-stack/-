@@ -359,6 +359,45 @@ serve(async (req) => {
         return ok(true);
       }
 
+      // ── مركز أعطال ومشكلات منصة فلسي ─────────────────────────
+      case 'list_platform_incidents':
+        return ok(must(await sb.from('platform_incidents')
+          .select('*, platform_team_members(id, full_name, department, job_title)')
+          .order('created_at', { ascending: false }).limit(500)));
+
+      case 'create_platform_incident': {
+        const title = text(p.title, 180).trim();
+        const description = text(p.description, 8000).trim();
+        if (!title || !description) throw new HttpError(400, 'عنوان المشكلة ووصفها مطلوبان');
+        const category = ['bug','outage','performance','security','deployment','request'].includes(String(p.category)) ? String(p.category) : 'bug';
+        const severity = ['low','medium','high','critical'].includes(String(p.severity)) ? String(p.severity) : 'medium';
+        return ok(must(await sb.from('platform_incidents').insert({
+          title, description, category, severity,
+          affected_area: text(p.affected_area, 120) || null,
+          reported_by: text(p.reported_by, 120) || 'مالك المنصة',
+          source: 'owner_console',
+        }).select('*').single()));
+      }
+
+      case 'update_platform_incident': {
+        const id = uuid(p.id);
+        const u = (p.updates && typeof p.updates === 'object') ? p.updates as Payload : {};
+        const updates: Payload = {};
+        if (u.status !== undefined) {
+          if (!['open','triaged','in_progress','blocked','resolved','closed'].includes(String(u.status))) throw new HttpError(400, 'حالة غير صحيحة');
+          updates.status = String(u.status);
+          updates.resolved_at = ['resolved','closed'].includes(String(u.status)) ? new Date().toISOString() : null;
+        }
+        if (u.severity !== undefined) {
+          if (!['low','medium','high','critical'].includes(String(u.severity))) throw new HttpError(400, 'أولوية غير صحيحة');
+          updates.severity = String(u.severity);
+        }
+        if (u.assigned_to !== undefined) updates.assigned_to = u.assigned_to ? uuid(u.assigned_to) : null;
+        if (u.resolution_notes !== undefined) updates.resolution_notes = text(u.resolution_notes, 8000);
+        updates.updated_at = new Date().toISOString();
+        return ok(must(await sb.from('platform_incidents').update(updates).eq('id', id).select('*').single()));
+      }
+
       default:
         throw new HttpError(400, 'عملية غير معروفة');
     }
