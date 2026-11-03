@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig, useScroll, useSpring } from 'framer-motion';
-import { Menu, X, Phone, Mail, MapPin, ChevronDown, MessageCircle, Instagram, Music2 } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import zatcaLogo from '@/assets/zatca-logo-wide.png';
 import { SITE, SOLUTIONS, getHead } from '@/content/seo';
@@ -46,6 +46,17 @@ const NAV = [
   { to: '/careers', label: 'الوظائف' },
 ];
 
+
+function WhatsAppBrand({ className = '' }) {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M20.52 3.48A11.82 11.82 0 0 0 12.08 0C5.48 0 .12 5.36.12 11.96c0 2.11.55 4.17 1.6 5.98L0 24l6.23-1.63a11.94 11.94 0 0 0 5.84 1.49h.01c6.6 0 11.96-5.36 11.96-11.96 0-3.2-1.25-6.2-3.52-8.42ZM12.08 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.7.97.99-3.6-.23-.37a9.9 9.9 0 0 1-1.52-5.25c0-5.45 4.43-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.9 6.99c0 5.45-4.44 9.88-9.9 9.88Zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.21 5.09 4.5.71.31 1.26.5 1.69.64.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.42.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.35Z"/></svg>;
+}
+function InstagramBrand({ className = '' }) {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>;
+}
+function TikTokBrand({ className = '' }) {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.35V2h-3.4v13.67a2.9 2.9 0 0 1-2.9 2.74 2.9 2.9 0 1 1 0-5.8c.3 0 .6.05.87.13V9.27a6.5 6.5 0 1 0 5.43 6.4V8.73a8.16 8.16 0 0 0 4.77 1.53V6.87c-.35 0-.68-.06-1-.18Z"/></svg>;
+}
+
 export default function MarketingLayout({ children, path, head }) {
   const location = useLocation();
   const { lang, switchLang } = useI18n();
@@ -55,6 +66,7 @@ export default function MarketingLayout({ children, path, head }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [solOpen, setSolOpen] = useState(false);
+  const [footerOpen, setFooterOpen] = useState('company');
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
@@ -135,24 +147,29 @@ export default function MarketingLayout({ children, path, head }) {
             <div className="flex justify-center pb-10"><Logo size={54} variant="light" /></div>
             <div className="divide-y divide-white/15 border-y border-white/15">
               {[
-                {title: en ? 'Company' : 'الشركة', links: [[en?'About us':'من نحن','/about'],[en?'Careers':'الوظائف','/careers'],[en?'Blog':'المدونة','/blog']]},
-                {title: en ? 'Customer service' : 'خدمة العملاء', links: [[en?'Contact us':'تواصل معنا', '/contact'],[en?'WhatsApp support':'الدعم عبر واتساب', SITE.whatsapp]]},
-                {title: en ? 'Policies' : 'السياسات', links: [[en?'Privacy policy':'سياسة الخصوصية','/privacy'],[en?'Terms & conditions':'الشروط والأحكام','/terms'],[en?'Refund policy':'سياسة الاسترداد','/refund-policy']]}
-              ].map(section => <details key={section.title} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-medium text-white">{section.title}<span className="text-2xl leading-none transition-transform group-open:rotate-45">+</span></summary>
-                <ul className="mt-4 space-y-3 text-sm">{section.links.map(([label,href])=><li key={label}>{href.startsWith('http')?<a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-white">{label}</a>:<Link to={href} className="hover:text-white">{label}</Link>}</li>)}</ul>
-              </details>)}
+                {key:'company',title:en?'Company':'الشركة',links:[[en?'About us':'من نحن','/about'],[en?'Careers':'الوظائف','/careers'],[en?'Blog':'المدونة','/blog']]},
+                {key:'service',title:en?'Customer service':'خدمة العملاء',links:[[en?'Contact us':'تواصل معنا','/contact'],[en?'WhatsApp support':'الدعم عبر واتساب',SITE.whatsapp]]},
+                {key:'policies',title:en?'Policies':'السياسات',links:[[en?'Privacy policy':'سياسة الخصوصية','/privacy'],[en?'Terms & conditions':'الشروط والأحكام','/terms'],[en?'Refund policy':'سياسة الاسترداد','/refund-policy']]}
+              ].map(section => <section key={section.key} className="py-4">
+                <button type="button" onClick={() => setFooterOpen(open => open === section.key ? '' : section.key)}
+                  aria-expanded={footerOpen === section.key} className="flex w-full cursor-pointer items-center justify-between py-1 text-start text-lg font-medium text-white hover:text-white/80">
+                  {section.title}<span className="text-2xl leading-none transition-transform">{footerOpen === section.key ? '−' : '+'}</span>
+                </button>
+                {footerOpen === section.key && <ul className="mt-4 space-y-3 pb-2 text-sm">
+                  {section.links.map(([label,href]) => <li key={label}>{href.startsWith('http') ? <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-white">{label}</a> : <Link to={href} className="hover:text-white">{label}</Link>}</li>)}
+                </ul>}
+              </section>)}
             </div>
             <div className="py-8 text-center">
               <p className="text-sm">{en ? 'Riyadh, Saudi Arabia' : 'الرياض، المملكة العربية السعودية'}</p>
-              <a href={`tel:${SITE.phone}`} className="mt-3 inline-block text-sm" dir="ltr">{SITE.phoneLocal}</a>
+              <a href={`tel:${SITE.phone}`} className="mt-3 inline-block text-sm font-semibold tracking-wide" dir="ltr">{SITE.phone}</a>
               <div className="mt-8 flex justify-center"><PaymentBadges tone="dark" title="" /></div>
             </div>
             <div className="flex flex-col items-center justify-between gap-5 border-t border-white/15 py-6 sm:flex-row">
               <div className="flex items-center gap-6">
-                <a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="hover:text-white"><MessageCircle className="h-6 w-6" /></a>
-                <a href="https://www.tiktok.com/@felsy.sa" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="hover:text-white"><Music2 className="h-6 w-6" /></a>
-                <a href="https://www.instagram.com/felsy.sa/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-white"><Instagram className="h-6 w-6" /></a>
+                <a href={SITE.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="rounded-full p-2 transition hover:bg-white/10 hover:text-white"><WhatsAppBrand className="h-6 w-6" /></a>
+                <a href="https://www.tiktok.com/@felsy.sa" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="rounded-full p-2 transition hover:bg-white/10 hover:text-white"><TikTokBrand className="h-6 w-6" /></a>
+                <a href="https://www.instagram.com/felsy.sa/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="rounded-full p-2 transition hover:bg-white/10 hover:text-white"><InstagramBrand className="h-6 w-6" /></a>
               </div>
               <p className="text-center text-sm">© {new Date().getFullYear()} Felsy. {en ? 'All rights reserved.' : 'جميع الحقوق محفوظة.'}</p>
             </div>
