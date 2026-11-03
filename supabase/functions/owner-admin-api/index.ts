@@ -333,7 +333,7 @@ serve(async (req) => {
 
       case 'add_team_member':
         if (!text(p.full_name, 120).trim()) throw new HttpError(400, 'الاسم مطلوب');
-        return ok(must(await sb.from('platform_team_members').insert(pick(p, ['full_name', 'email', 'phone', 'role', 'notes'])).select('id')));
+        return ok(must(await sb.from('platform_team_members').insert(pick(p, ['full_name', 'email', 'phone', 'role', 'department', 'job_title', 'notes'])).select('id')));
 
       case 'update_team_member': {
         const u = (p.updates && typeof p.updates === 'object') ? p.updates as Payload : {};
