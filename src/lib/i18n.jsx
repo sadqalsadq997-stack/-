@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const I18nContext = createContext({ lang: 'ar', t: k => k });
 
@@ -96,7 +96,13 @@ const translations = {
 };
 
 export function I18nProvider({ children }) {
-  const [lang, setLang] = useState(() => { try { return (typeof window !== 'undefined' && localStorage.getItem('felsy_lang')) || 'ar'; } catch { return 'ar'; } });
+  const [lang, setLang] = useState(() => { try { return (typeof window !== 'undefined' && localStorage.getItem('felsy_lang')) === 'en' ? 'en' : 'ar'; } catch { return 'ar'; } });
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.dataset.locale = lang;
+  }, [lang]);
 
   // يدعم استدعاءين:
   // 1) t('dashboard') — بحث بالمفتاح في قاموس الترجمة
@@ -107,10 +113,9 @@ export function I18nProvider({ children }) {
   };
 
   const switchLang = (l) => {
-    setLang(l);
-    localStorage.setItem('felsy_lang', l);
-    document.documentElement.setAttribute('dir', l === 'ar' ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', l);
+    const next = l === 'en' ? 'en' : 'ar';
+    setLang(next);
+    try { localStorage.setItem('felsy_lang', next); } catch { /* storage may be unavailable */ }
   };
 
   return (
