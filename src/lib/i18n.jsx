@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const I18nContext = createContext({ lang: 'ar', t: k => k });
 
@@ -47,6 +47,14 @@ const translations = {
     footer_privacy: 'سياسة الخصوصية',
     footer_terms: 'الشروط والأحكام',
     footer_rights: 'جميع الحقوق محفوظة',
+    language: 'اللغة', language_ar: 'العربية', language_en: 'English',
+    open: 'مفتوح', sales_today: 'مبيعات اليوم', orders_today: 'طلبات اليوم', total_customers: 'إجمالي العملاء',
+    pending_orders: 'طلبات قيد التنفيذ', click_to_follow: 'اضغط للمتابعة', low_stock: 'منتج مخزونه منخفض', click_inventory: 'اضغط للمخزون',
+    latest_orders: 'آخر الطلبات', view_all: 'عرض الكل', no_orders: 'لا توجد طلبات بعد',
+    completed: 'مكتمل', pending: 'معلق', preparing: 'قيد التحضير', order: 'طلب',
+    zatca_connect: 'اربط فرعك بمنصة فاتورة (المرحلة الثانية)', zatca_connect_desc: 'إلزامية للمنشآت المشمولة — أكمل الربط من الإعدادات',
+    zatca_overdue: 'فاتورة متأخرة عن الإرسال للهيئة', zatca_rejected: 'فاتورة مرفوضة من الهيئة', zatca_fix: 'معالجة',
+    zatca_active: 'الفوترة الإلكترونية نشطة', zatca_details: 'التفاصيل',
   },
   en: {
     dashboard: 'Dashboard',
@@ -92,6 +100,14 @@ const translations = {
     footer_privacy: 'Privacy Policy',
     footer_terms: 'Terms & Conditions',
     footer_rights: 'All rights reserved',
+    language: 'Language', language_ar: 'العربية', language_en: 'English',
+    open: 'Open', sales_today: "Today's Sales", orders_today: "Today's Orders", total_customers: 'Total Customers',
+    pending_orders: 'Orders in Progress', click_to_follow: 'View and manage', low_stock: 'Low-stock products', click_inventory: 'Open inventory',
+    latest_orders: 'Recent Orders', view_all: 'View all', no_orders: 'No orders yet',
+    completed: 'Completed', pending: 'Pending', preparing: 'Preparing', order: 'Order',
+    zatca_connect: 'Connect your branch to ZATCA (Phase 2)', zatca_connect_desc: 'Required for businesses in scope — complete setup in Settings',
+    zatca_overdue: 'invoice(s) overdue for submission', zatca_rejected: 'invoice(s) rejected by ZATCA', zatca_fix: 'Resolve',
+    zatca_active: 'E-invoicing is active', zatca_details: 'Details',
   },
 };
 
@@ -101,7 +117,7 @@ export function I18nProvider({ children }) {
   // يدعم استدعاءين:
   // 1) t('dashboard') — بحث بالمفتاح في قاموس الترجمة
   // 2) t('نص عربي مباشر', 'English text') — نص مباشر بدون قاموس (يُستخدم بكثرة في الصفحة الرئيسية)
-  const t = (arOrKey, en) => {
+  useEffect(() => {\n    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');\n    document.documentElement.setAttribute('lang', lang);\n    document.documentElement.dataset.language = lang;\n  }, [lang]);\n\n  const t = (arOrKey, en) => {
     if (en !== undefined) return lang === 'ar' ? arOrKey : en;
     return translations[lang]?.[arOrKey] ?? arOrKey;
   };
