@@ -319,7 +319,7 @@ serve(async (req) => {
         const employment = ['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'CONTRACT'].includes(String(p.employment_type)) ? String(p.employment_type) : 'FULL_TIME';
         const workplace = ['ONSITE', 'REMOTE', 'HYBRID'].includes(String(p.workplace_type)) ? String(p.workplace_type) : 'ONSITE';
         const slug = text(p.slug || title, 100).toLowerCase().trim()
-          .replace(/\\s+/g, '-').replace(/[^\\p{L}\\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+          .replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
         if (!slug) throw new HttpError(400, 'رابط الوظيفة غير صالح');
         const salaryMin = p.salary_min === '' || p.salary_min == null ? null : Number(p.salary_min);
         const salaryMax = p.salary_max === '' || p.salary_max == null ? null : Number(p.salary_max);
@@ -335,7 +335,7 @@ serve(async (req) => {
           location: text(p.location, 120).trim() || null,
           country: text(p.country || 'SA', 2).toUpperCase(),
           applicant_country: text(p.applicant_country || 'Saudi Arabia', 80),
-          description_html: text(p.description_html || description, 12000),
+          description_html: description,
           responsibilities: text(p.responsibilities, 6000) || null,
           requirements: text(p.requirements, 6000) || null,
           preferred_qualifications: text(p.preferred_qualifications, 6000) || null,
@@ -346,7 +346,7 @@ serve(async (req) => {
           valid_through: p.valid_through ? text(p.valid_through, 10) : null,
           status, updated_at: new Date().toISOString(),
         };
-        if (row.valid_through && !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(row.valid_through))) throw new HttpError(400, 'تاريخ انتهاء الإعلان غير صحيح');
+        if (row.valid_through && !/^\d{4}-\d{2}-\d{2}$/.test(String(row.valid_through))) throw new HttpError(400, 'تاريخ انتهاء الإعلان غير صحيح');
         if (status === 'published') row.date_posted = p.date_posted || new Date().toISOString().slice(0, 10);
         const result = p.id
           ? await sb.from('job_posts').update(row).eq('id', uuid(p.id)).select('*').single()
