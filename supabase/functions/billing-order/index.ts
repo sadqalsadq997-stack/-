@@ -88,19 +88,7 @@ serve(async (req) => {
       if (business.length < 2) throw new HttpError(400, 'اسم النشاط التجاري مطلوب');
       if (!/^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new HttpError(400, 'البريد الإلكتروني غير صحيح');
       if (password.length < 8 || password.length > 72) throw new HttpError(400, 'كلمة المرور لازم تكون 8 أحرف على الأقل');
-      const birthDate = String(body.birth_date || '');
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(birthDate)) throw new HttpError(400, 'تاريخ الميلاد مطلوب للتحقق من أهلية إنشاء الحساب');
-      const parsedBirthDate = new Date(`${birthDate}T00:00:00.000Z`);
-      if (!Number.isFinite(parsedBirthDate.getTime()) || parsedBirthDate.toISOString().slice(0, 10) !== birthDate || parsedBirthDate.getTime() > Date.now()) {
-        throw new HttpError(400, 'تاريخ الميلاد غير صالح');
-      }
-      const today = new Date();
-      let age = today.getUTCFullYear() - parsedBirthDate.getUTCFullYear();
-      const beforeBirthday = today.getUTCMonth() < parsedBirthDate.getUTCMonth() ||
-        (today.getUTCMonth() === parsedBirthDate.getUTCMonth() && today.getUTCDate() < parsedBirthDate.getUTCDate());
-      if (beforeBirthday) age--;
-      if (age < 18) throw new HttpError(403, 'لا يمكن للقاصر إنشاء حساب مالك مستقل. يجب أن ينشئ ولي الأمر أو الممثل البالغ الحساب باسمه.');
-      if (body.accepted_terms !== true) throw new HttpError(400, 'يجب الموافقة على الشروط وسياسة الخصوصية وإقرار الأهلية');
+      if (body.accepted_terms !== true) throw new HttpError(400, 'يجب الموافقة على الشروط والأحكام وسياسة الخصوصية');
 
       // نتحقق من السعر قبل إنشاء أي شيء (باقة/مدة غير صالحة = لا حساب)
       if (!freeTrial) {
@@ -132,7 +120,6 @@ serve(async (req) => {
         const { error: consentError } = await sb.from('privacy_consent_events').insert([
           { subject_auth_id: uid, tenant_id: tenant.id, consent_type: 'terms', decision: 'granted', policy_version: '2026-11-03', jurisdiction_code: 'SA', recorded_by_auth_id: uid, source: 'signup', occurred_at: consentAt },
           { subject_auth_id: uid, tenant_id: tenant.id, consent_type: 'privacy_notice', decision: 'granted', policy_version: '2026-11-03', jurisdiction_code: 'SA', recorded_by_auth_id: uid, source: 'signup', occurred_at: consentAt },
-          { subject_auth_id: uid, tenant_id: tenant.id, consent_type: 'age_attestation', decision: 'granted', policy_version: 'adult-owner-18-v1', jurisdiction_code: 'SA', recorded_by_auth_id: uid, source: 'signup', occurred_at: consentAt, metadata: { minimum_age: 18, date_of_birth_stored: false } },
         ]);
         if (consentError) throw consentError;
 
