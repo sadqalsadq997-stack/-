@@ -1202,7 +1202,7 @@ function TeamAndContentTab() {
 
   const [team, setTeam]           = useState([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: 'support', department: 'technical_support', job_title: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1234,7 +1234,7 @@ function TeamAndContentTab() {
     setSaving(true);
     try {
       await callOwnerApi('add_team_member', form);
-      setForm({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+      setForm({ full_name: '', email: '', phone: '', role: 'support', department: 'technical_support', job_title: '', notes: '' });
       await loadTeam();
       toast.success('تمت إضافة العضو بنجاح');
     } catch (e) { toast.error('فشل الإضافة: ' + (e?.message || '')); }
@@ -1255,6 +1255,7 @@ function TeamAndContentTab() {
   }
 
   const ROLE_LABELS = { support: 'دعم فني', admin: 'إدارة', finance: 'مالية', developer: 'مطوّر' };
+  const DEPARTMENTS = [{value:'technical_support',label:'الدعم الفني'},{value:'software_development',label:'البرمجة والتطوير'},{value:'quality_assurance',label:'اختبار الجودة'},{value:'sales',label:'المبيعات'},{value:'marketing',label:'التسويق'},{value:'operations',label:'العمليات'},{value:'finance',label:'المالية'},{value:'management',label:'الإدارة'}];
 
   return (
     <div className="space-y-8">
@@ -1311,6 +1312,10 @@ function TeamAndContentTab() {
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
             <input placeholder="رقم الجوال" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
+            <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
+              {DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <input placeholder="المسمى الوظيفي (مثال: مهندس Backend)" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
               <option value="support">دعم فني</option>
@@ -1338,7 +1343,7 @@ function TeamAndContentTab() {
                   <div className={`w-2 h-2 rounded-full ${m.is_active ? 'bg-emerald-500' : 'bg-gray-600'}`} />
                   <div>
                     <p className="text-gray-900 text-sm font-medium">{m.full_name}</p>
-                    <p className="text-gray-400 text-xs">{ROLE_LABELS[m.role] || m.role} {m.email ? `• ${m.email}` : ''} {m.phone ? `• ${m.phone}` : ''}</p>
+                    <p className="text-gray-400 text-xs">{DEPARTMENTS.find(d => d.value === m.department)?.label || m.department || ROLE_LABELS[m.role] || m.role}{m.job_title ? ` • ${m.job_title}` : ''} {m.email ? `• ${m.email}` : ''} {m.phone ? `• ${m.phone}` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
