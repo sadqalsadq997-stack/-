@@ -16,7 +16,9 @@ export default function PublicMenu() {
   const { slug } = useParams();
   const { pathname, search } = useLocation();
   const [data, setData] = useState(undefined);
-  const storeMode = pathname.startsWith('/store');
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isCustomDomain = !!host && host !== 'felsy.org' && host !== 'www.felsy.org' && host !== 'localhost' && !host.endsWith('.vercel.app');
+  const storeMode = pathname.startsWith('/store') || (pathname === '/' && isCustomDomain);
 
   useEffect(() => {
     let alive = true;
@@ -37,10 +39,18 @@ export default function PublicMenu() {
         }
       }
       if (!alive) return;
+      if (d && storeMode) d = { ...d, products: (d.products || []).filter(p => p.show_in_store !== false) };
       setData(d || null);
       if (d) {
         const name = d.business_name || d.branch?.name_ar || d.branch?.name;
-        document.title = `${name} | ${storeMode ? 'المتجر' : 'المنيو'}`;
+        document.title = `${name} | ${storeMode ? 'المتجر الإلكتروني' : 'المنيو'}`;
+        const description = storeMode ? `تسوق منتجات ${name} واطلبها مباشرة من المتجر الإلكتروني.` : `تصفح قائمة ${name} واطلب بسهولة.`;
+        let meta = document.querySelector('meta[name="description"]');
+        if (!meta) { meta = document.createElement('meta'); meta.name = 'description'; document.head.appendChild(meta); }
+        meta.content = description;
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
+        canonical.href = window.location.origin + window.location.pathname;
       }
     })().catch(() => alive && setData(null));
     return () => { alive = false; };
