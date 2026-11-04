@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Plus, Minus, ShoppingBag, MapPin, Phone, Star, X, CheckCircle2, Flame } from 'lucide-react';
 import MadeByFelsy from '@/components/MadeByFelsy';
 
@@ -149,8 +149,18 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
   const categories = (data?.categories || []).filter(c => products.some(p => p.category_id === c.id));
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
-  const [cart, setCart] = useState([]);
+  const cartStorageKey = `felsy-store-cart:${data?.branch?.id || data?.slug || (typeof window !== 'undefined' ? window.location.hostname : 'store')}`;
+  const [cart, setCart] = useState(() => {
+    if (preview || !storeMode || typeof window === 'undefined') return [];
+    try { const saved = JSON.parse(window.localStorage.getItem(cartStorageKey) || '[]'); return Array.isArray(saved) ? saved : []; }
+    catch { return []; }
+  });
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (preview || !storeMode || typeof window === 'undefined') return;
+    try { if (cart.length) window.localStorage.setItem(cartStorageKey, JSON.stringify(cart)); else window.localStorage.removeItem(cartStorageKey); }
+    catch { /* storage may be unavailable; checkout remains usable in memory */ }
+  }, [cart, cartStorageKey, preview, storeMode]);
   const name = data?.business_name || data?.branch?.name_ar || data?.branch?.name || 'المنيو';
   const logo = data?.logo_url || data?.branch?.logo_url;
   const place = [data?.address || data?.branch?.address, data?.city].filter(Boolean).join('، ');
@@ -159,7 +169,8 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
   const visible = useMemo(() => products.filter(p => {
     const okCat = cat === 'all' || p.category_id === cat;
     const s = q.trim();
-    return okCat && (!s || (p.name_ar || p.name || '').includes(s) || (p.name || '').toLowerCase().includes(s.toLowerCase()));
+    const searchable = [p.name_ar, p.name, p.description_ar, p.description, p.sku, p.barcode].filter(Boolean).join(' ').toLowerCase();
+    return okCat && (!s || searchable.includes(s.toLowerCase()));
   }), [products, cat, q]);
 
   const groups = useMemo(() => {
@@ -220,7 +231,7 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
         <div className="mx-auto max-w-5xl space-y-2 px-4 py-2">
           <div className="relative">
             <Search className={`absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${skin.muted}`} />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder={storeMode ? 'ابحث في المتجر...' : 'وش نفسك فيه اليوم؟'}
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={storeMode ? 'ابحث باسم المنتج أو الوصف أو رقم الصنف...' : 'وش نفسك فيه اليوم؟'}
               className={`h-11 w-full rounded-2xl pr-10 pl-3 text-sm outline-none focus:ring-2 focus:ring-[var(--m-brand)] ${skin.input}`} />
           </div>
           {categories.length > 0 && (
@@ -275,7 +286,7 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
           <button type="button" onClick={() => setOpen(true)}
             className="mx-auto flex h-14 w-full max-w-md items-center justify-between rounded-2xl bg-[var(--m-brand)] px-5 font-bold text-[var(--m-fg)] shadow-2xl">
             <span className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-black/15 px-2 text-sm">{count}</span>
-            <span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" />عرض الطلب</span>
+            <span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" />{storeMode ? 'عرض سلة التسوق' : 'عرض الطلب'}</span>
             <span className="font-black">{fmt(total)} ⃁</span>
           </button>
         </div>
@@ -318,7 +329,7 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
         ) : (
           <>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-black">طلبك</h2>
+              <h2 className="text-lg font-black">{storeMode ? 'سلة التسوق' : 'طلبك'}</h2>
               <button type="button" onClick={onClose} aria-label="إغلاق" className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5"><X className="h-4 w-4" /></button>
             </div>
             <ul className="mb-4 space-y-3">
@@ -331,7 +342,7 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
               ))}
             </ul>
             <div className="mb-4 flex justify-between border-t border-black/10 pt-3 text-lg font-black"><span>الإجمالي</span><span className="text-[var(--m-ink)]">{fmt(total)} ⃁</span></div>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="رقم الجوال (اختياري)" inputMode="tel" dir="ltr"
+            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="رقم الجوال للتواصل (اختياري)" inputMode="tel" dir="ltr"
               className={`mb-2 h-11 w-full rounded-xl px-4 text-right text-sm outline-none ${skin.input}`} />
             <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (بدون بصل، حار...)" rows={2}
               className={`mb-3 w-full resize-none rounded-xl px-4 py-3 text-sm outline-none ${skin.input}`} />
