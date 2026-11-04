@@ -38,12 +38,12 @@ export function useHead(path, override) {
 }
 
 const NAV = [
-  { to: '/electronic-pager', label: 'البيجر الإلكتروني' },
-  { to: '/accounting-software', label: 'المحاسبة' },
-  { to: '/zatca-e-invoicing', label: 'الفوترة الإلكترونية' },
-  { to: '/pricing', label: 'الأسعار' },
-  { to: '/blog', label: 'المدونة' },
-  { to: '/careers', label: 'الوظائف' },
+  { to: '/electronic-pager', ar: 'البيجر الإلكتروني', en: 'Digital Pager' },
+  { to: '/accounting-software', ar: 'المحاسبة', en: 'Accounting' },
+  { to: '/zatca-e-invoicing', ar: 'الفوترة الإلكترونية', en: 'E-Invoicing' },
+  { to: '/pricing', ar: 'الأسعار', en: 'Pricing' },
+  { to: '/blog', ar: 'المدونة', en: 'Blog' },
+  { to: '/careers', ar: 'الوظائف', en: 'Careers' },
 ];
 
 
@@ -93,14 +93,14 @@ export default function MarketingLayout({ children, path, head }) {
             <nav aria-label="الرئيسية" className="hidden items-center gap-6 text-[15px] font-medium text-ink/70 lg:flex">
               <div className="relative" onMouseLeave={() => setSolOpen(false)}>
                 <button onClick={() => setSolOpen(o => !o)} onMouseEnter={() => setSolOpen(true)} aria-expanded={solOpen}
-                  className="flex items-center gap-1 hover:text-sage-700">الحلول <ChevronDown className="h-4 w-4" /></button>
+                  className="flex items-center gap-1 hover:text-sage-700">{en ? 'Solutions' : 'الحلول'} <ChevronDown className="h-4 w-4" /></button>
                 <AnimatePresence>
                   {solOpen && (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
                       className="absolute start-0 top-full w-64 pt-3">
                       <ul className="rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                         {SOLUTIONS.map(s => (
-                          <li key={s.slug}><Link to={`/${s.slug}`} className="block rounded-lg px-3 py-2 text-sm hover:bg-slate-50 hover:text-sage-700">{s.nav}</Link></li>
+                          <li key={s.slug}><Link to={`/${s.slug}`} className="block rounded-lg px-3 py-2 text-sm hover:bg-slate-50 hover:text-sage-700">{en ? (s.nav_en || s.nav) : s.nav}</Link></li>
                         ))}
                       </ul>
                     </motion.div>
@@ -108,7 +108,7 @@ export default function MarketingLayout({ children, path, head }) {
                 </AnimatePresence>
               </div>
               {NAV.map(n => (
-                <Link key={n.to} to={n.to} className={`transition-colors hover:text-sage-700 ${current === n.to ? 'text-sage-700' : ''}`}>{n.label}</Link>
+                <Link key={n.to} to={n.to} className={`transition-colors hover:text-sage-700 ${current === n.to ? 'text-sage-700' : ''}`}>{en ? n.en : n.ar}</Link>
               ))}
             </nav>
             <div className="flex items-center gap-2 sm:gap-3">
@@ -125,14 +125,14 @@ export default function MarketingLayout({ children, path, head }) {
               <motion.nav initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="max-h-[80vh] overflow-y-auto border-t border-slate-100 lg:hidden">
                 <div className="flex flex-col gap-0.5 px-4 py-3">
-                  <Link to="/pricing" className="rounded-lg px-3 py-2.5 font-bold text-slate-800 hover:bg-slate-50">الأسعار</Link>
-                  <Link to="/careers" className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">الوظائف</Link>
+                  <Link to="/pricing" className="rounded-lg px-3 py-2.5 font-bold text-slate-800 hover:bg-slate-50">{en ? 'Pricing' : 'الأسعار'}</Link>
+                  <Link to="/careers" className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">{en ? 'Careers' : 'الوظائف'}</Link>
                   {SOLUTIONS.map(s => (
                     <Link key={s.slug} to={`/${s.slug}`} className="rounded-lg px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">{s.nav}</Link>
                   ))}
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <Link to="/auth/login" className="rounded-xl border border-slate-200 py-2.5 text-center text-sm font-bold">دخول</Link>
-                    <Link to="/auth/signup" className="rounded-xl bg-sage-400 py-2.5 text-center text-sm font-bold text-ink">أنشئ حسابك</Link>
+                    <Link to="/auth/signup" className="rounded-xl bg-sage-400 py-2.5 text-center text-sm font-bold text-ink">{en ? 'Create account' : 'أنشئ حسابك'}</Link>
                   </div>
                 </div>
               </motion.nav>
