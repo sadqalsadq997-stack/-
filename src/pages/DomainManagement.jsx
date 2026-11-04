@@ -9,8 +9,8 @@ import {
 import { toast } from 'sonner';
 
 // ══════════════════════════════════════════════════════
-// إدارة الدومين — ربط تلقائي كامل بدون تدخل بشري
-// يدعم: شراء تلقائي + ربط تلقائي لكل منشأة
+// إدارة دومين المتجر العام فقط — لا يوجّه إلى لوحة إدارة فلسي
+// الشراء والتفعيل يعتمدان على تأكيد مزود التسجيل وفحص DNS الفعلي
 // ══════════════════════════════════════════════════════
 
 const TLD_PRICES = [
@@ -23,7 +23,7 @@ const TLD_PRICES = [
 ];
 
 const APP_HOST  = import.meta.env.VITE_APP_HOST  || '76.76.21.21';
-const APP_CNAME = import.meta.env.VITE_APP_CNAME || window.location.hostname;
+const APP_CNAME = import.meta.env.VITE_APP_CNAME || 'cname.vercel-dns.com';
 
 function copy(text) { navigator.clipboard.writeText(text).catch(() => {}); }
 
@@ -110,6 +110,8 @@ export default function DomainManagement() {
         status: 'pending_verification',
         provider: 'namecheap',
         branch_id: branchId,
+        store_path: '/',
+        menu_path: null,
         price: domainResult.price,
         namecheap_id: purchaseData?.orderId || null,
         expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -154,6 +156,8 @@ export default function DomainManagement() {
         status: 'pending_verification',
         provider: 'external',
         branch_id: branchId,
+        store_path: '/',
+        menu_path: null,
       }).select().single();
       if (dbErr) throw dbErr;
       setOwnedDomains(prev => [saved, ...prev]);
@@ -349,7 +353,7 @@ export default function DomainManagement() {
         <div className="space-y-4 max-w-lg">
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="font-bold text-foreground mb-1">ربط دومين موجود</h3>
-            <p className="text-sm text-muted-foreground mb-5">لديك دومين مسجل؟ اربطه بنظامك في خطوتين.</p>
+            <p className="text-sm text-muted-foreground mb-5">لديك دومين مسجل؟ اربطه بواجهة المتجر الإلكتروني فقط؛ ستبقى لوحة فلسي على نطاقها الأصلي.</p>
             <BranchPicker />
             <div className="flex gap-2">
               <input value={connectDomain} onChange={e => setConnectDomain(e.target.value)}
@@ -367,7 +371,7 @@ export default function DomainManagement() {
             {[
               { type: 'A',     name: '@',   value: APP_HOST,  ttl: '3600' },
               { type: 'A',     name: 'www', value: APP_HOST,  ttl: '3600' },
-              { type: 'CNAME', name: 'menu', value: APP_CNAME, ttl: '3600' },
+              { type: 'CNAME', name: 'www', value: APP_CNAME, ttl: '3600' },
             ].map((r, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl font-mono text-sm">
                 <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${r.type === 'A' ? 'bg-sage-500/10 text-sage-500' : 'bg-peach-500/10 text-peach-500'}`}>{r.type}</span>
@@ -470,7 +474,7 @@ export default function DomainManagement() {
                   {[
                     { type: 'A',     name: '@',   value: APP_HOST,           ttl: '3600' },
                     { type: 'A',     name: 'www', value: APP_HOST,           ttl: '3600' },
-                    { type: 'CNAME', name: 'menu', value: APP_CNAME,         ttl: '3600' },
+                    { type: 'CNAME', name: 'www',  value: APP_CNAME,         ttl: '3600' },
                     { type: 'TXT',   name: '@',   value: 'v=felsy-verify-1', ttl: '3600' },
                   ].map((r, i) => (
                     <tr key={i} className="border-t border-border/50 hover:bg-muted/20">
