@@ -1,0 +1,1 @@
+alter table public.platform_team_members add column if not exists permissions jsonb not null default '[]'::jsonb;

@@ -307,6 +307,76 @@ serve(async (req) => {
       case 'delete_blog_post':
         return ok(must(await sb.from('blog_posts').delete().eq('id', uuid(p.id))));
 
+      // ── إدارة وظائف فلسي وطلبات التوظيف (مالك المنصة فقط) ────────
+      case 'list_job_posts':
+        return ok(must(await sb.from('job_posts').select('*').order('created_at', { ascending: false }).limit(300)));
+
+      case 'save_job_post': {
+        const title = text(p.title, 180).trim();
+        const description = text(p.description, 12000).trim();
+        if (title.length < 3 || description.length < 20) throw new HttpError(400, 'أدخل عنوان الوظيفة ووصفاً واضحاً لا يقل عن 20 حرفاً');
+        const status = ['draft', 'published', 'closed'].includes(String(p.status)) ? String(p.status) : 'draft';
+        const employment = ['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'CONTRACT'].includes(String(p.employment_type)) ? String(p.employment_type) : 'FULL_TIME';
+        const workplace = ['ONSITE', 'REMOTE', 'HYBRID'].includes(String(p.workplace_type)) ? String(p.workplace_type) : 'ONSITE';
+        const slug = text(p.slug || title, 100).toLowerCase().trim()
+          .replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        if (!slug) throw new HttpError(400, 'رابط الوظيفة غير صالح');
+        const salaryMin = p.salary_min === '' || p.salary_min == null ? null : Number(p.salary_min);
+        const salaryMax = p.salary_max === '' || p.salary_max == null ? null : Number(p.salary_max);
+        if ((salaryMin !== null && (!Number.isFinite(salaryMin) || salaryMin < 0)) ||
+            (salaryMax !== null && (!Number.isFinite(salaryMax) || salaryMax < 0)) ||
+            (salaryMin !== null && salaryMax !== null && salaryMax < salaryMin)) {
+          throw new HttpError(400, 'نطاق الراتب غير صحيح');
+        }
+        const row: Payload = {
+          title, slug, description, summary: text(p.summary, 500).trim() || null,
+          department: text(p.department, 100).trim() || null,
+          employment_type: employment, workplace_type: workplace,
+          location: text(p.location, 120).trim() || null,
+          country: text(p.country || 'SA', 2).toUpperCase(),
+          applicant_country: text(p.applicant_country || 'Saudi Arabia', 80),
+          description_html: description,
+          responsibilities: text(p.responsibilities, 6000) || null,
+          requirements: text(p.requirements, 6000) || null,
+          preferred_qualifications: text(p.preferred_qualifications, 6000) || null,
+          benefits: text(p.benefits, 6000) || null,
+          salary_min: salaryMin, salary_max: salaryMax,
+          salary_currency: text(p.salary_currency || 'SAR', 3).toUpperCase(),
+          salary_period: text(p.salary_period || 'MONTH', 20).toUpperCase(),
+          valid_through: p.valid_through ? text(p.valid_through, 10) : null,
+          status, updated_at: new Date().toISOString(),
+        };
+        if (row.valid_through && !/^\d{4}-\d{2}-\d{2}$/.test(String(row.valid_through))) throw new HttpError(400, 'تاريخ انتهاء الإعلان غير صحيح');
+        if (status === 'published') row.date_posted = p.date_posted || new Date().toISOString().slice(0, 10);
+        const result = p.id
+          ? await sb.from('job_posts').update(row).eq('id', uuid(p.id)).select('*').single()
+          : await sb.from('job_posts').insert(row).select('*').single();
+        if (result.error) throw new HttpError(400, /duplicate|unique/i.test(result.error.message) ? 'رابط الوظيفة مستخدم، غيّره' : result.error.message);
+        return ok(result.data);
+      }
+
+      case 'delete_job_post':
+        return ok(must(await sb.from('job_posts').delete().eq('id', uuid(p.id)).select('id').single()));
+
+      case 'list_job_applications':
+        return ok(must(await sb.from('job_applications')
+          .select('id, job_id, full_name, email, phone, location, university, major, experience_years, languages, skills, resume_path, privacy_consent, status, created_at, job_posts(title, slug)')
+          .order('created_at', { ascending: false }).limit(500)));
+
+      case 'update_job_application': {
+        const status = String(p.status || '');
+        if (!['received', 'reviewing', 'shortlisted', 'rejected', 'hired'].includes(status)) throw new HttpError(400, 'حالة المتقدم غير صحيحة');
+        return ok(must(await sb.from('job_applications').update({ status }).eq('id', uuid(p.id)).select('id, status').single()));
+      }
+
+      case 'job_resume_url': {
+        const app = must(await sb.from('job_applications').select('resume_path').eq('id', uuid(p.id)).maybeSingle()) as any;
+        if (!app?.resume_path) throw new HttpError(404, 'لا توجد سيرة ذاتية مرفقة');
+        const { data, error } = await sb.storage.from('job-resumes').createSignedUrl(app.resume_path, 300);
+        if (error || !data?.signedUrl) throw new HttpError(400, 'تعذر إنشاء رابط آمن للسيرة الذاتية');
+        return ok(data.signedUrl);
+      }
+
       // ── إعدادات النظام ───────────────────────────────────────────
       case 'get_setting': {
         const key = text(p.key, 60);
@@ -328,16 +398,95 @@ serve(async (req) => {
         }, { onConflict: 'key' })));
 
       // ── الفريق وقاعدة البيانات ───────────────────────────────────
+      // Secure platform workforce
+      case 'list_workforce_members': {
+        const members = must(await sb.from('platform_team_members').select('id,full_name,email,phone,role,department,job_title,is_active,employment_status,employment_type,hire_date,manager_id,auth_user_id,last_login_at,created_at,permissions').order('created_at', { ascending: false })) as any[];
+        const tasks = must(await sb.from('platform_team_tasks').select('assigned_to,status')) as any[];
+        return ok(members.map(m => ({ ...m, task_count: tasks.filter(t => t.assigned_to === m.id).length, open_task_count: tasks.filter(t => t.assigned_to === m.id && !['completed','cancelled'].includes(t.status)).length })));
+      }
+      case 'create_workforce_member': {
+        const fullName = text(p.full_name,120).trim(), email = text(p.email,180).trim().toLowerCase(), password = String(p.password || '');
+        if (!fullName || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new HttpError(400,'الاسم والبريد الصحيح مطلوبان');
+        if (password.length < 12 || password.length > 72) throw new HttpError(400,'كلمة المرور المؤقتة 12 حرفًا على الأقل');
+        const role = ['support','admin','finance','developer','hr','marketing','operations'].includes(String(p.role)) ? String(p.role) : 'support';
+        const permissions = Array.isArray(p.permissions) ? p.permissions.slice(0,80) : [];
+        const { data: authData, error: authError } = await sb.auth.admin.createUser({ email, password, email_confirm:true, user_metadata:{full_name:fullName}, app_metadata:{platform_staff:true,platform_role:role,platform_permissions:permissions,force_password_change:true} });
+        if (authError || !authData.user) throw new HttpError(400,authError?.message || 'تعذر إنشاء حساب الدخول');
+        const ins = await sb.from('platform_team_members').insert({full_name:fullName,email,phone:text(p.phone,40)||null,role,department:text(p.department,80)||'operations',job_title:text(p.job_title,120)||null,employment_type:['full_time','part_time','contract','freelance','intern'].includes(String(p.employment_type))?String(p.employment_type):'full_time',employment_status:'active',hire_date:p.hire_date||null,permissions,auth_user_id:authData.user.id,must_change_password:true}).select('id').single();
+        if (ins.error) { await sb.auth.admin.deleteUser(authData.user.id); throw new HttpError(400,ins.error.message); }
+        await sb.from('platform_team_audit_logs').insert({target_member_id:ins.data.id,action:'employee_created',entity_type:'employee',entity_id:ins.data.id,metadata:{role,department:text(p.department,80)}});
+        return ok({id:ins.data.id,auth_user_id:authData.user.id,temporary_password:password,must_change_password:true});
+      }
+      case 'update_workforce_member': {
+        const id=uuid(p.id), u=(p.updates&&typeof p.updates==='object')?p.updates as Payload:{};
+        const allowed=pick(u,['full_name','phone','role','department','job_title','employment_status','employment_type','hire_date','manager_id','permissions','notes']);
+        if (allowed.employment_status && !['active','probation','leave','suspended','terminated'].includes(String(allowed.employment_status))) throw new HttpError(400,'حالة وظيفية غير صحيحة');
+        if (allowed.employment_type && !['full_time','part_time','contract','freelance','intern'].includes(String(allowed.employment_type))) throw new HttpError(400,'نوع التوظيف غير صحيح');
+        const member=must(await sb.from('platform_team_members').select('auth_user_id').eq('id',id).single()) as any;
+        const active=allowed.employment_status ? ['active','probation'].includes(String(allowed.employment_status)) : undefined;
+        const updated=must(await sb.from('platform_team_members').update({...allowed,...(active===undefined?{}:{is_active:active}),updated_at:new Date().toISOString()}).eq('id',id).select('id,full_name,email,phone,role,department,job_title,is_active,employment_status,employment_type,hire_date,permissions,auth_user_id').single());
+        if(member.auth_user_id && (allowed.role||allowed.permissions||active!==undefined)) {
+          const {data:au}=await sb.auth.admin.getUserById(member.auth_user_id);
+          await sb.auth.admin.updateUserById(member.auth_user_id,{app_metadata:{...(au?.user?.app_metadata||{}),...(allowed.role?{platform_role:allowed.role}:{}),...(allowed.permissions?{platform_permissions:allowed.permissions}:{}),...(active===undefined?{}:{platform_active:active})},...(active===undefined?{}:{ban_duration:active?'none':'876000h'})});
+        }
+        await sb.from('platform_team_audit_logs').insert({target_member_id:id,action:'employee_updated',entity_type:'employee',entity_id:id,metadata:{changed_fields:Object.keys(allowed)}});
+        return ok(updated);
+      }
+      case 'reset_workforce_password': {
+        const id=uuid(p.id), password=String(p.password||'');
+        if(password.length<12||password.length>72) throw new HttpError(400,'كلمة المرور 12 حرفًا على الأقل');
+        const m=must(await sb.from('platform_team_members').select('auth_user_id').eq('id',id).single()) as any;
+        if(!m.auth_user_id) throw new HttpError(404,'لا يوجد حساب دخول لهذا الموظف');
+        const {error}=await sb.auth.admin.updateUserById(m.auth_user_id,{password,app_metadata:{force_password_change:true}});
+        if(error) throw new HttpError(400,'تعذر تغيير كلمة المرور');
+        await sb.from('platform_team_members').update({must_change_password:true}).eq('id',id);
+        await sb.from('platform_team_audit_logs').insert({target_member_id:id,action:'password_reset',entity_type:'employee',entity_id:id,metadata:{}});
+        return ok({updated:true,temporary_password:password});
+      }
+      case 'list_team_tasks':
+        return ok(must(await sb.from('platform_team_tasks').select('*,platform_team_members(id,full_name,department,job_title)').order('created_at',{ascending:false}).limit(500)));
+      case 'save_team_task': {
+        const id=p.id?uuid(p.id):null,title=text(p.title,180).trim(),assigned_to=uuid(p.assigned_to);
+        if(!title) throw new HttpError(400,'عنوان المهمة مطلوب');
+        const priority=['low','medium','high','urgent'].includes(String(p.priority))?String(p.priority):'medium';
+        const status=['new','in_progress','blocked','completed','cancelled'].includes(String(p.status))?String(p.status):'new';
+        const v={title,description:text(p.description,5000),assigned_to,priority,status,due_at:p.due_at||null,updated_at:new Date().toISOString(),...(status==='completed'?{completed_at:new Date().toISOString()}:{})};
+        const result=id?must(await sb.from('platform_team_tasks').update(v).eq('id',id).select('*').single()):must(await sb.from('platform_team_tasks').insert(v).select('*').single());
+        await sb.from('platform_team_audit_logs').insert({target_member_id:assigned_to,action:id?'task_updated':'task_created',entity_type:'task',entity_id:result.id,metadata:{title,priority,status}});
+        return ok(result);
+      }
+      case 'update_team_task_status': {
+        const id=uuid(p.id),status=String(p.status||'');
+        if(!['new','in_progress','blocked','completed','cancelled'].includes(status)) throw new HttpError(400,'حالة المهمة غير صحيحة');
+        const result=must(await sb.from('platform_team_tasks').update({status,started_at:status==='in_progress'?new Date().toISOString():null,completed_at:status==='completed'?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',id).select('*').single());
+        await sb.from('platform_team_audit_logs').insert({target_member_id:result.assigned_to,action:'task_status_changed',entity_type:'task',entity_id:id,metadata:{status}});
+        return ok(result);
+      }
+      case 'list_payroll_records':
+        return ok(must(await sb.from('platform_payroll_records').select('*,platform_team_members(id,full_name,department,job_title)').order('pay_period',{ascending:false}).limit(500)));
+      case 'save_payroll_record': {
+        const member_id=uuid(p.member_id),pay_period=String(p.pay_period||'');
+        if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(pay_period)) throw new HttpError(400,'تاريخ الراتب غير صحيح');
+        const amount=(v:unknown)=>{const n=Number(v||0);if(!Number.isFinite(n)||n<0||n>10000000)throw new HttpError(400,'قيمة مالية غير صحيحة');return n;};
+        const values={member_id,pay_period,base_salary:amount(p.base_salary),allowances:amount(p.allowances),deductions:amount(p.deductions),bonus:amount(p.bonus),currency:'SAR',status:['draft','approved','paid','cancelled'].includes(String(p.status))?String(p.status):'draft',notes:text(p.notes,1000),updated_at:new Date().toISOString()};
+        const result=must(await sb.from('platform_payroll_records').upsert(values,{onConflict:'member_id,pay_period'}).select('*,platform_team_members(id,full_name)').single());
+        await sb.from('platform_team_audit_logs').insert({target_member_id:member_id,action:'payroll_saved',entity_type:'payroll',entity_id:result.id,metadata:{pay_period,status:values.status}});
+        return ok(result);
+      }
+      case 'list_team_audit_logs':
+        return ok(must(await sb.from('platform_team_audit_logs').select('id,target_member_id,action,entity_type,entity_id,metadata,created_at').order('created_at',{ascending:false}).limit(500)));
+      case 'list_employee_private':
+        throw new HttpError(501,'ملفات البيانات الحساسة لن تُعرض قبل تفعيل تشفير الخادم ومفتاحه السري');
       case 'list_team_members':
         return ok(must(await sb.from('platform_team_members').select('*').order('created_at')));
 
       case 'add_team_member':
         if (!text(p.full_name, 120).trim()) throw new HttpError(400, 'الاسم مطلوب');
-        return ok(must(await sb.from('platform_team_members').insert(pick(p, ['full_name', 'email', 'phone', 'role', 'notes'])).select('id')));
+        return ok(must(await sb.from('platform_team_members').insert(pick(p, ['full_name', 'email', 'phone', 'role', 'department', 'job_title', 'notes'])).select('id')));
 
       case 'update_team_member': {
         const u = (p.updates && typeof p.updates === 'object') ? p.updates as Payload : {};
-        return ok(must(await sb.from('platform_team_members').update(pick(u, ['full_name', 'email', 'phone', 'role', 'notes', 'is_active'])).eq('id', uuid(p.id))));
+        return ok(must(await sb.from('platform_team_members').update(pick(u, ['full_name', 'email', 'phone', 'role', 'department', 'job_title', 'notes', 'is_active', 'permissions'])).eq('id', uuid(p.id))));
       }
 
       case 'delete_team_member':
@@ -357,6 +506,45 @@ serve(async (req) => {
         const { sha256Hex } = await import('../_shared/security.ts');
         await sb.from('owner_sessions').delete().eq('token_hash', await sha256Hex(String(body.ownerToken)));
         return ok(true);
+      }
+
+      // ── مركز أعطال ومشكلات منصة فلسي ─────────────────────────
+      case 'list_platform_incidents':
+        return ok(must(await sb.from('platform_incidents')
+          .select('*, platform_team_members(id, full_name, department, job_title)')
+          .order('created_at', { ascending: false }).limit(500)));
+
+      case 'create_platform_incident': {
+        const title = text(p.title, 180).trim();
+        const description = text(p.description, 8000).trim();
+        if (!title || !description) throw new HttpError(400, 'عنوان المشكلة ووصفها مطلوبان');
+        const category = ['bug','outage','performance','security','deployment','request'].includes(String(p.category)) ? String(p.category) : 'bug';
+        const severity = ['low','medium','high','critical'].includes(String(p.severity)) ? String(p.severity) : 'medium';
+        return ok(must(await sb.from('platform_incidents').insert({
+          title, description, category, severity,
+          affected_area: text(p.affected_area, 120) || null,
+          reported_by: text(p.reported_by, 120) || 'مالك المنصة',
+          source: 'owner_console',
+        }).select('*').single()));
+      }
+
+      case 'update_platform_incident': {
+        const id = uuid(p.id);
+        const u = (p.updates && typeof p.updates === 'object') ? p.updates as Payload : {};
+        const updates: Payload = {};
+        if (u.status !== undefined) {
+          if (!['open','triaged','in_progress','blocked','resolved','closed'].includes(String(u.status))) throw new HttpError(400, 'حالة غير صحيحة');
+          updates.status = String(u.status);
+          updates.resolved_at = ['resolved','closed'].includes(String(u.status)) ? new Date().toISOString() : null;
+        }
+        if (u.severity !== undefined) {
+          if (!['low','medium','high','critical'].includes(String(u.severity))) throw new HttpError(400, 'أولوية غير صحيحة');
+          updates.severity = String(u.severity);
+        }
+        if (u.assigned_to !== undefined) updates.assigned_to = u.assigned_to ? uuid(u.assigned_to) : null;
+        if (u.resolution_notes !== undefined) updates.resolution_notes = text(u.resolution_notes, 8000);
+        updates.updated_at = new Date().toISOString();
+        return ok(must(await sb.from('platform_incidents').update(updates).eq('id', id).select('*').single()));
       }
 
       default:
