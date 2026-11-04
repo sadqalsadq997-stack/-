@@ -16,6 +16,7 @@ import { LogoMark } from '@/components/brand/Logo';
 import SubscribersTab from '@/components/owner/SubscribersTab';
 import BlogManager from '@/components/owner/BlogManager';
 import WorkforceHub from '@/components/owner/WorkforceHub';
+import OperationsCenter from '@/components/owner/OperationsCenter';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('ar-SA');
 const fmtSAR = (n) => `${fmt(n)} ⃁`;
@@ -892,6 +893,7 @@ export default function SuperAdmin() {
   const NAV_GROUPS = [
     { title: 'الرئيسية', items: [
       { id: 'overview', label: 'الرئيسية', desc: 'إحصائيات المنصة والتنبيهات', icon: BarChart3 },
+      { id: 'operations', label: 'مركز العمليات', desc: 'الحوادث والمهام ومتابعة التشغيل وسلامة البيانات', icon: Activity },
     ]},
     { title: 'إدارة المنصة', items: [
       { id: 'clients', label: 'المنشآت', desc: 'إدارة الحسابات والاشتراكات', icon: Users },
@@ -986,6 +988,7 @@ export default function SuperAdmin() {
             ) : (
               <div className="rounded-[26px] border border-slate-200/80 bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.045)] sm:p-7">
                 {tab === 'overview' && <OverviewTab stats={stats} clients={clients} />}
+                {tab === 'operations' && <OperationsCenter api={callOwnerApi} />}
                 {tab === 'orders' && <OrdersTab />}
                 {tab === 'finance' && <BillingTab />}
                 {tab === 'permissions' && <PlatformPermissionsTab />}
