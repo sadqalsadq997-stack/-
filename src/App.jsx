@@ -167,6 +167,11 @@ function SignupGate() {
 }
 
 function AppRoutes() {
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isPlatformHost = !host || host === 'felsy.org' || host === 'www.felsy.org'
+    || host === 'localhost' || host.endsWith('.vercel.app');
+  // Every path on a tenant custom domain is storefront-only; platform routes stay on felsy.org.
+  if (!isPlatformHost) return <PublicMenu />;
   return (
     <Routes>
       <Route path="/"               element={<RootGate />} />
