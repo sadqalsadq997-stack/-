@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getTrialBalance, getIncomeStatement, getAgingReport, createVoucher, DEFAULT_COA } from '@/lib/accounting';
@@ -268,22 +269,24 @@ function VouchersTab() {
 
 // ── الصفحة الرئيسية ──────────────────────────────────────────────
 export default function Accounting() {
+  const { lang } = useI18n();
+  const en = lang === 'en';
   const [tab, setTab] = useState('coa');
 
   const TABS = [
-    { id: 'coa',      label: 'دليل الحسابات',    icon: BookOpen    },
-    { id: 'trial',    label: 'ميزان المراجعة',   icon: Scale       },
-    { id: 'income',   label: 'قائمة الدخل',      icon: TrendingUp  },
-    { id: 'vouchers', label: 'السندات',           icon: FileText    },
-    { id: 'vat',      label: 'الإقرار الضريبي',   icon: Landmark    },
-    { id: 'purchases',label: 'فواتير المشتريات',  icon: ShoppingBag },
+    { id: 'coa',      label: en ? 'Chart of Accounts' : 'دليل الحسابات',    icon: BookOpen    },
+    { id: 'trial',    label: en ? 'Trial Balance' : 'ميزان المراجعة',   icon: Scale       },
+    { id: 'income',   label: en ? 'Income Statement' : 'قائمة الدخل',      icon: TrendingUp  },
+    { id: 'vouchers', label: en ? 'Vouchers' : 'السندات',           icon: FileText    },
+    { id: 'vat',      label: en ? 'VAT Return' : 'الإقرار الضريبي',   icon: Landmark    },
+    { id: 'purchases',label: en ? 'Purchase Invoices' : 'فواتير المشتريات',  icon: ShoppingBag },
   ];
 
   return (
-    <div dir="rtl" className="space-y-5">
+    <div dir={en ? "ltr" : "rtl"} lang={lang} className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
-          <BookOpen className="w-6 h-6 text-primary" /> المحاسبة
+          <BookOpen className="w-6 h-6 text-primary" /> {en ? "Accounting" : "المحاسبة"}
         </h1>
       </div>
 
