@@ -39,7 +39,7 @@ export default function PublicMenu() {
         }
       }
       if (!alive) return;
-      if (d && storeMode) d = { ...d, products: (d.products || []).filter(p => p.show_in_store !== false) };
+      if (d) d = { ...d, products: (d.products || []).filter(p => storeMode ? p.show_in_store !== false : p.show_in_menu !== false) };
       setData(d || null);
       if (d) {
         const name = d.business_name || d.branch?.name_ar || d.branch?.name;
