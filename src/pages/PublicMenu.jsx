@@ -18,7 +18,7 @@ export default function PublicMenu() {
   const [data, setData] = useState(undefined);
   const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
   const isCustomDomain = !!host && host !== 'felsy.org' && host !== 'www.felsy.org' && host !== 'localhost' && !host.endsWith('.vercel.app');
-  const storeMode = pathname.startsWith('/store') || (pathname === '/' && isCustomDomain);
+  const storeMode = pathname.startsWith('/store') || isCustomDomain;
 
   useEffect(() => {
     let alive = true;
