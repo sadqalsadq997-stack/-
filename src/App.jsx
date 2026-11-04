@@ -137,9 +137,13 @@ function RoleGuard({ children }) {
 // الصفحة الرئيسية: الزائر يشوف صفحة الهبوط، والمسجّل يتحول للوحته
 function RootGate() {
   const { session, loading, authChecked, isMissingEnv } = useAuth();
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isPlatformHost = !host || host === 'felsy.org' || host === 'www.felsy.org'
+    || host === 'localhost' || host.endsWith('.vercel.app');
+  // Custom domains are storefront-only: tenant domains never expose platform login/admin.
+  if (!isPlatformHost) return <PublicMenu />;
   if (!isMissingEnv && (loading || !authChecked)) return <FullScreenSpinner />;
   if (!isMissingEnv && session) return <Navigate to="/dashboard" replace />;
-  // داخل التطبيق: يفتح على شاشة الدخول مباشرة بدل صفحة الموقع التسويقية
   if (isAppMode()) return <Navigate to="/auth/login" replace />;
   return <LandingPage />;
 }
