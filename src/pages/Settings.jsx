@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ZatcaCenter from './ZatcaCenter';
 import AccountTab from '@/components/settings/AccountTab';
 import MenuDesignTab from '@/components/settings/MenuDesignTab';
+import { uploadImage } from '@/lib/images';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
 
 const TABS = [
@@ -53,15 +54,12 @@ export default function Settings() {
   async function uploadLogo(e) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { toast.error('الشعار لازم PNG أو JPG أو WebP'); return; }
-    if (file.size > 300 * 1024) { toast.error('حجم الشعار لازم أقل من 300KB'); return; }
-    if (!settings.id) { toast.error('احفظ بيانات المنشأة أولاً ثم ارفع الشعار'); return; }
-    const path = `${settings.id}/logo-${Date.now()}.${file.type.split('/')[1]}`;
-    const { error } = await supabase.storage.from('logos').upload(path, file, { contentType: file.type });
-    if (error) { toast.error('تعذر رفع الشعار'); return; }
-    const { data } = supabase.storage.from('logos').getPublicUrl(path);
-    setSettings(v => ({ ...v, logo_url: data.publicUrl }));
-    toast.success('تم رفع الشعار — اضغط حفظ');
+    try {
+      // نفس مسار صور المنتجات: ضغط WebP ثم رفع لمجلد المنشأة (R2 أو media)
+      const url = await uploadImage(file, 'logos', { max: 512 });
+      setSettings(v => ({ ...v, logo_url: url }));
+      toast.success('تم رفع الشعار — اضغط حفظ');
+    } catch (err) { toast.error(err.message || 'تعذر رفع الشعار'); }
   }
 
   const f = (key) => (e) => setSettings(v => ({ ...v, [key]: e.target.value }));
@@ -114,7 +112,7 @@ export default function Settings() {
                 <label className="mb-1.5 block text-sm font-medium">شعار المنشأة (يظهر على الفاتورة)</label>
                 {settings.logo_url && <img src={settings.logo_url} alt="" className="mb-2 h-16 object-contain" />}
                 <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo} className="text-xs" />
-                <p className="mt-1 text-[11px] text-muted-foreground">أبيض وأسود عالي التباين أفضل للطابعة الحرارية — أقل من 300KB.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">أبيض وأسود عالي التباين أفضل للطابعة الحرارية — يُضغط تلقائياً.</p>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">نوع النشاط</label>
