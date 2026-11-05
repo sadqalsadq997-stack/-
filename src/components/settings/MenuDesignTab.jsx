@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Copy, ExternalLink, Loader2, Save, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import MenuView, { MENU_THEMES, MENU_COLORS, themeVars } from '@/components/menu/MenuView';
+import MenuView, { MENU_THEMES, MENU_COLORS, SKINS, themeVars } from '@/components/menu/MenuView';
 import { useMyAccount } from '@/components/AccountNumber';
 
 // أصناف تجريبية للمعاينة لو المنيو لسه فاضي
@@ -51,7 +51,7 @@ export default function MenuDesignTab({ settings, setSettings }) {
           <h3 className="font-bold">التصميم</h3>
           <p className="mb-3 text-sm text-muted-foreground">كل التصاميم تتلوّن تلقائياً بلون منشأتك — والنص يتعدل عشان يكون واضح على أي لون.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {MENU_THEMES.map(t => (
+            {MENU_THEMES.filter(t => !t.legacy || t.id === theme).map(t => (
               <button key={t.id} type="button" onClick={() => setSettings(s => ({ ...s, menu_theme: t.id }))}
                 className={`relative overflow-hidden rounded-2xl border-2 text-right transition-all ${theme === t.id ? 'border-primary shadow-lg' : 'border-border hover:border-primary/40'}`}>
                 <ThemeThumb id={t.id} color={color} />
@@ -114,11 +114,11 @@ export default function MenuDesignTab({ settings, setSettings }) {
 // مصغّر يوضح شكل كل تصميم
 function ThemeThumb({ id, color }) {
   const v = themeVars(color, id);
-  const bg = { fresh: '#FFF8F1', photo: '#FAFAF7', night: '#0D0D0F', minimal: '#fff' }[id];
-  const card = id === 'night' ? '#17171B' : '#fff';
+  const sk = SKINS[id] || SKINS.fresh;
+  const [bg, card] = sk.thumb || ['#FFF8F1', '#fff'];
   return (
     <div style={{ ...v, background: bg }} className="h-28 p-3" aria-hidden>
-      {id === 'minimal' ? (
+      {sk.layout === 'list' ? (
         <div className="space-y-2 pt-1">
           {[0, 1, 2].map(i => (
             <div key={i} className="flex items-center gap-2">
