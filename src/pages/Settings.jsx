@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ZatcaCenter from './ZatcaCenter';
 import AccountTab from '@/components/settings/AccountTab';
 import MenuDesignTab from '@/components/settings/MenuDesignTab';
+import { uploadImage } from '@/lib/images';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
 
 const TABS = [
@@ -20,7 +21,7 @@ const TABS = [
 ];
 
 // الحقول اللي يحفظها تبويب "بيانات المنشأة" فقط (ما نرسل الصف كامل)
-const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type'];
+const BUSINESS_FIELDS = ['business_name', 'vat_number', 'cr_number', 'phone', 'address', 'city', 'industry_type', 'logo_url'];
 
 export default function Settings() {
   const [params, setParams] = useSearchParams();
@@ -48,6 +49,17 @@ export default function Settings() {
     if (error) { toast.error('تعذر الحفظ'); return; }
     if (data) setSettings(data);
     toast.success('تم حفظ بيانات المنشأة');
+  }
+
+  async function uploadLogo(e) {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    try {
+      // نفس مسار صور المنتجات: ضغط WebP ثم رفع لمجلد المنشأة (R2 أو media)
+      const url = await uploadImage(file, 'logos', { max: 512 });
+      setSettings(v => ({ ...v, logo_url: url }));
+      toast.success('تم رفع الشعار — اضغط حفظ');
+    } catch (err) { toast.error(err.message || 'تعذر رفع الشعار'); }
   }
 
   const f = (key) => (e) => setSettings(v => ({ ...v, [key]: e.target.value }));
@@ -96,6 +108,12 @@ export default function Settings() {
                     className="h-10 w-full rounded-xl border border-border bg-muted/50 px-3 text-sm focus:border-primary focus:outline-none" />
                 </div>
               ))}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">شعار المنشأة (يظهر على الفاتورة)</label>
+                {settings.logo_url && <img src={settings.logo_url} alt="" className="mb-2 h-16 object-contain" />}
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo} className="text-xs" />
+                <p className="mt-1 text-[11px] text-muted-foreground">أبيض وأسود عالي التباين أفضل للطابعة الحرارية — يُضغط تلقائياً.</p>
+              </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">نوع النشاط</label>
                 <select value={settings.industry_type || 'general'} onChange={f('industry_type')}

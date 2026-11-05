@@ -9,11 +9,26 @@ import MadeByFelsy from '@/components/MadeByFelsy';
 // ══════════════════════════════════════════════════════════════════
 
 export const MENU_THEMES = [
-  { id: 'fresh',   name: 'طازج',        desc: 'فاتح ودافئ، بطاقات بصور مربعة — يناسب الكافيهات والمخابز' },
-  { id: 'photo',   name: 'صور شهية',    desc: 'الصورة كاملة والسعر فوقها — يفتح النفس للمطاعم والبرجر' },
-  { id: 'night',   name: 'ليلي فاخر',   desc: 'خلفية داكنة ولمسة لامعة — للمطاعم الراقية والستيك' },
-  { id: 'minimal', name: 'كلاسيكي',     desc: 'قائمة مرتبة مثل المنيو المطبوع — سريع للقوائم الطويلة' },
+  { id: 'lux',    name: 'فاخر هادئ',   desc: 'عاجي وخطوط رفيعة وقائمة بلا صور صغيرة — للمطاعم الخمس نجوم' },
+  { id: 'najdi',  name: 'نجدي عصري',   desc: 'مثلثات نجدية وأقواس رملية — للمندي والكبسة والمطاعم التراثية' },
+  { id: 'snow',   name: 'أبيض نقي',    desc: 'نظيف ومساحات واسعة وبطاقات كبيرة — يناسب أي منشأة عصرية' },
+  { id: 'pop',    name: 'بوب جريء',    desc: 'حدود سميكة وظلال حادة وألوان صارخة — للوجبات السريعة والشباب' },
+  { id: 'news',   name: 'جريدة اليوم', desc: 'صفحة جريدة بخط تراثي وصور رمادية — للقهوة المختصة والمطابخ الراقية' },
+  { id: 'mint',   name: 'منت ناعم',    desc: 'فاتح بزوايا مدورة وظلال خفيفة — للكافيهات والحلويات' },
+  { id: 'glass',  name: 'زجاجي عصري',  desc: 'تدرج داكن وبطاقات شفافة — للعلامات الحديثة والمتاجر الإلكترونية' },
+  { id: 'craft',  name: 'كرافت دافئ',  desc: 'ورق كرافت وحواف مخيّطة — للأكل البيتي والمخابز والحرفي' },
+  // تصاميم قديمة: تبقى شغالة للمنشآت اللي تستخدمها ولا تظهر لمن لم يخترها
+  { id: 'fresh',   name: 'طازج',       desc: 'فاتح ودافئ، بطاقات بصور مربعة', legacy: true },
+  { id: 'photo',   name: 'صور شهية',   desc: 'الصورة كاملة والسعر فوقها', legacy: true },
+  { id: 'night',   name: 'ليلي فاخر',  desc: 'خلفية داكنة ولمسة لامعة', legacy: true },
+  { id: 'minimal', name: 'كلاسيكي',    desc: 'قائمة مرتبة مثل المنيو المطبوع', legacy: true },
 ];
+
+const DARK = new Set(['night', 'glass']);
+const HERO_STYLE = {
+  photo: { background: 'linear-gradient(160deg, var(--m-brand), color-mix(in oklab, var(--m-brand) 60%, black))' },
+  night: { background: 'radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--m-accent) 35%, transparent), transparent 70%)' },
+};
 
 export const MENU_COLORS = ['#E4572E', '#C2185B', '#7B3FE4', '#1E88E5', '#00897B', '#2E7D32', '#F9A825', '#6D4C41', '#212121', '#7FA38C'];
 
@@ -34,13 +49,13 @@ export function themeVars(color, theme) {
   const brand = `rgb(${rgb.join(' ')})`;
   const fg = L > 0.45 ? '#141414' : '#ffffff';
   // في الثيم الداكن: لو اللون غامق جداً نفتّحه عشان يبان
-  const accent = theme === 'night' && L < 0.12 ? `color-mix(in oklab, ${brand} 55%, white)` : brand;
+  const accent = DARK.has(theme) && L < 0.12 ? `color-mix(in oklab, ${brand} 55%, white)` : brand;
   // للنص الملوّن على خلفية فاتحة: لو اللون فاتح جداً (أصفر) نغمّقه
-  const ink = theme !== 'night' && L > 0.5 ? `color-mix(in oklab, ${brand} 55%, black)` : accent;
+  const ink = !DARK.has(theme) && L > 0.5 ? `color-mix(in oklab, ${brand} 55%, black)` : accent;
   return { '--m-brand': brand, '--m-fg': fg, '--m-accent': accent, '--m-ink': ink };
 }
 
-const SKINS = {
+export const SKINS = {
   fresh: {
     page: 'bg-[#FFF8F1] text-[#2B2118]', card: 'bg-white shadow-[0_6px_24px_-12px_rgba(60,30,0,.25)] rounded-3xl',
     muted: 'text-[#8A7563]', pill: 'bg-white text-[#5B4636] shadow-sm', input: 'bg-white shadow-sm', header: 'bg-[#FFF8F1]/90',
@@ -58,6 +73,35 @@ const SKINS = {
     pill: 'bg-neutral-100 text-neutral-700', input: 'bg-neutral-100', header: 'bg-white/95',
   },
 };
+
+Object.assign(SKINS.fresh, { layout: 'cards', hero: 'row', thumb: ['#FFF8F1', '#fff'] });
+Object.assign(SKINS.photo, { layout: 'photo', hero: 'center', thumb: ['#FAFAF7', '#fff'] });
+Object.assign(SKINS.night, { layout: 'cards', hero: 'center', dark: true, thumb: ['#0D0D0F', '#17171B'] });
+Object.assign(SKINS.minimal, { layout: 'list', hero: 'row', thumb: ['#fff', '#fff'] });
+Object.assign(SKINS, {
+  lux: { page: 'bg-[#FAF8F4] text-[#1A1A1A] tracking-wide', card: '', muted: 'text-[#7b756a]', pill: 'bg-transparent text-[#7b756a] rounded-none', input: 'bg-transparent border-b border-[#d9d2c3] rounded-none', header: 'bg-[#FAF8F4]/95',
+    layout: 'list', hero: 'center', divide: 'divide-[#d9d2c3]', noThumb: true, logo: 'rounded-full border border-[#d9d2c3]', title: 'text-2xl font-light tracking-[0.3em]', thumb: ['#FAF8F4', '#FAF8F4'] },
+  najdi: { page: 'bg-[#F1E2CC] text-[#4E2413]', card: 'bg-[#FFF8EC] border-2 border-[#7A3B1E] rounded-xl shadow-[0_3px_0_#7A3B1E]', muted: 'text-[#8D6B52]', pill: 'bg-[#FFF8EC] text-[#4E2413] border-2 border-[#7A3B1E]', input: 'bg-[#FFF8EC] border-2 border-[#7A3B1E]', header: 'bg-[#F1E2CC]/95',
+    layout: 'cards', hero: 'center', band: 'najdi', logo: 'rounded-t-full rounded-b-2xl border-2 border-[#7A3B1E]', thumb: ['#F1E2CC', '#FFF8EC'] },
+  snow: { page: 'bg-[#F5F5F7] text-[#1D1D1F]', card: 'bg-white rounded-[26px] shadow-[0_2px_14px_rgba(0,0,0,.07)]', muted: 'text-[#86868B]', pill: 'bg-[#E8E8ED] text-[#1D1D1F]', input: 'bg-[#E8E8ED]', header: 'bg-[#F5F5F7]/80',
+    layout: 'cards', hero: 'center', logo: 'rounded-[26px] shadow-lg', title: 'text-[2.6rem] font-black tracking-tight', thumb: ['#F5F5F7', '#fff'] },
+  pop: { page: 'bg-[#FFF1B8] text-black', card: 'bg-white border-[3px] border-black rounded-md shadow-[5px_5px_0_#000]', muted: 'text-neutral-600', pill: 'bg-white text-black border-[3px] border-black rounded-md', input: 'bg-white border-[3px] border-black', header: 'bg-[#FFF1B8]/95',
+    layout: 'cards', hero: 'center', logo: 'rounded-md border-[3px] border-black shadow-[4px_4px_0_#000]', title: 'inline-block bg-black px-3 text-3xl font-black text-white -rotate-1', thumb: ['#FFF1B8', '#fff'] },
+  news: { page: 'bg-[#F6F2E8] text-[#111] font-serif', card: '', muted: 'text-neutral-600', pill: 'bg-transparent text-[#111] border border-[#111] rounded-none', input: 'bg-transparent border-b border-[#111] rounded-none', header: 'bg-[#F6F2E8]/95',
+    layout: 'list', hero: 'center', divide: 'divide-[#111]/30', gray: true, band: 'rule', logo: 'rounded-none grayscale', title: 'text-[2.6rem] font-black tracking-tight', thumb: ['#F6F2E8', '#F6F2E8'] },
+  mint: { page: 'bg-[#F1FAF6] text-[#10332A]', card: 'bg-white rounded-[26px] shadow-[0_8px_22px_-12px_rgba(16,80,60,.35)]', muted: 'text-[#6B8F83]', pill: 'bg-white text-[#10332A] shadow-sm', input: 'bg-white shadow-sm', header: 'bg-[#F1FAF6]/90',
+    layout: 'cards', hero: 'row', logo: 'rounded-[28px] shadow-md', thumb: ['#F1FAF6', '#fff'] },
+  glass: { page: 'bg-gradient-to-br from-[#2b1b5e] via-[#0f3a63] to-[#0b2540] text-white', card: 'bg-white/10 backdrop-blur-md ring-1 ring-white/20 rounded-3xl', muted: 'text-white/65', pill: 'bg-white/10 text-white/85 ring-1 ring-white/20', input: 'bg-white/10 ring-1 ring-white/20 text-white placeholder:text-white/50', header: 'bg-[#0f3a63]/60',
+    layout: 'cards', hero: 'center', dark: true, logo: 'rounded-3xl ring-2 ring-white/30', thumb: ['#1b2a63', '#2e3f80'] },
+  craft: { page: 'bg-[#E9DFCF] text-[#3A2A1C] font-serif', card: 'bg-[#F8F1E4] border-2 border-dashed border-[#8C5A2B] rounded-lg', muted: 'text-[#8C7560]', pill: 'bg-[#F8F1E4] text-[#3A2A1C] border-2 border-dashed border-[#8C5A2B]', input: 'bg-[#F8F1E4] border-2 border-dashed border-[#8C5A2B]', header: 'bg-[#E9DFCF]/95',
+    layout: 'cards', hero: 'center', band: 'craft', logo: 'rounded-full outline outline-2 outline-dashed outline-[#8C5A2B] outline-offset-4', thumb: ['#E9DFCF', '#F8F1E4'] },
+});
+
+function Band({ kind }) {
+  if (kind === 'najdi') return <div aria-hidden className="mx-4 h-3.5" style={{ background: 'conic-gradient(from 135deg at 50% 100%, var(--m-brand) 0 90deg, transparent 0) 0 0/28px 14px repeat-x' }} />;
+  if (kind === 'craft') return <div aria-hidden className="mx-6 border-t-2 border-dashed border-[var(--m-brand)]" />;
+  return <div aria-hidden className="mx-4 border-y-4 border-double border-[#111]" />;
+}
 
 const fmt = (n) => Number(n || 0).toFixed(2).replace(/\.00$/, '');
 
@@ -87,10 +131,10 @@ function Img({ p, className }) {
   return <div className={`flex items-center justify-center bg-[color-mix(in_oklab,var(--m-brand)_14%,transparent)] text-4xl ${className}`}>🍽️</div>;
 }
 
-function ProductCard({ theme, p, qty, onAdd, skin }) {
+function ProductCard({ layout, p, qty, onAdd, skin }) {
   const name = p.name_ar || p.name;
   const desc = p.description_ar || p.description;
-  if (theme === 'photo') {
+  if (layout === 'photo') {
     return (
       <article className={`relative ${skin.card} aspect-[4/5] bg-neutral-200`}>
         <Img p={p} className="absolute inset-0 h-full w-full" />
@@ -107,7 +151,7 @@ function ProductCard({ theme, p, qty, onAdd, skin }) {
       </article>
     );
   }
-  if (theme === 'minimal') {
+  if (layout === 'list') {
     return (
       <article className="flex items-start gap-3 py-3">
         <div className="min-w-0 flex-1">
@@ -118,7 +162,7 @@ function ProductCard({ theme, p, qty, onAdd, skin }) {
           </div>
           {desc && <p className={`mt-0.5 line-clamp-2 text-xs ${skin.muted}`}>{desc}</p>}
         </div>
-        {p.image_url && <Img p={p} className="h-16 w-16 flex-shrink-0 rounded-xl" />}
+        {p.image_url && !skin.noThumb && <Img p={p} className={`h-16 w-16 flex-shrink-0 ${skin.gray ? 'rounded-none grayscale contrast-125' : 'rounded-xl'}`} />}
         <Qty qty={qty} onAdd={onAdd} product={p} />
       </article>
     );
@@ -193,18 +237,20 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
   const total = cart.reduce((s, i) => s + Math.round(i.price * 100) * i.qty, 0) / 100;
   const pos = preview ? 'absolute' : 'fixed';
   // المعاينة داخل إطار الجوال: عمودين دائماً (الـ breakpoints تتبع عرض النافذة مو الإطار)
-  const grid = theme === 'minimal' ? 'divide-y divide-neutral-100'
+  const legacy = ['fresh', 'photo', 'night', 'minimal'].includes(theme);
+  const grid = skin.layout === 'list' ? `divide-y ${skin.divide || 'divide-neutral-100'}`
     : preview ? 'grid grid-cols-2 gap-3'
     : theme === 'photo' ? 'grid grid-cols-2 gap-3 lg:grid-cols-3' : 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4';
 
   return (
     <div dir="rtl" style={vars} className={`relative min-h-full font-sans ${skin.page} ${preview ? 'min-h-[640px]' : 'min-h-screen'}`}>
       {/* الواجهة */}
-      {theme === 'photo' || theme === 'night' ? (
+      {skin.hero === 'center' ? (
         <header className="relative overflow-hidden px-4 pb-6 pt-8 text-center"
-          style={{ background: theme === 'photo' ? 'linear-gradient(160deg, var(--m-brand), color-mix(in oklab, var(--m-brand) 60%, black))' : 'radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--m-accent) 35%, transparent), transparent 70%)' }}>
-          {logo && <img src={logo} alt="" className="mx-auto mb-3 h-20 w-20 rounded-3xl border-4 border-white/20 object-cover shadow-xl" />}
-          <h1 className={`text-3xl font-black tracking-tight ${theme === 'photo' ? 'text-[var(--m-fg)]' : ''}`}>{name}</h1>
+          style={HERO_STYLE[theme]}>
+          {logo ? <img src={logo} alt="" className={`mx-auto mb-3 object-cover shadow-xl ${legacy ? 'h-20 w-20 rounded-3xl border-4 border-white/20' : `h-28 w-28 ${skin.logo || 'rounded-3xl'}`}`} />
+            : !legacy && <div className={`mx-auto mb-3 flex h-28 w-28 items-center justify-center bg-[var(--m-brand)] text-5xl font-black text-[var(--m-fg)] ${skin.logo || 'rounded-3xl'}`}>{name.slice(0, 1)}</div>}
+          <h1 className={`${skin.title || 'text-3xl font-black tracking-tight'} ${theme === 'photo' ? 'text-[var(--m-fg)]' : ''}`}>{name}</h1>
           {(place || phone) && (
             <p className={`mt-2 flex flex-wrap items-center justify-center gap-3 text-xs ${theme === 'photo' ? 'text-[var(--m-fg)] opacity-80' : skin.muted}`}>
               {place && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{place}</span>}
@@ -214,8 +260,8 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
         </header>
       ) : (
         <header className="mx-auto flex max-w-5xl items-center gap-3 px-4 pb-2 pt-5">
-          {logo ? <img src={logo} alt="" className="h-14 w-14 rounded-2xl object-cover shadow-md" />
-            : <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--m-brand)] text-2xl font-black text-[var(--m-fg)]">{name.slice(0, 1)}</div>}
+          {logo ? <img src={logo} alt="" className={`object-cover shadow-md ${legacy ? 'h-14 w-14 rounded-2xl' : `h-20 w-20 ${skin.logo || 'rounded-2xl'}`}`} />
+            : <div className={`flex items-center justify-center bg-[var(--m-brand)] font-black text-[var(--m-fg)] ${legacy ? 'h-14 w-14 rounded-2xl text-2xl' : `h-20 w-20 text-3xl ${skin.logo || 'rounded-2xl'}`}`}>{name.slice(0, 1)}</div>}
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-black">{name}</h1>
             {(place || phone) && <p className={`flex flex-wrap gap-3 text-xs ${skin.muted}`}>
@@ -225,6 +271,8 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
           </div>
         </header>
       )}
+
+      {skin.band && <Band kind={skin.band} />}
 
       {/* البحث + التصنيفات (ثابتة أثناء التمرير) */}
       <div className={`${preview ? '' : 'sticky top-0'} z-20 ${skin.header} backdrop-blur`}>
@@ -249,13 +297,13 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
 
       <main className={`mx-auto max-w-5xl space-y-7 px-4 pt-3 ${count ? 'pb-28' : 'pb-10'}`}>
         {/* الأكثر طلباً — شريط أفقي */}
-        {cat === 'all' && !q && featured.length > 0 && theme !== 'minimal' && (
+        {cat === 'all' && !q && featured.length > 0 && skin.layout !== 'list' && (
           <section>
             <h2 className="mb-3 flex items-center gap-1.5 text-lg font-black"><Flame className="h-5 w-5 text-[var(--m-ink)]" />الأكثر طلباً</h2>
             <div className="scrollbar-none -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
               {featured.map(p => (
                 <div key={p.id} className={`w-44 flex-shrink-0 snap-start ${preview ? '' : 'sm:w-52'}`}>
-                  <ProductCard theme={theme === 'night' ? 'night' : 'photo'} p={p} qty={qtyOf(p.id)} onAdd={add} skin={theme === 'night' ? skin : SKINS.photo} />
+                  <ProductCard layout={skin.dark ? 'cards' : 'photo'} p={p} qty={qtyOf(p.id)} onAdd={add} skin={skin.dark ? skin : SKINS.photo} />
                 </div>
               ))}
             </div>
@@ -265,19 +313,19 @@ export default function MenuView({ data, theme = 'fresh', color, preview = false
         {groups.map(g => (
           <section key={g.id}>
             {g.title && (
-              <h2 className={`mb-3 flex items-center gap-2 text-lg font-black ${theme === 'minimal' ? 'border-b-2 border-[var(--m-brand)] pb-1' : ''}`}>
-                {theme !== 'minimal' && <span className="h-5 w-1.5 rounded-full bg-[var(--m-brand)]" />}{g.title}
+              <h2 className={`mb-3 flex items-center gap-2 text-lg font-black ${skin.layout === 'list' ? 'border-b-2 border-[var(--m-brand)] pb-1' : ''}`}>
+                {skin.layout !== 'list' && <span className="h-5 w-1.5 rounded-full bg-[var(--m-brand)]" />}{g.title}
               </h2>
             )}
             <div className={grid}>
-              {g.items.map(p => <ProductCard key={p.id} theme={theme} p={p} qty={qtyOf(p.id)} onAdd={add} skin={skin} />)}
+              {g.items.map(p => <ProductCard key={p.id} layout={skin.layout} p={p} qty={qtyOf(p.id)} onAdd={add} skin={skin} />)}
             </div>
           </section>
         ))}
         {products.length > 0 && visible.length === 0 && <p className={`py-16 text-center ${skin.muted}`}>ما لقينا شي بهذا الاسم</p>}
         {products.length === 0 && <p className={`py-16 text-center ${skin.muted}`}>المنيو قيد التجهيز</p>}
 
-        <footer className="flex justify-center pt-4"><MadeByFelsy source={storeMode ? 'store' : 'menu'} tone={theme === 'night' ? 'light' : 'muted'} /></footer>
+        <footer className="flex justify-center pt-4"><MadeByFelsy source={storeMode ? 'store' : 'menu'} tone={skin.dark ? 'light' : 'muted'} /></footer>
       </main>
 
       {/* شريط السلة */}
@@ -303,7 +351,7 @@ function CartSheet({ cart, add, total, pos, skin, theme, onClose, onPlaceOrder, 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState(null);
-  const sheet = theme === 'night' ? 'bg-[#141417] text-neutral-100' : 'bg-white text-neutral-900';
+  const sheet = skin.dark ? 'bg-[#141417] text-neutral-100' : 'bg-white text-neutral-900';
 
   async function submit() {
     if (!onPlaceOrder) { setDone({ order_number: 'معاينة' }); return; }
