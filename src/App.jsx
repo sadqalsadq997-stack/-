@@ -35,6 +35,7 @@ import Customers             from "@/pages/Customers";
 import Suppliers             from "@/pages/Suppliers";
 import Expenses              from "@/pages/Expenses";
 import Analytics             from "@/pages/Analytics";
+import BusinessIntelligence  from "@/pages/BusinessIntelligence";
 import Employees             from "@/pages/Employees";
 import Settings              from "@/pages/Settings";
 import AIAssistant           from "@/pages/AIAssistant";
@@ -224,6 +225,7 @@ function AppRoutes() {
                   <Route path="/suppliers"          element={<Suppliers />} />
                   <Route path="/expenses"           element={<Expenses />} />
                   <Route path="/analytics"          element={<Analytics />} />
+                  <Route path="/insights"           element={<BusinessIntelligence />} />
                   <Route path="/employees"          element={<Employees />} />
                   <Route path="/settings"           element={<Settings />} />
                   <Route path="/ai"                 element={<AIAssistant />} />
