@@ -901,6 +901,11 @@ export default function SuperAdmin() {
       { id: 'hr', label: 'الموارد البشرية', desc: 'ملفات الموظفين والرواتب والمهام والحسابات', icon: UserCog },
       { id: 'permissions', label: 'الصلاحيات', desc: 'الشاشات والعمليات المسموحة لكل موظف', icon: Shield },
     ]},
+    { title: 'التجارة الإلكترونية', items: [
+      { id: 'storefront', label: 'المتاجر والمنيو', desc: 'مراقبة المتاجر العامة والدومينات المنشورة', icon: Store },
+      { id: 'domains', label: 'الدومينات وDNS', desc: 'سجلات النطاقات وحالة التحقق', icon: Globe },
+      { id: 'integrations', label: 'مركز التكاملات', desc: 'كتالوج الخدمات وحالة جاهزية الربط', icon: Plug },
+    ]},
     { title: 'التشغيل والتقنية', items: [
       { id: 'tickets', label: 'الدعم الفني', desc: 'التذاكر وتوزيعها على الموظفين', icon: MessageSquare },
       { id: 'development', label: 'مركز المبرمجين', desc: 'الأعطال والبلاغات التقنية والإصلاحات', icon: Server },
@@ -989,6 +994,9 @@ export default function SuperAdmin() {
               <div className="rounded-[26px] border border-slate-200/80 bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.045)] sm:p-7">
                 {tab === 'overview' && <OverviewTab stats={stats} clients={clients} />}
                 {tab === 'operations' && <OperationsCenter api={callOwnerApi} />}
+                {tab === 'storefront' && <OwnerStorefrontTab />}
+                {tab === 'domains' && <OwnerDomainsTab />}
+                {tab === 'integrations' && <OwnerIntegrationsTab />}
                 {tab === 'orders' && <OrdersTab />}
                 {tab === 'finance' && <BillingTab />}
                 {tab === 'permissions' && <PlatformPermissionsTab />}
@@ -1014,6 +1022,67 @@ export default function SuperAdmin() {
       </div>
     </div>
   );
+}
+
+
+function OwnerDomainsTab() {
+  const [domains, setDomains] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  async function refresh() {
+    setLoading(true); setError('');
+    try { setDomains(await callOwnerApi('list_domains') || []); }
+    catch (e) { setError(e?.message || 'تعذر تحميل الدومينات'); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { refresh(); }, []);
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">الدومينات والمتاجر المرتبطة</h2><p className="text-sm text-slate-500">كل دومين مخصص يفتح واجهة متجر المنشأة فقط، ولا يفتح لوحة فلسي الداخلية.</p></div><button onClick={refresh} className="rounded-xl border px-3 py-2 text-sm font-bold">تحديث القائمة</button></div>
+    {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {loading ? <p className="py-10 text-center text-slate-500">جارٍ تحميل الدومينات...</p> : domains.length ? <div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[720px] text-sm"><thead className="bg-slate-50 text-right"><tr><th className="p-3">الدومين</th><th className="p-3">المنشأة / الفرع</th><th className="p-3">المزوّد</th><th className="p-3">الحالة</th><th className="p-3">DNS</th><th className="p-3">الواجهة</th></tr></thead><tbody>{domains.map(d=><tr key={d.id} className="border-t"><td className="p-3 font-mono" dir="ltr">{d.domain}</td><td className="p-3">{d.branches?.name_ar || d.branches?.name || '—'}</td><td className="p-3">{d.provider || 'خارجي'}</td><td className="p-3">{d.status === 'active' && d.is_active ? 'نشط' : d.status === 'pending_verification' ? 'بانتظار التحقق' : d.status}</td><td className="p-3">{d.dns_configured ? 'مهيأ' : 'غير مؤكد'}</td><td className="p-3"><a className="font-bold text-blue-700 hover:underline" href={'https://' + d.domain} target="_blank" rel="noreferrer">فتح المتجر</a></td></tr>)}</tbody></table></div> : <p className="rounded-xl border border-dashed p-8 text-center text-slate-500">لا توجد دومينات مسجلة حتى الآن.</p>}
+    <p className="text-xs text-slate-500">هذه الصفحة تعرض سجلات الربط. شراء الدومين أو فحص DNS لا يتم من هنا إلا بعد تفعيل مزود registrar/DNS موثّق.</p>
+  </div>;
+}
+
+function OwnerStorefrontTab() {
+  const [state, setState] = useState({branches:[],domains:[],jobs:[],tickets:[]});
+  const [loading,setLoading] = useState(true);
+  const [errors,setErrors] = useState([]);
+  async function refresh() {
+    setLoading(true);
+    const actions = ['list_branches','list_domains','list_job_posts','list_support_tickets'];
+    const results = await Promise.allSettled(actions.map(a=>callOwnerApi(a)));
+    const keys=['branches','domains','jobs','tickets']; const next={branches:[],domains:[],jobs:[],tickets:[]}; const failed=[];
+    results.forEach((r,i)=>{if(r.status==='fulfilled')next[keys[i]]=r.value||[];else failed.push(actions[i]);});
+    setState(next); setErrors(failed); setLoading(false);
+  }
+  useEffect(()=>{refresh();},[]);
+  const liveDomains=state.domains.filter(d=>d.status==='active'&&d.is_active);
+  const published=state.jobs.filter(j=>j.status==='published');
+  return <div className="space-y-5">
+    <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black">مراقبة المتاجر والمنيو العام</h2><p className="text-sm text-slate-500">مؤشرات تشغيل من سجلات المنصة الفعلية.</p></div><button onClick={refresh} className="rounded-xl border px-3 py-2 text-sm font-bold">تحديث</button></div>
+    {loading?<p className="py-10 text-center text-slate-500">جارٍ جلب المؤشرات...</p>:<>
+      {errors.length>0&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">تعذر جلب بعض البيانات: {errors.join('، ')}</p>}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[{l:'الفروع',v:state.branches.length},{l:'دومينات نشطة',v:liveDomains.length},{l:'وظائف منشورة',v:published.length},{l:'تذاكر الدعم',v:state.tickets.length}].map(x=><div key={x.l} className="rounded-2xl border p-4"><p className="text-2xl font-black">{x.v}</p><p className="text-sm text-slate-500">{x.l}</p></div>)}</div>
+      <div className="rounded-2xl border p-4"><h3 className="font-bold">قاعدة ربط الدومينات</h3><p className="mt-2 text-sm text-slate-600">الدومين المخصص يوجّه الجذر إلى متجر المنشأة. لا يتم عرض صفحة فلسي التسويقية أو تسجيل دخول المالك على دومين المنشأة.</p><p className="mt-2 text-xs text-slate-500">يجب أن تكون حالة الدومين نشطة وأن ينجح تحقق DNS حتى يظهر المتجر.</p></div>
+    </>}
+  </div>;
+}
+
+function OwnerIntegrationsTab() {
+  const providers = [
+    ['سلة','متاجر إلكترونية','OAuth / تفويض متجر'],
+    ['زد','متاجر إلكترونية','OAuth / تفويض متجر'],
+    ['ميسر','مدفوعات','حساب تاجر ومفاتيح API'],
+    ['مرسال','خدمات تشغيل','توثيق API واعتماد حساب'],
+    ['شركات الشحن','الشحن والتوصيل','حساب مزود وبيانات API'],
+    ['مسجل الدومينات','الدومينات وDNS','حساب registrar ومفاتيح API'],
+  ];
+  return <div className="space-y-4">
+    <div><h2 className="text-lg font-black">مركز التكاملات</h2><p className="text-sm text-slate-500">كتالوج موحد للخدمات المخطط ربطها. لن تظهر أي خدمة كمتصلة قبل نجاح التفويض والاختبار.</p></div>
+    <div className="grid gap-3 md:grid-cols-2">{providers.map(([name,category,needs])=><article key={name} className="rounded-2xl border p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{name}</h3><p className="mt-1 text-xs text-slate-500">{category}</p></div><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">غير مربوط</span></div><p className="mt-3 text-sm text-slate-600">متطلبات التفعيل: {needs}</p><p className="mt-2 text-xs text-slate-400">سيُتاح الربط التلقائي بعد اعتماد موصل المزود وتوفير التفويض الرسمي.</p></article>)}</div>
+    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">التفعيل دون إدخال يدوي ممكن عندما يوفّر المزود OAuth أو تفويض تطبيق. لا يمكن تخطي موافقة حساب التاجر أو مفاتيح API الخاصة به.</div>
+  </div>;
 }
 
 // ── تبويب الدعم الفني — شات كامل بين صاحب النظام والعملاء ──────
@@ -1230,7 +1299,7 @@ function TicketsTab({ tickets, onRefresh }) {
                 <p className="text-gray-400 text-sm text-center">لا توجد رسائل بعد</p>
               ) : messages.map(m => (
                 <div key={m.id} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.role === 'agent' ? 'bg-primary text-gray-900 rounded-tl-none' : 'bg-gray-50 text-gray-200 rounded-tr-none'}`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.role === 'agent' ? 'bg-primary text-slate-900 rounded-tl-none' : 'bg-gray-100 text-gray-800 rounded-tr-none'}`}>
                     {m.content}
                   </div>
                 </div>

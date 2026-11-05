@@ -9,8 +9,8 @@ import {
 import { toast } from 'sonner';
 
 // ══════════════════════════════════════════════════════
-// إدارة الدومين — ربط تلقائي كامل بدون تدخل بشري
-// يدعم: شراء تلقائي + ربط تلقائي لكل منشأة
+// إدارة دومين المتجر العام فقط — لا يوجّه إلى لوحة إدارة فلسي
+// الشراء والتفعيل يعتمدان على تأكيد مزود التسجيل وفحص DNS الفعلي
 // ══════════════════════════════════════════════════════
 
 const TLD_PRICES = [
@@ -23,7 +23,7 @@ const TLD_PRICES = [
 ];
 
 const APP_HOST  = import.meta.env.VITE_APP_HOST  || '76.76.21.21';
-const APP_CNAME = import.meta.env.VITE_APP_CNAME || window.location.hostname;
+const APP_CNAME = import.meta.env.VITE_APP_CNAME || 'cname.vercel-dns.com';
 
 function copy(text) { navigator.clipboard.writeText(text).catch(() => {}); }
 
@@ -74,12 +74,12 @@ export default function DomainManagement() {
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('domain-check', { body: { domain: base } });
       if (fnErr || !data) {
-        setResults(TLD_PRICES.map(t => ({ domain: `${base}${t.ext}`, available: Math.random() > 0.3, price: t.price, ext: t.ext, popular: t.popular })));
+        setResults([]); setError('تعذر التحقق من توفر الدومينات من مزود التسجيل. لم نعرض نتائج تقديرية؛ حاول لاحقاً بعد تفعيل اتصال مزود الدومينات.');
       } else {
         setResults(data.results || []);
       }
     } catch {
-      setResults(TLD_PRICES.map(t => ({ domain: `${base}${t.ext}`, available: Math.random() > 0.3, price: t.price, ext: t.ext, popular: t.popular })));
+      setResults([]); setError('تعذر التحقق من توفر الدومينات من مزود التسجيل. لم نعرض نتائج تقديرية؛ حاول لاحقاً بعد تفعيل اتصال مزود الدومينات.');
     }
     setSearching(false);
   }
@@ -102,13 +102,16 @@ export default function DomainManagement() {
         body: { domain: domainResult.domain, branch_id: branchId }
       });
       if (fnErr) throw new Error(fnErr.message);
+      if (!purchaseData || purchaseData.success !== true || !purchaseData.orderId) throw new Error('لم يؤكد مزود التسجيل إتمام الشراء. لم يتم تسجيل الدومين على أنه مملوك.');
 
       // الخطوة 2 — حفظ في DB
       const { data: saved, error: dbErr } = await supabase.from('domains').insert({
         domain: domainResult.domain,
-        status: 'pending',
+        status: 'pending_verification',
         provider: 'namecheap',
         branch_id: branchId,
+        store_path: '/',
+        menu_path: null,
         price: domainResult.price,
         namecheap_id: purchaseData?.orderId || null,
         expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -117,19 +120,19 @@ export default function DomainManagement() {
 
       // الخطوة 3 — إعداد DNS تلقائي
       setAutoStep(2); await delay(800);
-      await supabase.functions.invoke('domain-setup-dns', {
+      const { data: dnsData, error: dnsError } = await supabase.functions.invoke('domain-setup-dns', {
         body: { domain: domainResult.domain, target: APP_HOST, cname: APP_CNAME }
       });
+      if (dnsError || dnsData?.success !== true) throw new Error('تم تأكيد طلب التسجيل لكن إعداد DNS لم يكتمل. سيبقى الدومين قيد الإعداد حتى التحقق الفعلي.');
 
       // الخطوة 4 — ربط بالمنشأة
       setAutoStep(3); await delay(600);
-      await supabase.from('domains').update({ status: 'active', dns_configured: true, is_active: true }).eq('id', saved.id);
+      await supabase.from('domains').update({ status: 'pending_verification', dns_configured: true, is_active: false }).eq('id', saved.id);
 
-      // الخطوة 5 — تفعيل
-      setAutoStep(4); await delay(500);
-      setAutoStep(5); // مكتمل
-      setSuccess(`✅ تم تسجيل ${domainResult.domain} وربطه تلقائياً!`);
-      toast.success(`✅ ${domainResult.domain} جاهز!`);
+      // التسجيل وتهيئة DNS لا يعنيان أن الدومين أصبح فعالاً؛ يلزم تحقق DNS.
+      setAutoStep(4);
+      setSuccess(`تم تأكيد التسجيل وتهيئة DNS لـ ${domainResult.domain}. سيبقى بانتظار التحقق قبل التفعيل.`);
+      toast.success('تم إرسال الطلب؛ التفعيل ينتظر تحقق DNS.');
       await loadData();
       setTimeout(() => setTab('owned'), 1500);
     } catch (err) {
@@ -153,6 +156,8 @@ export default function DomainManagement() {
         status: 'pending_verification',
         provider: 'external',
         branch_id: branchId,
+        store_path: '/',
+        menu_path: null,
       }).select().single();
       if (dbErr) throw dbErr;
       setOwnedDomains(prev => [saved, ...prev]);
@@ -211,7 +216,7 @@ export default function DomainManagement() {
           <Globe className="w-6 h-6 text-primary" /> إدارة الدومين
         </h1>
         <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-          <Zap className="w-3.5 h-3.5" /> ربط تلقائي بدون تدخل
+          <Zap className="w-3.5 h-3.5" /> حالة المزود والتحقق
         </div>
       </div>
 
@@ -246,9 +251,9 @@ export default function DomainManagement() {
                 <Sparkles className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground">ربط تلقائي 100% بدون تدخل</h3>
+                <h3 className="font-bold text-foreground">التحقق والربط بعد تأكيد المزود</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  عند شراء دومين، يتم شراؤه وإعداد DNS وربطه بمنشأتك تلقائياً في ثوانٍ — تماماً كما تفعل سلة وزد.
+                  لن نعرض الدومين كمتاح أو مملوك أو فعال إلا بعد رد موثّق من مزود التسجيل والتحقق من سجلات DNS. شراء الدومين يتطلب اتصال مزود حقيقي وموافقة على السعر.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {AUTO_STEPS.map((s, i) => (
@@ -348,7 +353,7 @@ export default function DomainManagement() {
         <div className="space-y-4 max-w-lg">
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="font-bold text-foreground mb-1">ربط دومين موجود</h3>
-            <p className="text-sm text-muted-foreground mb-5">لديك دومين مسجل؟ اربطه بنظامك في خطوتين.</p>
+            <p className="text-sm text-muted-foreground mb-5">لديك دومين مسجل؟ اربطه بواجهة المتجر الإلكتروني فقط؛ ستبقى لوحة فلسي على نطاقها الأصلي.</p>
             <BranchPicker />
             <div className="flex gap-2">
               <input value={connectDomain} onChange={e => setConnectDomain(e.target.value)}
@@ -366,7 +371,7 @@ export default function DomainManagement() {
             {[
               { type: 'A',     name: '@',   value: APP_HOST,  ttl: '3600' },
               { type: 'A',     name: 'www', value: APP_HOST,  ttl: '3600' },
-              { type: 'CNAME', name: 'menu', value: APP_CNAME, ttl: '3600' },
+              { type: 'CNAME', name: 'www', value: APP_CNAME, ttl: '3600' },
             ].map((r, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl font-mono text-sm">
                 <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${r.type === 'A' ? 'bg-sage-500/10 text-sage-500' : 'bg-peach-500/10 text-peach-500'}`}>{r.type}</span>
@@ -469,7 +474,7 @@ export default function DomainManagement() {
                   {[
                     { type: 'A',     name: '@',   value: APP_HOST,           ttl: '3600' },
                     { type: 'A',     name: 'www', value: APP_HOST,           ttl: '3600' },
-                    { type: 'CNAME', name: 'menu', value: APP_CNAME,         ttl: '3600' },
+                    { type: 'CNAME', name: 'www',  value: APP_CNAME,         ttl: '3600' },
                     { type: 'TXT',   name: '@',   value: 'v=felsy-verify-1', ttl: '3600' },
                   ].map((r, i) => (
                     <tr key={i} className="border-t border-border/50 hover:bg-muted/20">

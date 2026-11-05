@@ -42,6 +42,9 @@ serve(async (req) => {
       case 'list_branches':
         return ok(must(await sb.from('branches').select('id, name, name_ar, tenant_id, is_active, created_at').order('created_at', { ascending: false }).limit(1000)));
 
+      case 'list_domains':
+        return ok(must(await sb.from('domains').select('id, domain, status, provider, is_active, dns_configured, branch_id, tenant_id, expires_at, created_at, branches(name, name_ar)').order('created_at', { ascending: false }).limit(1000)));
+
       case 'list_subscriptions': {
         const tenants = must(await sb.from('tenants').select('id, name, contact_email, created_at').order('created_at', { ascending: false })) as any[];
         const subs = must(await sb.from('tenant_subscriptions').select('tenant_id, status, current_period_end, billing_plans(plan_code)')) as any[];

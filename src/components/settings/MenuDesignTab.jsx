@@ -21,7 +21,7 @@ export default function MenuDesignTab({ settings, setSettings }) {
   const { data: acc } = useMyAccount();
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const theme = settings.menu_theme || 'fresh';
+  const theme = MENU_THEMES.some(t => t.id === settings.menu_theme) ? settings.menu_theme : 'fresh';
   const color = settings.menu_color || '#E4572E';
 
   const { data: live } = useQuery({
