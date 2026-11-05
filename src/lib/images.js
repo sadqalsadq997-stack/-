@@ -43,7 +43,7 @@ export async function uploadImage(file, folder = 'products', opts) {
     if (res.ok) return (await res.json()).url;
     if (res.status !== 501 && res.status !== 404) {
       const e = await res.json().catch(() => ({}));
-      throw new Error(e.error || 'تعذر رفع الصورة');
+      throw new Error(e.error === 'unauthorized' ? 'انتهت الجلسة — سجّل دخولك من جديد' : (e.error || 'تعذر رفع الصورة'));
     }
   } catch (e) {
     if (e instanceof TypeError === false && e.message && !/fetch/i.test(e.message)) throw e;
@@ -52,6 +52,12 @@ export async function uploadImage(file, folder = 'products', opts) {
   const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
   const path = await tenantUploadPath(folder, ext);
   const { error } = await supabase.storage.from('media').upload(path, blob, { contentType: blob.type, upsert: false, cacheControl: '31536000' });
-  if (error) throw new Error('تعذر رفع الصورة');
+  if (error) {
+    const m = String(error.message || '');
+    if (/row-level security|violates|unauthorized|forbidden/i.test(m)) throw new Error('الرفع مرفوض: اشتراك المنشأة غير فعّال أو منتهي — جدّد الاشتراك وأعد المحاولة');
+    if (/bucket not found/i.test(m)) throw new Error('مخزن الصور غير مُعدّ في السيرفر');
+    if (/exceed|too large|size/i.test(m)) throw new Error('حجم الصورة أكبر من المسموح');
+    throw new Error('تعذر رفع الصورة: ' + m.slice(0, 80));
+  }
   return supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
 }

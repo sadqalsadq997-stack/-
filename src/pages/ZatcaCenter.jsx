@@ -84,6 +84,17 @@ export default function ZatcaCenter() {
     const { error } = await supabase.rpc('zatca_save_profile', { p_branch: branch, p: { ...form, invoice_types: form.invoice_types === '1100' ? '1100' : '0100' } });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    // مزامنة مع "بيانات المنشأة" ليطابق ما يُطبع على الفاتورة ما يُرسل للهيئة
+    try {
+      const patch = {
+        business_name: form.business_name || null, vat_number: form.vat_number || null, cr_number: form.cr_number || null,
+        address: [form.address_building, form.address_street, form.address_district].filter(Boolean).join('، ') || null,
+        city: form.address_city || null,
+      };
+      const { data: row } = await supabase.from('app_settings').select('id').limit(1).maybeSingle();
+      if (row?.id) await supabase.from('app_settings').update(patch).eq('id', row.id);
+      else await supabase.from('app_settings').insert(patch);
+    } catch { /* المزامنة اختيارية */ }
     toast.success('تم حفظ البيانات الضريبية');
     qc.invalidateQueries({ queryKey: ['zatca-config'] }); refetchStatus();
   }
