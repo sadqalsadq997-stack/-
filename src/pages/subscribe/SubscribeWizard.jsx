@@ -603,8 +603,6 @@ export default function SubscribeWizard({ embedded = false }) {
                             </Field>
                           )}
                           {!hasAccount && (
-                          )}
-                          {!hasAccount && (
                             <Field label="رقم الجوال" error={errors.phone}>
                               <div className={`flex items-center overflow-hidden rounded-xl border bg-white focus-within:ring-4 ${errors.phone ? 'border-red-400 focus-within:ring-red-100' : 'border-beige-300 focus-within:border-sage-600 focus-within:ring-sage-100'}`} dir="ltr">
                                 <span className="flex h-12 items-center border-e border-beige-300 bg-beige px-3 text-sm font-bold text-slate-600">+966</span>
