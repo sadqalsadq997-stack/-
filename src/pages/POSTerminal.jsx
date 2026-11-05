@@ -7,7 +7,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 import LoyaltyCustomerBox from '@/components/pos/LoyaltyCustomerBox';
 import { DiscountBox, B2BBox } from '@/components/pos/CheckoutExtras';
 import { unitParts, cartTotals, fromH, money } from '@/lib/pricing';
-import { printReceipt } from '@/lib/receipt';
+import { printReceipt, sellerProblems } from '@/lib/receipt';
 import { issueEinvoice } from '@/lib/einvoice';
 import { getPrinterSettings, savePrinterSettings, DEFAULT_PRINTER } from '@/lib/printerSettings';
 import { loadSession } from '@/lib/security/session';
@@ -83,13 +83,13 @@ export default function POSTerminal() {
   const { data: seller } = useQuery({
     queryKey: ['seller-info'],
     queryFn: async () => {
-      const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
+      const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, city, phone, logo_url').limit(1).maybeSingle();
       let br = {};
       try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
       return {
         name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
         vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
-        address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
+        address: [br.address || data?.address, data?.city].filter(Boolean).join('، '), phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
       };
     },
     staleTime: 5 * 60_000,
@@ -223,6 +223,8 @@ export default function POSTerminal() {
           toast.warning('فاتورة الشركة بانتظار اعتماد الهيئة — لا تسلّمها للعميل الآن. اطبعها من صفحة الطلبات بعد الاعتماد', { duration: 8000 });
         }
       }
+      const missing = sellerProblems(seller);
+      if (missing.length) toast.warning('بيانات المنشأة ناقصة (' + missing.join('، ') + ') — الفاتورة غير نظامية. أكملها من الإعدادات ← بيانات المنشأة', { duration: 10000 });
       if (autoPrint && canPrint) printReceipt(receiptOrder, seller).catch(() => toast.error('تعذرت الطباعة — تأكد من الطابعة'));
 
       if (usePager && created?.id) {

@@ -120,15 +120,24 @@ ${order.zatca_qr ? '<div class="center sm muted">فاتورة إلكترونية
 </body></html>`;
 }
 
+/** بيانات ناقصة تجعل الفاتورة غير نظامية — تُستخدم للتنبيه قبل الطباعة */
+export function sellerProblems(s = {}) {
+  const p = [];
+  if (!String(s.name || '').trim()) p.push('اسم المنشأة');
+  if (!/^3\d{13}3$/.test(s.vat_number || '')) p.push('الرقم الضريبي (15 رقم يبدأ وينتهي بـ 3)');
+  if (!String(s.address || '').trim()) p.push('العنوان');
+  return p;
+}
+
 /** بيانات البائع للفاتورة (اسم المنشأة والرقم الضريبي) من الفرع النشط أو الإعدادات */
 export async function loadSeller(supabase) {
-  const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, phone, logo_url').limit(1).maybeSingle();
+  const { data } = await supabase.from('app_settings').select('business_name, vat_number, address, city, phone, logo_url').limit(1).maybeSingle();
   let br = {};
   try { br = JSON.parse(localStorage.getItem('activeBranch') || '{}'); } catch { /* */ }
   return {
     name: br.zatca_seller_name || data?.business_name || br.name_ar || br.name,
     vat_number: br.zatca_vat_number || br.vat_number || data?.vat_number,
-    address: br.address || data?.address, phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
+    address: [br.address || data?.address, data?.city].filter(Boolean).join('، '), phone: br.phone || data?.phone, logo_url: br.logo_url || data?.logo_url,
   };
 }
 

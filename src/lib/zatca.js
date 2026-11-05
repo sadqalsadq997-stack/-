@@ -19,12 +19,19 @@ function toTLV(tag, value) {
   return [tag, ...berLength(enc.length), ...enc];
 }
 
+// الوقت بصيغة الهيئة: 2024-01-31T14:30:09Z (بدون أجزاء الثانية)
+function zatcaTime(d) {
+  const dt = d ? new Date(d) : new Date();
+  const safe = Number.isNaN(dt.getTime()) ? new Date() : dt;
+  return safe.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 /** QR المرحلة الأولى: اسم البائع، الرقم الضريبي، الوقت، الإجمالي، الضريبة */
 export function generateZATCAQR({ sellerName, vatNumber, invoiceDate, invoiceTotal, vatAmount }) {
   const bytes = [
-    ...toTLV(1, sellerName || ''),
-    ...toTLV(2, vatNumber || ''),
-    ...toTLV(3, invoiceDate || new Date().toISOString()),
+    ...toTLV(1, String(sellerName || '').trim()),
+    ...toTLV(2, String(vatNumber || '').trim()),
+    ...toTLV(3, zatcaTime(invoiceDate)),
     ...toTLV(4, Number(invoiceTotal || 0).toFixed(2)),
     ...toTLV(5, Number(vatAmount || 0).toFixed(2)),
   ];
