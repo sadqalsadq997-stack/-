@@ -7,7 +7,7 @@ import { Moon, Sun, Car, Palette,
   Store, CreditCard, LogOut, Sparkles, GitBranch,
   ChevronDown, ChefHat, Gift, User, Headphones, Globe, Crown,
   Plug, Shield, BellRing, Languages
-, BookOpen} from 'lucide-react';
+, BookOpen, Activity} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { canAccess, ROLE_LABELS } from '@/lib/permissions';
@@ -33,6 +33,7 @@ const ALL_ITEMS = [
   { path: '/suppliers',       icon: Truck,           label: 'الموردين'              },
   { path: '/expenses',        icon: CreditCard,      label: 'المصروفات'             },
   { path: '/analytics',       icon: BarChart3,       label: 'التحليلات'             },
+  { path: '/insights',        icon: Activity,        label: 'ذكاء المنشأة', adminOnly: true },
   { path: '/employees',       icon: UserCog,         label: 'الموظفون'              },
   { path: '/loyalty',         icon: Gift,            label: 'برنامج الولاء'         },
   { path: '/car-orders',      icon: Car,             label: 'طلبات السيارات', carOnly: true },
@@ -55,7 +56,7 @@ const EN_MENU_LABELS = {
   '/kitchen': 'Kitchen Display', '/pager': 'Digital Pager', '/kiosk': 'Kiosk & Pager',
   '/products': 'Products', '/categories': 'Categories', '/inventory': 'Inventory',
   '/customers': 'Customers', '/estore': 'Online Store', '/invoices': 'Invoices',
-  '/suppliers': 'Suppliers', '/expenses': 'Expenses', '/analytics': 'Analytics',
+  '/suppliers': 'Suppliers', '/expenses': 'Expenses', '/analytics': 'Analytics', '/insights': 'Business Intelligence',
   '/employees': 'Team Members', '/loyalty': 'Loyalty Program', '/car-orders': 'Vehicle Orders',
   '/ai': 'AI Assistant', '/support': 'Help & Support', '/domain': 'Domain',
   '/theme': 'Appearance', '/accounting': 'Accounting', '/zatca-admin': 'E-Invoicing',
