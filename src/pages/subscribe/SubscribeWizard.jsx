@@ -300,7 +300,7 @@ export default function SubscribeWizard({ embedded = false }) {
   const [plan, setPlan] = useState(trialMode ? 'pro' : (saved.plan || params.get('plan') || ''));
   const [branches, setBranches] = useState(trialMode ? 3 : (saved.branches || 1));
   const [months, setMonths] = useState(trialMode ? 1 : (saved.months || 12));
-  const [info, setInfo] = useState({ name: '', phone: '', business: '', email: '', birthDate: '', acceptedTerms: false, ...(saved.info || {}), password: '' });
+  const [info, setInfo] = useState({ name: '', phone: '', business: '', email: '', acceptedTerms: false, ...(saved.info || {}), password: '' });
   const [errors, setErrors] = useState({});
   const [quote, setQuote] = useState(null);
   const [order, setOrder] = useState(saved.order || null);
@@ -389,7 +389,7 @@ export default function SubscribeWizard({ embedded = false }) {
   // حفظ التقدم (بدون كلمة المرور)
   useEffect(() => {
     try {
-      const { password, birthDate, acceptedTerms, ...rest } = info;
+      const { password, acceptedTerms, ...rest } = info;
       sessionStorage.setItem(STORE_KEY, JSON.stringify({ plan, branches, months, info: rest, order }));
     } catch { /* */ }
   }, [plan, branches, months, info, order]);
@@ -407,15 +407,6 @@ export default function SubscribeWizard({ embedded = false }) {
   const go = (k) => { setFormErr(''); setStepKey(k); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const back = () => { if (stepKey === 'payment' && order?.status === 'pending_review') return; go(steps[Math.max(0, index - 1)]); };
 
-  function isAdultDate(value) {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return false;
-    const today = new Date();
-    let age = today.getUTCFullYear() - date.getUTCFullYear();
-    const beforeBirthday = today.getUTCMonth() < date.getUTCMonth() || (today.getUTCMonth() === date.getUTCMonth() && today.getUTCDate() < date.getUTCDate());
-    if (beforeBirthday) age--;
-    return age >= 18 && date.getTime() <= Date.now();
-  }
 
   function validateInfo() {
     const e = {};
@@ -424,8 +415,6 @@ export default function SubscribeWizard({ embedded = false }) {
     if (info.business.trim().length < 2) e.business = 'اسم النشاط التجاري مطلوب';
     if (!hasAccount && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(info.email.trim())) e.email = 'البريد الإلكتروني غير صحيح';
     if (!hasAccount && info.password.length < 8) e.password = 'كلمة المرور لازم تكون 8 أحرف على الأقل';
-    if (!hasAccount && !/^\\d{4}-\\d{2}-\\d{2}$/.test(info.birthDate || '')) e.birthDate = 'تاريخ الميلاد مطلوب';
-    if (!hasAccount && info.birthDate && !isAdultDate(info.birthDate)) e.birthDate = 'يجب أن يكون عمر صاحب الحساب 18 سنة أو أكثر. إذا كان المستخدم قاصراً، يجب أن ينشئ ولي الأمر الحساب باسمه.';
     if (!hasAccount && !info.acceptedTerms) e.acceptedTerms = 'يجب الموافقة على الشروط وسياسة الخصوصية وإقرار الأهلية';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -453,7 +442,7 @@ export default function SubscribeWizard({ embedded = false }) {
           const { data, error } = await callFunction('billing-order', {
             action: trialMode ? 'signup_trial' : 'signup', plan_code: trialMode ? 'pro' : plan, branches: trialMode ? 3 : (unlimited ? 1 : branches), months: trialMode ? 1 : months,
             name: info.name, phone: info.phone, business_name: info.business, email: info.email.trim(), password: info.password,
-            birth_date: info.birthDate, accepted_terms: info.acceptedTerms,
+            accepted_terms: info.acceptedTerms,
           });
           if (error) throw new Error(error);
           if (data.session) await supabase.auth.setSession(data.session);
@@ -614,9 +603,6 @@ export default function SubscribeWizard({ embedded = false }) {
                             </Field>
                           )}
                           {!hasAccount && (
-                            <Field label="تاريخ الميلاد" error={errors.birthDate}>
-                              <input type="date" value={info.birthDate} onChange={e => setInfo({ ...info, birthDate: e.target.value })} max={new Date().toISOString().slice(0, 10)} className={inputCls(errors.birthDate)} />
-                            </Field>
                           )}
                           {!hasAccount && (
                             <Field label="رقم الجوال" error={errors.phone}>
