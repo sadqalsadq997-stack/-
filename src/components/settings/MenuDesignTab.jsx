@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Copy, ExternalLink, Loader2, Save, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,14 +35,36 @@ export default function MenuDesignTab({ settings, setSettings }) {
 
   useEffect(() => { if (!settings.menu_color) setSettings(s => ({ ...s, menu_color: '#E4572E' })); }, []); // eslint-disable-line
 
-  async function save() {
+  // آخر اختيار للمستخدم، ويُحفظ تلقائياً بعد نصف ثانية من آخر تغيير
+  const latest = useRef({ menu_theme: theme, menu_color: color });
+  const timer = useRef(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  async function persist() {
+    clearTimeout(timer.current);
+    const payload = { menu_theme: latest.current.menu_theme, menu_color: latest.current.menu_color };
     setSaving(true);
-    const { error } = settings.id
-      ? await supabase.from('app_settings').update({ menu_theme: theme, menu_color: color }).eq('id', settings.id)
-      : await supabase.from('app_settings').insert({ menu_theme: theme, menu_color: color });
+    const cur = settingsRef.current;
+    const { data, error } = cur.id
+      ? await supabase.from('app_settings').update(payload).eq('id', cur.id).select().single()
+      : await supabase.from('app_settings').insert(payload).select().single();
     setSaving(false);
-    if (error) toast.error('تعذر الحفظ'); else toast.success('تم تطبيق التصميم على المنيو والمتجر');
+    if (error) { toast.error('تعذر الحفظ: ' + (error.message || ''), { id: 'menu-design' }); return; }
+    if (data?.id && !cur.id) setSettings(s => ({ ...s, id: data.id }));
+    toast.success('تم تطبيق التصميم على المنيو والمتجر', { id: 'menu-design' });
   }
+
+  // يغيّر المعاينة فوراً ويحفظ تلقائياً
+  function apply(patch) {
+    latest.current = { ...latest.current, ...patch };
+    setSettings(s => ({ ...s, ...patch }));
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => persist(), 500);
+  }
+
+  const save = () => persist();
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
@@ -52,7 +74,7 @@ export default function MenuDesignTab({ settings, setSettings }) {
           <p className="mb-3 text-sm text-muted-foreground">كل التصاميم تتلوّن تلقائياً بلون منشأتك — والنص يتعدل عشان يكون واضح على أي لون.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {MENU_THEMES.filter(t => !t.legacy || t.id === theme).map(t => (
-              <button key={t.id} type="button" onClick={() => setSettings(s => ({ ...s, menu_theme: t.id }))}
+              <button key={t.id} type="button" onClick={() => apply({ menu_theme: t.id })}
                 className={`relative overflow-hidden rounded-2xl border-2 text-right transition-all ${theme === t.id ? 'border-primary shadow-lg' : 'border-border hover:border-primary/40'}`}>
                 <ThemeThumb id={t.id} color={color} />
                 <div className="p-3">
@@ -69,11 +91,11 @@ export default function MenuDesignTab({ settings, setSettings }) {
           <h3 className="mb-3 font-bold">لون المنشأة</h3>
           <div className="flex flex-wrap items-center gap-2">
             {MENU_COLORS.map(c => (
-              <button key={c} type="button" onClick={() => setSettings(s => ({ ...s, menu_color: c }))} aria-label={c}
+              <button key={c} type="button" onClick={() => apply({ menu_color: c })} aria-label={c}
                 style={{ background: c }} className={`h-9 w-9 rounded-full ring-offset-2 ring-offset-card ${color.toLowerCase() === c.toLowerCase() ? 'ring-2 ring-foreground' : ''}`} />
             ))}
             <label className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-xs font-bold">
-              <input type="color" value={color} onChange={e => setSettings(s => ({ ...s, menu_color: e.target.value }))} className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0" />
+              <input type="color" value={color} onChange={e => apply({ menu_color: e.target.value })} className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0" />
               لون مخصص
             </label>
           </div>

@@ -24,7 +24,7 @@ const ALL_ITEMS = [
   { path: '/kitchen',         icon: ChefHat,         label: 'المطبخ',     food: true },
   { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني' },
   { path: '/kiosk',           icon: Plug,            label: 'الكشك والبيجر', food: true },
-  { path: '/products',        icon: Package,         label: 'المتجر'                },
+  { path: '/products',        icon: Package,         label: 'المنتجات'              },
   { path: '/categories',      icon: Layers,          label: 'التصنيفات'             },
   { path: '/inventory',       icon: Warehouse,       label: 'المخزون'               },
   { path: '/customers',       icon: Users,           label: 'العملاء'               },
@@ -109,6 +109,8 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
 
   const menuItems = ALL_ITEMS.filter(item => {
     if (item.food && !isFood) return false;
+    // المخزون صار داخل صفحة المنتجات: نخفي بند المخزون لمن يملك صلاحية المنتجات
+    if (item.path === '/inventory' && canAccess(sess.role, sess.perms, '/products')) return false;
     if (item.carOnly && industryType !== 'car_wash') return false;
     if (item.adminOnly && sess.role !== 'admin') return false;
     if (item.ownerOnly && sess.role !== 'admin') return false;

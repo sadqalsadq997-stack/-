@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, Plus, Search, Trash2, Edit3, Loader2, ToggleLeft, ToggleRight, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Package, Plus, Search, Trash2, Edit3, Loader2, ToggleLeft, ToggleRight, AlertTriangle, FileSpreadsheet, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import ProductForm from '@/components/products/ProductForm';
 import ProductImport from '@/components/products/ProductImport';
+import AddStockDialog from '@/components/inventory/AddStockDialog';
 
 export default function Products() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [addStockProduct, setAddStockProduct] = useState(null);
   const qc = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -37,6 +39,16 @@ export default function Products() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onError: (e) => toast.error('تعذر التغيير: ' + (e.message || '')),
+  });
+
+  const toggleStore = useMutation({
+    mutationFn: async ({ id, show_in_store }) => {
+      const { error } = await supabase.from('products').update({ show_in_store: !show_in_store }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onError: (e) => toast.error('تعذر التغيير: ' + (e.message || '')),
   });
 
   const q = search.trim().toLowerCase();
@@ -115,11 +127,30 @@ export default function Products() {
                     )}
                   </div>
                 </div>
+                {p.track_inventory && (
+                  <div className="text-center min-w-[64px]">
+                    <p className={`text-lg font-black ${Number(p.stock_quantity || 0) <= 0 ? 'text-red-500' : Number(p.stock_quantity) <= (p.min_stock_alert ?? 5) ? 'text-amber-500' : 'text-green-600'}`}>
+                      {Number(p.stock_quantity || 0)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">المخزون</p>
+                  </div>
+                )}
                 <div className="text-right">
                   <p className="font-bold text-primary">{formatSAR(p.base_price)}</p>
                   {p.cost_price != null && <p className="text-xs text-muted-foreground">التكلفة: {formatSAR(p.cost_price)}</p>}
                 </div>
                 <div className="flex items-center gap-1">
+                  {p.track_inventory && (
+                    <button onClick={() => setAddStockProduct(p)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors">
+                      <Plus className="w-3 h-3" />مخزون
+                    </button>
+                  )}
+                  <button onClick={() => toggleStore.mutate({ id: p.id, show_in_store: p.show_in_store })}
+                    title={p.show_in_store ? 'يظهر في المتجر الإلكتروني' : 'غير ظاهر في المتجر الإلكتروني'}
+                    className={`p-2 rounded-lg hover:bg-muted transition-colors ${p.show_in_store ? 'text-primary' : 'text-muted-foreground/50'}`}>
+                    <Store className="w-4 h-4" />
+                  </button>
                   <button onClick={() => toggleActive.mutate({ id: p.id, is_active: p.is_active })}
                     className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
                     {p.is_active ? <ToggleRight className="w-4 h-4 text-green-500" /> : <ToggleLeft className="w-4 h-4" />}
@@ -136,6 +167,11 @@ export default function Products() {
             ))}
           </div>
         </div>
+      )}
+
+      {addStockProduct && (
+        <AddStockDialog product={addStockProduct}
+          onClose={() => { setAddStockProduct(null); qc.invalidateQueries({ queryKey: ['products'] }); }} />
       )}
     </div>
   );
