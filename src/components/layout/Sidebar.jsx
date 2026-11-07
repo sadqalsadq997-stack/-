@@ -7,7 +7,7 @@ import { Moon, Sun, Car, Palette,
   Store, CreditCard, LogOut, Sparkles, GitBranch,
   ChevronDown, ChefHat, Gift, User, Headphones, Globe, Crown,
   Plug, Shield, BellRing, Languages
-, BookOpen} from 'lucide-react';
+, BookOpen, Activity} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { canAccess, ROLE_LABELS } from '@/lib/permissions';
@@ -24,7 +24,7 @@ const ALL_ITEMS = [
   { path: '/kitchen',         icon: ChefHat,         label: 'المطبخ',     food: true },
   { path: '/pager',           icon: BellRing,        label: 'البيجر الإلكتروني' },
   { path: '/kiosk',           icon: Plug,            label: 'الكشك والبيجر', food: true },
-  { path: '/products',        icon: Package,         label: 'المتجر'                },
+  { path: '/products',        icon: Package,         label: 'المنتجات'              },
   { path: '/categories',      icon: Layers,          label: 'التصنيفات'             },
   { path: '/inventory',       icon: Warehouse,       label: 'المخزون'               },
   { path: '/customers',       icon: Users,           label: 'العملاء'               },
@@ -33,6 +33,7 @@ const ALL_ITEMS = [
   { path: '/suppliers',       icon: Truck,           label: 'الموردين'              },
   { path: '/expenses',        icon: CreditCard,      label: 'المصروفات'             },
   { path: '/analytics',       icon: BarChart3,       label: 'التحليلات'             },
+  { path: '/insights',        icon: Activity,        label: 'ذكاء المنشأة', adminOnly: true },
   { path: '/employees',       icon: UserCog,         label: 'الموظفون'              },
   { path: '/loyalty',         icon: Gift,            label: 'برنامج الولاء'         },
   { path: '/car-orders',      icon: Car,             label: 'طلبات السيارات', carOnly: true },
@@ -55,7 +56,7 @@ const EN_MENU_LABELS = {
   '/kitchen': 'Kitchen Display', '/pager': 'Digital Pager', '/kiosk': 'Kiosk & Pager',
   '/products': 'Products', '/categories': 'Categories', '/inventory': 'Inventory',
   '/customers': 'Customers', '/estore': 'Online Store', '/invoices': 'Invoices',
-  '/suppliers': 'Suppliers', '/expenses': 'Expenses', '/analytics': 'Analytics',
+  '/suppliers': 'Suppliers', '/expenses': 'Expenses', '/analytics': 'Analytics', '/insights': 'Business Intelligence',
   '/employees': 'Team Members', '/loyalty': 'Loyalty Program', '/car-orders': 'Vehicle Orders',
   '/ai': 'AI Assistant', '/support': 'Help & Support', '/domain': 'Domain',
   '/theme': 'Appearance', '/accounting': 'Accounting', '/zatca-admin': 'E-Invoicing',
@@ -108,6 +109,8 @@ export default function Sidebar({ dark, setDark, onCollapse }) {
 
   const menuItems = ALL_ITEMS.filter(item => {
     if (item.food && !isFood) return false;
+    // المخزون صار داخل صفحة المنتجات: نخفي بند المخزون لمن يملك صلاحية المنتجات
+    if (item.path === '/inventory' && canAccess(sess.role, sess.perms, '/products')) return false;
     if (item.carOnly && industryType !== 'car_wash') return false;
     if (item.adminOnly && sess.role !== 'admin') return false;
     if (item.ownerOnly && sess.role !== 'admin') return false;

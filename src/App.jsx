@@ -35,6 +35,7 @@ import Customers             from "@/pages/Customers";
 import Suppliers             from "@/pages/Suppliers";
 import Expenses              from "@/pages/Expenses";
 import Analytics             from "@/pages/Analytics";
+import BusinessIntelligence  from "@/pages/BusinessIntelligence";
 import Employees             from "@/pages/Employees";
 import Settings              from "@/pages/Settings";
 import AIAssistant           from "@/pages/AIAssistant";
@@ -137,9 +138,13 @@ function RoleGuard({ children }) {
 // الصفحة الرئيسية: الزائر يشوف صفحة الهبوط، والمسجّل يتحول للوحته
 function RootGate() {
   const { session, loading, authChecked, isMissingEnv } = useAuth();
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isPlatformHost = !host || host === 'felsy.org' || host === 'www.felsy.org'
+    || host === 'localhost' || host.endsWith('.vercel.app');
+  // Custom domains are storefront-only: tenant domains never expose platform login/admin.
+  if (!isPlatformHost) return <PublicMenu />;
   if (!isMissingEnv && (loading || !authChecked)) return <FullScreenSpinner />;
   if (!isMissingEnv && session) return <Navigate to="/dashboard" replace />;
-  // داخل التطبيق: يفتح على شاشة الدخول مباشرة بدل صفحة الموقع التسويقية
   if (isAppMode()) return <Navigate to="/auth/login" replace />;
   return <LandingPage />;
 }
@@ -163,6 +168,11 @@ function SignupGate() {
 }
 
 function AppRoutes() {
+  const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isPlatformHost = !host || host === 'felsy.org' || host === 'www.felsy.org'
+    || host === 'localhost' || host.endsWith('.vercel.app');
+  // Every path on a tenant custom domain is storefront-only; platform routes stay on felsy.org.
+  if (!isPlatformHost) return <PublicMenu />;
   return (
     <Routes>
       <Route path="/"               element={<RootGate />} />
@@ -178,6 +188,7 @@ function AppRoutes() {
       <Route path="/blog"          element={<BlogList />} />
       <Route path="/blog/:slug"    element={<BlogPost />} />
       <Route path="/careers"       element={<Careers />} />
+      <Route path="/careers/:slug" element={<Careers />} />
       <Route path="/menu"          element={<PublicMenu />} />
       <Route path="/store"         element={<PublicMenu />} />
       <Route path="/m/:slug"       element={<PublicMenu />} />
@@ -214,6 +225,7 @@ function AppRoutes() {
                   <Route path="/suppliers"          element={<Suppliers />} />
                   <Route path="/expenses"           element={<Expenses />} />
                   <Route path="/analytics"          element={<Analytics />} />
+                  <Route path="/insights"           element={<BusinessIntelligence />} />
                   <Route path="/employees"          element={<Employees />} />
                   <Route path="/settings"           element={<Settings />} />
                   <Route path="/ai"                 element={<AIAssistant />} />

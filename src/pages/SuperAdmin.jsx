@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { LogoMark } from '@/components/brand/Logo';
 import SubscribersTab from '@/components/owner/SubscribersTab';
 import BlogManager from '@/components/owner/BlogManager';
+import WorkforceHub from '@/components/owner/WorkforceHub';
+import OperationsCenter from '@/components/owner/OperationsCenter';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('ar-SA');
 const fmtSAR = (n) => `${fmt(n)} ⃁`;
@@ -888,70 +890,199 @@ export default function SuperAdmin() {
 
   if (!authed) return <OwnerLogin onLogin={() => setAuthed(true)} />;
 
-  const TABS = [
-    { id: 'overview',  label: 'نظرة عامة',    icon: BarChart3    },
-    { id: 'clients',   label: 'المشتركين',     icon: Users        },
-    { id: 'orders',    label: 'طلبات الاشتراك', icon: Landmark     },
-    { id: 'tickets',   label: 'التذاكر',       icon: MessageSquare},
-    { id: 'pricing',   label: 'أسعار الخطط',   icon: BadgeDollarSign },
-    { id: 'billing',   label: 'الفوترة الدورية', icon: CreditCard },
-    { id: 'broadcast', label: 'رسائل جماعية',  icon: Megaphone    },
-    { id: 'blog',      label: 'المدونة',        icon: Newspaper    },
-    { id: 'ai',        label: 'مساعد الذكاء',  icon: Bot          },
-    { id: 'team',      label: 'الفريق والمحتوى', icon: UserCog     },
+  const NAV_GROUPS = [
+    { title: 'الرئيسية', items: [
+      { id: 'overview', label: 'الرئيسية', desc: 'إحصائيات المنصة والتنبيهات', icon: BarChart3 },
+      { id: 'operations', label: 'مركز العمليات', desc: 'الحوادث والمهام ومتابعة التشغيل وسلامة البيانات', icon: Activity },
+    ]},
+    { title: 'إدارة المنصة', items: [
+      { id: 'clients', label: 'المنشآت', desc: 'إدارة الحسابات والاشتراكات', icon: Users },
+      { id: 'finance', label: 'المالية', desc: 'الإيرادات والمدفوعات والفواتير', icon: Landmark },
+      { id: 'hr', label: 'الموارد البشرية', desc: 'ملفات الموظفين والرواتب والمهام والحسابات', icon: UserCog },
+      { id: 'permissions', label: 'الصلاحيات', desc: 'الشاشات والعمليات المسموحة لكل موظف', icon: Shield },
+    ]},
+    { title: 'التجارة الإلكترونية', items: [
+      { id: 'storefront', label: 'المتاجر والمنيو', desc: 'مراقبة المتاجر العامة والدومينات المنشورة', icon: Store },
+      { id: 'domains', label: 'الدومينات وDNS', desc: 'سجلات النطاقات وحالة التحقق', icon: Globe },
+      { id: 'integrations', label: 'مركز التكاملات', desc: 'كتالوج الخدمات وحالة جاهزية الربط', icon: Plug },
+    ]},
+    { title: 'التشغيل والتقنية', items: [
+      { id: 'tickets', label: 'الدعم الفني', desc: 'التذاكر وتوزيعها على الموظفين', icon: MessageSquare },
+      { id: 'development', label: 'مركز المبرمجين', desc: 'الأعطال والبلاغات التقنية والإصلاحات', icon: Server },
+    ]},
+    { title: 'النمو والتوظيف', items: [
+      { id: 'careers', label: 'الوظائف', desc: 'نشر الوظائف ومراجعة المتقدمين', icon: UserCog },
+      { id: 'pricing', label: 'الخطط والأسعار', desc: 'التحكم في باقات وأسعار المنصة', icon: BadgeDollarSign },
+    ]},
+    { title: 'الموقع والظهور الرقمي', items: [
+      { id: 'website', label: 'الموقع والمحتوى', desc: 'الصفحات والمحتوى والأسعار التسويقية', icon: Globe },
+      { id: 'seo', label: 'SEO وGoogle', desc: 'Sitemap والبيانات المنظمة والفهرسة', icon: Search },
+      { id: 'blog', label: 'المدونة والأخبار', desc: 'إدارة المقالات والأخبار', icon: Newspaper },
+    ]},
+    { title: 'إعدادات المنصة', items: [
+      { id: 'settings', label: 'الإعدادات العامة', desc: 'إعدادات المنصة والتشغيل', icon: Settings },
+      { id: 'broadcast', label: 'الإشعارات والتواصل', desc: 'التواصل مع المنشآت والعملاء', icon: Megaphone },
+      { id: 'ai', label: 'مساعد فلسي الذكي', desc: 'إعدادات المساعد الذكي', icon: Bot },
+    ]},
   ];
+  const activeItem = NAV_GROUPS.flatMap(g => g.items).find(item => item.id === tab);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gray-100 p-3 text-gray-900 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* رأس */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <LogoMark size={40} />
-            <div>
-              <h1 className="text-xl font-black text-gray-900">لوحة المالك — فلسي</h1>
-              <p className="text-xs text-gray-400">جلسة آمنة · تنتهي خلال 4 ساعات</p>
+    <div dir="rtl" className="min-h-screen bg-[#f4f5f7] text-slate-900">
+      <div className="min-h-screen lg:flex">
+        <aside className="w-full shrink-0 bg-[#17191f] text-white lg:sticky lg:top-0 lg:h-screen lg:w-[280px] lg:overflow-y-auto">
+          <div className="flex items-center gap-3 border-b border-white/10 px-6 py-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white"><LogoMark size={30} /></div>
+            <div><p className="text-base font-black tracking-wide">FELSY</p><p className="mt-0.5 text-[10px] font-medium tracking-[.2em] text-slate-400">PLATFORM CONTROL</p></div>
+          </div>
+          <div className="px-5 py-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[10px] font-bold tracking-[.18em] text-slate-400">مساحة العمل</p>
+              <p className="mt-2 text-sm font-bold text-white">إدارة منصة فلسي</p>
+              <p className="mt-1 text-xs text-slate-400">مالك المنصة · صلاحيات عليا</p>
             </div>
           </div>
-          <button onClick={logout}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm transition-colors">
-            <LogOut className="w-4 h-4" /> خروج
-          </button>
-        </div>
+          <nav className="space-y-6 px-3 pb-6" aria-label="قائمة إدارة المنصة">
+            {NAV_GROUPS.map(group => (
+              <section key={group.title}>
+                <p className="px-3 pb-2 text-[10px] font-bold tracking-[.16em] text-slate-500">{group.title}</p>
+                <div className="space-y-1">
+                  {group.items.map(item => (
+                    <button key={item.id} onClick={() => setTab(item.id)}
+                      aria-current={tab === item.id ? 'page' : undefined}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition-all ${tab === item.id ? 'bg-white text-[#17191f] shadow-lg shadow-black/10' : 'text-slate-300 hover:bg-white/[0.07] hover:text-white'}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tab === item.id ? 'bg-[#e9e7e1] text-slate-900' : 'bg-white/[0.07] text-slate-300'}`}><item.icon className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1"><span className="block text-sm font-bold">{item.label}</span><span className={`mt-1 block truncate text-[10px] ${tab === item.id ? 'text-slate-500' : 'text-slate-500'}`}>{item.desc}</span></span>
+                      {tab === item.id && <span className="h-1.5 w-1.5 rounded-full bg-[#b89b62]" />}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </nav>
+          <div className="border-t border-white/10 px-5 py-4 text-[10px] text-slate-500">Felsy Platform · Secure owner session</div>
+        </aside>
 
-        {/* تبويبات */}
-        <div className="flex gap-1 bg-white p-1 rounded-2xl border border-gray-200 overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-medium transition-all ${
-                tab === t.id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-700'
-              }`}>
-              <t.icon className="w-3.5 h-3.5" /> {t.label}
-            </button>
-          ))}
-        </div>
+        <main className="min-w-0 flex-1">
+          <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-5 py-4 backdrop-blur-xl sm:px-8">
+            <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold tracking-[.18em] text-[#a38b5b]">FELSY / PLATFORM OWNER</p>
+                <h1 className="mt-1 truncate text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{activeItem?.label || 'لوحة مالك المنصة'}</h1>
+                <p className="mt-1 hidden text-xs text-slate-500 sm:block">{activeItem?.desc || 'مركز التحكم الرئيسي لمنصة فلسي'}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-700 sm:inline-flex">جلسة مالك موثقة</span>
+                <button onClick={loadAll} className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">تحديث</span></button>
+                <button onClick={logout} className="flex h-10 items-center gap-2 rounded-xl bg-[#20232b] px-3 text-xs font-bold text-white hover:bg-black"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">خروج</span></button>
+              </div>
+            </div>
+          </header>
 
-        {loading && tab !== 'pricing' && tab !== 'blog' && tab !== 'broadcast' && tab !== 'ai' && tab !== 'billing' ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-red-500" /></div>
-        ) : (
-          <>
-            {tab === 'overview'  && <OverviewTab stats={stats} clients={clients} />}
-            {tab === 'orders'    && <OrdersTab />}
-            {tab === 'pricing'   && <PricingTab />}
-            {tab === 'billing'   && <BillingTab />}
-            {tab === 'broadcast' && <BroadcastTab clients={clients} />}
-            {tab === 'blog'      && <BlogManager api={callOwnerApi} />}
-            {tab === 'ai'        && <AISettingsTab />}
-
-            {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
-
-            {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
-            {tab === 'team' && <TeamAndContentTab />}
-          </>
-        )}
+          <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-7 lg:p-9">
+            {tab === 'overview' && stats && (
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <StatCard icon={Users} label="إجمالي المنشآت" value={fmt(stats.totalClients)} color="bg-slate-100 text-slate-700" />
+                <StatCard icon={CheckCircle2} label="المنشآت النشطة" value={fmt(stats.activeClients)} color="bg-emerald-50 text-emerald-700" />
+                <StatCard icon={TrendingUp} label="إجمالي الإيرادات" value={fmtSAR(stats.totalRevenue)} color="bg-amber-50 text-amber-700" />
+                <StatCard icon={MessageSquare} label="تذاكر مفتوحة" value={fmt(stats.openTickets)} color="bg-rose-50 text-rose-700" />
+              </div>
+            )}
+            {loading && !['pricing','blog','broadcast','ai','billing','careers'].includes(tab) ? (
+              <div className="flex min-h-[300px] items-center justify-center rounded-3xl border border-slate-200 bg-white"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>
+            ) : (
+              <div className="rounded-[26px] border border-slate-200/80 bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.045)] sm:p-7">
+                {tab === 'overview' && <OverviewTab stats={stats} clients={clients} />}
+                {tab === 'operations' && <OperationsCenter api={callOwnerApi} />}
+                {tab === 'storefront' && <OwnerStorefrontTab />}
+                {tab === 'domains' && <OwnerDomainsTab />}
+                {tab === 'integrations' && <OwnerIntegrationsTab />}
+                {tab === 'orders' && <OrdersTab />}
+                {tab === 'finance' && <BillingTab />}
+                {tab === 'permissions' && <PlatformPermissionsTab />}
+                {tab === 'development' && <DeveloperIncidentsTab />}
+                {tab === 'careers' && <PlatformCareersTab />}
+                {tab === 'website' && <PlatformWebsiteTab />}
+                {tab === 'seo' && <PlatformSeoTab />}
+                {tab === 'settings' && <PlatformSettingsTab />}
+                {tab === 'pricing' && <PricingTab />}
+                {tab === 'billing' && <BillingTab />}
+                {tab === 'broadcast' && <BroadcastTab clients={clients} />}
+                {tab === 'blog' && <BlogManager api={callOwnerApi} />}
+                {tab === 'ai' && <AISettingsTab />}
+                {tab === 'clients' && <SubscribersTab api={callOwnerApi} />}
+                {tab === 'tickets' && <TicketsTab tickets={tickets} onRefresh={loadAll} />}
+                {tab === 'hr' && <WorkforceHub api={callOwnerApi} />}
+                {tab === 'team' && <TeamAndContentTab />}
+              </div>
+            )}
+            <footer className="pb-4 text-center text-[10px] tracking-wide text-slate-400">© {new Date().getFullYear()} FELSY · PLATFORM MANAGEMENT</footer>
+          </div>
+        </main>
       </div>
     </div>
   );
+}
+
+
+function OwnerDomainsTab() {
+  const [domains, setDomains] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  async function refresh() {
+    setLoading(true); setError('');
+    try { setDomains(await callOwnerApi('list_domains') || []); }
+    catch (e) { setError(e?.message || 'تعذر تحميل الدومينات'); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { refresh(); }, []);
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">الدومينات والمتاجر المرتبطة</h2><p className="text-sm text-slate-500">كل دومين مخصص يفتح واجهة متجر المنشأة فقط، ولا يفتح لوحة فلسي الداخلية.</p></div><button onClick={refresh} className="rounded-xl border px-3 py-2 text-sm font-bold">تحديث القائمة</button></div>
+    {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {loading ? <p className="py-10 text-center text-slate-500">جارٍ تحميل الدومينات...</p> : domains.length ? <div className="overflow-x-auto rounded-2xl border"><table className="w-full min-w-[720px] text-sm"><thead className="bg-slate-50 text-right"><tr><th className="p-3">الدومين</th><th className="p-3">المنشأة / الفرع</th><th className="p-3">المزوّد</th><th className="p-3">الحالة</th><th className="p-3">DNS</th><th className="p-3">الواجهة</th></tr></thead><tbody>{domains.map(d=><tr key={d.id} className="border-t"><td className="p-3 font-mono" dir="ltr">{d.domain}</td><td className="p-3">{d.branches?.name_ar || d.branches?.name || '—'}</td><td className="p-3">{d.provider || 'خارجي'}</td><td className="p-3">{d.status === 'active' && d.is_active ? 'نشط' : d.status === 'pending_verification' ? 'بانتظار التحقق' : d.status}</td><td className="p-3">{d.dns_configured ? 'مهيأ' : 'غير مؤكد'}</td><td className="p-3"><a className="font-bold text-blue-700 hover:underline" href={'https://' + d.domain} target="_blank" rel="noreferrer">فتح المتجر</a></td></tr>)}</tbody></table></div> : <p className="rounded-xl border border-dashed p-8 text-center text-slate-500">لا توجد دومينات مسجلة حتى الآن.</p>}
+    <p className="text-xs text-slate-500">هذه الصفحة تعرض سجلات الربط. شراء الدومين أو فحص DNS لا يتم من هنا إلا بعد تفعيل مزود registrar/DNS موثّق.</p>
+  </div>;
+}
+
+function OwnerStorefrontTab() {
+  const [state, setState] = useState({branches:[],domains:[],jobs:[],tickets:[]});
+  const [loading,setLoading] = useState(true);
+  const [errors,setErrors] = useState([]);
+  async function refresh() {
+    setLoading(true);
+    const actions = ['list_branches','list_domains','list_job_posts','list_support_tickets'];
+    const results = await Promise.allSettled(actions.map(a=>callOwnerApi(a)));
+    const keys=['branches','domains','jobs','tickets']; const next={branches:[],domains:[],jobs:[],tickets:[]}; const failed=[];
+    results.forEach((r,i)=>{if(r.status==='fulfilled')next[keys[i]]=r.value||[];else failed.push(actions[i]);});
+    setState(next); setErrors(failed); setLoading(false);
+  }
+  useEffect(()=>{refresh();},[]);
+  const liveDomains=state.domains.filter(d=>d.status==='active'&&d.is_active);
+  const published=state.jobs.filter(j=>j.status==='published');
+  return <div className="space-y-5">
+    <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black">مراقبة المتاجر والمنيو العام</h2><p className="text-sm text-slate-500">مؤشرات تشغيل من سجلات المنصة الفعلية.</p></div><button onClick={refresh} className="rounded-xl border px-3 py-2 text-sm font-bold">تحديث</button></div>
+    {loading?<p className="py-10 text-center text-slate-500">جارٍ جلب المؤشرات...</p>:<>
+      {errors.length>0&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">تعذر جلب بعض البيانات: {errors.join('، ')}</p>}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[{l:'الفروع',v:state.branches.length},{l:'دومينات نشطة',v:liveDomains.length},{l:'وظائف منشورة',v:published.length},{l:'تذاكر الدعم',v:state.tickets.length}].map(x=><div key={x.l} className="rounded-2xl border p-4"><p className="text-2xl font-black">{x.v}</p><p className="text-sm text-slate-500">{x.l}</p></div>)}</div>
+      <div className="rounded-2xl border p-4"><h3 className="font-bold">قاعدة ربط الدومينات</h3><p className="mt-2 text-sm text-slate-600">الدومين المخصص يوجّه الجذر إلى متجر المنشأة. لا يتم عرض صفحة فلسي التسويقية أو تسجيل دخول المالك على دومين المنشأة.</p><p className="mt-2 text-xs text-slate-500">يجب أن تكون حالة الدومين نشطة وأن ينجح تحقق DNS حتى يظهر المتجر.</p></div>
+    </>}
+  </div>;
+}
+
+function OwnerIntegrationsTab() {
+  const providers = [
+    ['سلة','متاجر إلكترونية','OAuth / تفويض متجر'],
+    ['زد','متاجر إلكترونية','OAuth / تفويض متجر'],
+    ['ميسر','مدفوعات','حساب تاجر ومفاتيح API'],
+    ['مرسال','خدمات تشغيل','توثيق API واعتماد حساب'],
+    ['شركات الشحن','الشحن والتوصيل','حساب مزود وبيانات API'],
+    ['مسجل الدومينات','الدومينات وDNS','حساب registrar ومفاتيح API'],
+  ];
+  return <div className="space-y-4">
+    <div><h2 className="text-lg font-black">مركز التكاملات</h2><p className="text-sm text-slate-500">كتالوج موحد للخدمات المخطط ربطها. لن تظهر أي خدمة كمتصلة قبل نجاح التفويض والاختبار.</p></div>
+    <div className="grid gap-3 md:grid-cols-2">{providers.map(([name,category,needs])=><article key={name} className="rounded-2xl border p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{name}</h3><p className="mt-1 text-xs text-slate-500">{category}</p></div><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">غير مربوط</span></div><p className="mt-3 text-sm text-slate-600">متطلبات التفعيل: {needs}</p><p className="mt-2 text-xs text-slate-400">سيُتاح الربط التلقائي بعد اعتماد موصل المزود وتوفير التفويض الرسمي.</p></article>)}</div>
+    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">التفعيل دون إدخال يدوي ممكن عندما يوفّر المزود OAuth أو تفويض تطبيق. لا يمكن تخطي موافقة حساب التاجر أو مفاتيح API الخاصة به.</div>
+  </div>;
 }
 
 // ── تبويب الدعم الفني — شات كامل بين صاحب النظام والعملاء ──────
@@ -1168,7 +1299,7 @@ function TicketsTab({ tickets, onRefresh }) {
                 <p className="text-gray-400 text-sm text-center">لا توجد رسائل بعد</p>
               ) : messages.map(m => (
                 <div key={m.id} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.role === 'agent' ? 'bg-primary text-gray-900 rounded-tl-none' : 'bg-gray-50 text-gray-200 rounded-tr-none'}`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.role === 'agent' ? 'bg-primary text-slate-900 rounded-tl-none' : 'bg-gray-100 text-gray-800 rounded-tr-none'}`}>
                     {m.content}
                   </div>
                 </div>
@@ -1202,7 +1333,7 @@ function TeamAndContentTab() {
 
   const [team, setTeam]           = useState([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: 'support', department: 'technical_support', job_title: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1234,7 +1365,7 @@ function TeamAndContentTab() {
     setSaving(true);
     try {
       await callOwnerApi('add_team_member', form);
-      setForm({ full_name: '', email: '', phone: '', role: 'support', notes: '' });
+      setForm({ full_name: '', email: '', phone: '', role: 'support', department: 'technical_support', job_title: '', notes: '' });
       await loadTeam();
       toast.success('تمت إضافة العضو بنجاح');
     } catch (e) { toast.error('فشل الإضافة: ' + (e?.message || '')); }
@@ -1255,6 +1386,7 @@ function TeamAndContentTab() {
   }
 
   const ROLE_LABELS = { support: 'دعم فني', admin: 'إدارة', finance: 'مالية', developer: 'مطوّر' };
+  const DEPARTMENTS = [{value:'technical_support',label:'الدعم الفني'},{value:'software_development',label:'البرمجة والتطوير'},{value:'quality_assurance',label:'اختبار الجودة'},{value:'sales',label:'المبيعات'},{value:'marketing',label:'التسويق'},{value:'operations',label:'العمليات'},{value:'finance',label:'المالية'},{value:'management',label:'الإدارة'}];
 
   return (
     <div className="space-y-8">
@@ -1311,6 +1443,10 @@ function TeamAndContentTab() {
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
             <input placeholder="رقم الجوال" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
+            <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
+              {DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <input placeholder="المسمى الوظيفي (مثال: مهندس Backend)" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900" />
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               className="h-10 bg-white border border-gray-300 rounded-lg px-3 text-sm text-gray-900">
               <option value="support">دعم فني</option>
@@ -1338,7 +1474,7 @@ function TeamAndContentTab() {
                   <div className={`w-2 h-2 rounded-full ${m.is_active ? 'bg-emerald-500' : 'bg-gray-600'}`} />
                   <div>
                     <p className="text-gray-900 text-sm font-medium">{m.full_name}</p>
-                    <p className="text-gray-400 text-xs">{ROLE_LABELS[m.role] || m.role} {m.email ? `• ${m.email}` : ''} {m.phone ? `• ${m.phone}` : ''}</p>
+                    <p className="text-gray-400 text-xs">{DEPARTMENTS.find(d => d.value === m.department)?.label || m.department || ROLE_LABELS[m.role] || m.role}{m.job_title ? ` • ${m.job_title}` : ''} {m.email ? `• ${m.email}` : ''} {m.phone ? `• ${m.phone}` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1357,3 +1493,145 @@ function TeamAndContentTab() {
     </div>
   );
 }
+
+
+const INCIDENT_LABELS = {
+  category: { bug: 'خلل برمجي', outage: 'توقف خدمة', performance: 'بطء وأداء', security: 'أمن وحماية', deployment: 'نشر وتحديث', request: 'طلب تقني' },
+  severity: { low: 'منخفضة', medium: 'متوسطة', high: 'عالية', critical: 'حرجة' },
+  status: { open: 'جديدة', triaged: 'تم الفرز', in_progress: 'قيد الإصلاح', blocked: 'متوقفة', resolved: 'تم الحل', closed: 'مغلقة' },
+};
+
+function DeveloperIncidentsTab() {
+  const [items, setItems] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', category: 'bug', severity: 'medium', affected_area: '' });
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [incidents, team] = await Promise.all([
+        callOwnerApi('list_platform_incidents'),
+        callOwnerApi('list_team_members'),
+      ]);
+      setItems(incidents || []);
+      setMembers((team || []).filter(m => m.is_active && ['developer','admin'].includes(m.role)));
+    } catch (e) { toast.error('تعذر تحميل سجل الأعطال: ' + (e?.message || '')); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.title.trim() || !form.description.trim()) return toast.error('أدخل عنوان المشكلة ووصفها');
+    setSaving(true);
+    try {
+      await callOwnerApi('create_platform_incident', form);
+      setForm({ title: '', description: '', category: 'bug', severity: 'medium', affected_area: '' });
+      setShowForm(false);
+      toast.success('تم تسجيل البلاغ في سجل أعطال المنصة');
+      await load();
+    } catch (e) { toast.error('تعذر تسجيل البلاغ: ' + (e?.message || '')); }
+    finally { setSaving(false); }
+  };
+  const update = async (id, updates) => {
+    try { await callOwnerApi('update_platform_incident', { id, updates }); await load(); }
+    catch (e) { toast.error('تعذر تحديث البلاغ: ' + (e?.message || '')); }
+  };
+
+  const counts = ['open','triaged','in_progress','blocked'].map(s => ({ status:s, count:items.filter(i=>i.status===s).length }));
+  return <div className="space-y-6">
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div><h2 className="text-xl font-black text-slate-900">مركز المبرمجين والأعطال</h2><p className="mt-1 text-sm text-slate-500">سجل مركزي للأخطاء والتوقفات والبلاغات التقنية، مع الأولوية وحالة المعالجة والتكليف</p></div>
+      <div className="flex gap-2"><button onClick={load} className="rounded-xl border px-3 py-2 text-sm">تحديث</button><button onClick={()=>setShowForm(v=>!v)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">+ تسجيل مشكلة</button></div>
+    </div>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{counts.map(x=><div key={x.status} className="rounded-2xl border bg-slate-50 p-4"><p className="text-xs text-slate-500">{INCIDENT_LABELS.status[x.status]}</p><p className="mt-1 text-2xl font-black">{x.count}</p></div>)}</div>
+    {showForm && <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+      <h3 className="font-bold">بلاغ تقني جديد</h3>
+      <input className="w-full rounded-xl border bg-white p-3 text-sm" placeholder="عنوان المشكلة" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
+      <textarea className="w-full rounded-xl border bg-white p-3 text-sm" rows={4} placeholder="خطوات إعادة المشكلة، النتيجة المتوقعة، والنتيجة الفعلية" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <select className="rounded-xl border bg-white p-3 text-sm" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{Object.entries(INCIDENT_LABELS.category).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select className="rounded-xl border bg-white p-3 text-sm" value={form.severity} onChange={e=>setForm({...form,severity:e.target.value})}>{Object.entries(INCIDENT_LABELS.severity).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <input className="rounded-xl border bg-white p-3 text-sm" placeholder="الصفحة أو الجزء المتأثر" value={form.affected_area} onChange={e=>setForm({...form,affected_area:e.target.value})}/>
+      </div>
+      <div className="flex justify-end gap-2"><button onClick={()=>setShowForm(false)} className="rounded-xl border px-4 py-2 text-sm">إلغاء</button><button disabled={saving} onClick={create} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving?'جارٍ التسجيل...':'حفظ البلاغ'}</button></div>
+    </div>}
+    {loading ? <div className="py-12 text-center text-sm text-slate-500">جارٍ تحميل سجل الأعطال...</div> : items.length===0 ? <div className="rounded-2xl border border-dashed p-10 text-center"><Server className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 font-bold">لا توجد بلاغات مسجلة</p><p className="mt-1 text-xs text-slate-500">يمكن تسجيل الخلل هنا ليظهر لفريق التطوير.</p></div> :
+      <div className="space-y-3">{items.map(item=><article key={item.id} className="rounded-2xl border border-slate-200 p-4">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{item.title}</h3><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px]">{INCIDENT_LABELS.category[item.category]||item.category}</span><span className={`rounded-full px-2 py-1 text-[10px] ${item.severity==='critical'?'bg-red-100 text-red-700':item.severity==='high'?'bg-orange-100 text-orange-700':'bg-slate-100 text-slate-600'}`}>{INCIDENT_LABELS.severity[item.severity]||item.severity}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.description}</p><p className="mt-2 text-xs text-slate-400">{item.affected_area||'لم يحدد الجزء المتأثر'} · {fmtDate(item.created_at)}</p></div>
+          <div className="flex shrink-0 flex-col gap-2 sm:w-44"><select className="rounded-lg border p-2 text-xs" value={item.status} onChange={e=>update(item.id,{status:e.target.value})}>{Object.entries(INCIDENT_LABELS.status).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><select className="rounded-lg border p-2 text-xs" value={item.assigned_to||''} onChange={e=>update(item.id,{assigned_to:e.target.value||null})}><option value="">غير مسند</option>{members.map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+        </div>
+      </article>)}</div>}
+  </div>;
+}
+
+function PlatformPermissionsTab() {
+  const [team,setTeam]=useState([]);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{callOwnerApi('list_team_members').then(setTeam).catch(e=>toast.error(e.message)).finally(()=>setLoading(false));},[]);
+  return <div className="space-y-5"><div><h2 className="text-xl font-black">صلاحيات فريق المنصة</h2><p className="mt-1 text-sm text-slate-500">مراجعة الأعضاء والأدوار. تفعيل الحجب الفعلي لكل شاشة يتطلب ربط هذه الصلاحيات بحارس المسارات وواجهات الخادم قبل منح حسابات الموظفين.</p></div>
+    {loading?<p className="py-8 text-center text-sm text-slate-500">جارٍ التحميل...</p>:team.map(m=><div key={m.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-bold">{m.full_name}</p><p className="text-xs text-slate-500">{m.department||m.role} · {m.job_title||'بدون مسمى'}</p></div><span className={`rounded-full px-3 py-1 text-xs ${m.is_active?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-500'}`}>{m.is_active?'نشط':'موقوف'}</span></div>)}
+    <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">تنبيه أمني: لا تمنح موظفًا دخولًا فعليًا قبل اكتمال تسجيل الدخول الفردي وربط كل عملية بصلاحيات الخادم.</div>
+  </div>;
+}
+function PlatformCareersTab() {
+  const blank = { id:'', title:'', slug:'', summary:'', department:'', employment_type:'FULL_TIME', workplace_type:'ONSITE', location:'', country:'SA', applicant_country:'Saudi Arabia', description:'', responsibilities:'', requirements:'', preferred_qualifications:'', benefits:'', salary_min:'', salary_max:'', salary_currency:'SAR', salary_period:'MONTH', valid_through:'', status:'draft' };
+  const [view,setView]=useState('jobs'), [jobs,setJobs]=useState([]), [applications,setApplications]=useState([]);
+  const [form,setForm]=useState(blank), [editing,setEditing]=useState(false), [showForm,setShowForm]=useState(false);
+  const [loadingData,setLoadingData]=useState(true), [saving,setSaving]=useState(false), [search,setSearch]=useState(''), [filter,setFilter]=useState('all');
+  const load=async()=>{setLoadingData(true);try{const values=await Promise.all([callOwnerApi('list_job_posts'),callOwnerApi('list_job_applications')]);setJobs(values[0]||[]);setApplications(values[1]||[]);}catch(e){toast.error(e.message||'تعذر تحميل بيانات التوظيف');}finally{setLoadingData(false);}};
+  useEffect(()=>{load();},[]);
+  const startNew=()=>{setForm(blank);setEditing(false);setShowForm(true);};
+  const startEdit=(job)=>{setForm({...blank,...job,salary_min:job.salary_min??'',salary_max:job.salary_max??'',valid_through:job.valid_through||''});setEditing(true);setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});};
+  const update=(key,value)=>setForm(v=>({...v,[key]:value}));
+  async function saveJob(e){e.preventDefault();if(!form.title.trim()||form.description.trim().length<20){toast.error('أدخل المسمى الوظيفي ووصفاً واضحاً لا يقل عن 20 حرفاً');return;}setSaving(true);try{await callOwnerApi('save_job_post',{...form,salary_min:form.salary_min===''?null:Number(form.salary_min),salary_max:form.salary_max===''?null:Number(form.salary_max)});toast.success(form.status==='published'?'تم حفظ الوظيفة ونشرها':'تم حفظ مسودة الوظيفة');setShowForm(false);setForm(blank);setEditing(false);await load();}catch(e){toast.error(e.message||'تعذر حفظ الوظيفة');}finally{setSaving(false);}}
+  async function changeStatus(id,status){const job=jobs.find(x=>x.id===id);if(!job)return;try{await callOwnerApi('save_job_post',{...job,status});toast.success(status==='published'?'تم نشر الوظيفة':status==='closed'?'تم إغلاق الوظيفة':'تم حفظ المسودة');await load();}catch(e){toast.error(e.message);}}
+  async function removeJob(job){if(!window.confirm('هل تريد حذف إعلان الوظيفة؟'))return;try{await callOwnerApi('delete_job_post',{id:job.id});toast.success('تم حذف الوظيفة');await load();}catch(e){toast.error(e.message);}}
+  async function changeApplicationStatus(id,status){try{await callOwnerApi('update_job_application',{id,status});setApplications(rows=>rows.map(x=>x.id===id?{...x,status}:x));toast.success('تم تحديث حالة المتقدم');}catch(e){toast.error(e.message);}}
+  async function openResume(id){try{const url=await callOwnerApi('job_resume_url',{id});window.open(url,'_blank','noopener,noreferrer');}catch(e){toast.error(e.message||'تعذر فتح السيرة الذاتية');}}
+  const filteredJobs=jobs.filter(j=>(filter==='all'||j.status===filter)&&(!search||[j.title,j.department,j.location].some(x=>String(x||'').toLowerCase().includes(search.toLowerCase()))));
+  const filteredApps=applications.filter(a=>!search||[a.full_name,a.email,a.phone,a.job_posts?.title].some(x=>String(x||'').toLowerCase().includes(search.toLowerCase())));
+  const statusLabels={draft:'مسودة',published:'منشورة',closed:'مغلقة'}, appLabels={received:'جديد',reviewing:'قيد المراجعة',shortlisted:'مرشح',rejected:'مرفوض',hired:'تم التوظيف'};
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-2xl font-black">إدارة التوظيف</h2><p className="mt-1 text-sm text-slate-500">أنشئ الوظائف، انشرها على صفحة التوظيف، وتابع طلبات المتقدمين من مكان واحد.</p></div><a href="/careers" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold hover:bg-slate-50"><ExternalLink className="h-4 w-4"/> صفحة الوظائف العامة</a></div>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[['كل الوظائف',jobs.length],['منشورة',jobs.filter(j=>j.status==='published').length],['مسودات',jobs.filter(j=>j.status==='draft').length],['طلبات التقديم',applications.length]].map(([label,value])=><div key={label} className="rounded-2xl border bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl font-black">{fmt(value)}</p></div>)}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex gap-2 rounded-xl bg-slate-100 p-1"><button onClick={()=>{setView('jobs');setShowForm(false);}} className={'rounded-lg px-4 py-2 text-sm font-bold '+(view==='jobs'?'bg-white shadow':'text-slate-500')}>إعلانات الوظائف ({jobs.length})</button><button onClick={()=>{setView('applications');setShowForm(false);}} className={'rounded-lg px-4 py-2 text-sm font-bold '+(view==='applications'?'bg-white shadow':'text-slate-500')}>المتقدمون ({applications.length})</button></div>
+      <div className="flex flex-wrap gap-2"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث بالاسم أو الوظيفة..." className="h-10 w-56 rounded-xl border px-3 text-sm outline-none focus:border-slate-400"/>{view==='jobs'&&<button onClick={startNew} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"><Plus className="h-4 w-4"/> إضافة وظيفة</button>}<button onClick={load} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold"><RefreshCw className="h-4 w-4"/> تحديث</button></div>
+    </div>
+    {view==='jobs'&&showForm&&<form onSubmit={saveJob} className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-black">{editing?'تعديل الوظيفة':'إضافة وظيفة جديدة'}</h3><p className="text-xs text-slate-500">كل وظيفة منشورة تحصل على صفحة مستقلة برابط خاص.</p></div><button type="button" onClick={()=>setShowForm(false)} className="rounded-lg border p-2" aria-label="إغلاق"><X className="h-4 w-4"/></button></div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="space-y-1 text-sm font-bold">المسمى الوظيفي<input required value={form.title} onChange={e=>update('title',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal" placeholder="مثال: مطور واجهات أمامية"/></label>
+        <label className="space-y-1 text-sm font-bold">القسم<input value={form.department} onChange={e=>update('department',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal" placeholder="التقنية، التسويق، المبيعات..."/></label>
+        <label className="space-y-1 text-sm font-bold">رابط الصفحة<input value={form.slug} onChange={e=>update('slug',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal" placeholder="يُنشأ تلقائياً من المسمى"/></label>
+        <label className="space-y-1 text-sm font-bold">الموقع<input value={form.location} onChange={e=>update('location',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal" placeholder="جدة، الرياض، عن بُعد..."/></label>
+        <label className="space-y-1 text-sm font-bold">نوع الدوام<select value={form.employment_type} onChange={e=>update('employment_type',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"><option value="FULL_TIME">دوام كامل</option><option value="PART_TIME">دوام جزئي</option><option value="CONTRACTOR">متعاون</option><option value="CONTRACT">عقد</option></select></label>
+        <label className="space-y-1 text-sm font-bold">مكان العمل<select value={form.workplace_type} onChange={e=>update('workplace_type',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"><option value="ONSITE">من مقر الشركة</option><option value="REMOTE">عن بُعد</option><option value="HYBRID">هجين</option></select></label>
+        <label className="space-y-1 text-sm font-bold">حالة الإعلان<select value={form.status} onChange={e=>update('status',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"><option value="draft">مسودة</option><option value="published">نشر الآن</option><option value="closed">مغلق</option></select></label>
+        <label className="space-y-1 text-sm font-bold">آخر موعد للتقديم<input type="date" value={form.valid_through||''} onChange={e=>update('valid_through',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"/></label>
+      </div>
+      <label className="block space-y-1 text-sm font-bold">نبذة مختصرة<textarea value={form.summary||''} onChange={e=>update('summary',e.target.value)} rows={2} className="w-full rounded-xl border bg-white p-3 font-normal" placeholder="ملخص يظهر في بطاقة الوظيفة"/></label>
+      <label className="block space-y-1 text-sm font-bold">الوصف الوظيفي بالتفصيل <span className="font-normal text-slate-500">(مطلوب)</span><textarea required minLength={20} value={form.description} onChange={e=>update('description',e.target.value)} rows={5} className="w-full rounded-xl border bg-white p-3 font-normal" placeholder="اكتب نبذة الوظيفة والهدف منها..."/></label>
+      <div className="grid gap-3 md:grid-cols-2">{[['responsibilities','المهام والمسؤوليات'],['requirements','المتطلبات والمؤهلات'],['preferred_qualifications','المؤهلات المفضلة'],['benefits','المزايا الوظيفية']].map(([key,label])=><label key={key} className="space-y-1 text-sm font-bold">{label}<textarea value={form[key]||''} onChange={e=>update(key,e.target.value)} rows={4} className="w-full rounded-xl border bg-white p-3 font-normal" placeholder="اكتب كل نقطة في سطر مستقل..."/></label>)}</div>
+      <div className="grid gap-3 md:grid-cols-3"><label className="space-y-1 text-sm font-bold">الحد الأدنى للراتب<input type="number" min="0" value={form.salary_min} onChange={e=>update('salary_min',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"/></label><label className="space-y-1 text-sm font-bold">الحد الأعلى للراتب<input type="number" min="0" value={form.salary_max} onChange={e=>update('salary_max',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"/></label><label className="space-y-1 text-sm font-bold">فترة الراتب<select value={form.salary_period} onChange={e=>update('salary_period',e.target.value)} className="h-11 w-full rounded-xl border bg-white px-3 font-normal"><option value="MONTH">شهري</option><option value="YEAR">سنوي</option><option value="HOUR">بالساعة</option></select></label></div>
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-4"><button type="button" onClick={()=>setShowForm(false)} className="rounded-xl border bg-white px-5 py-2.5 text-sm font-bold">إلغاء</button><button disabled={saving} type="submit" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Check className="h-4 w-4"/>}{form.status==='published'?'حفظ ونشر الوظيفة':'حفظ الوظيفة'}</button></div>
+    </form>}
+    {loadingData?<div className="flex justify-center py-14"><Loader2 className="h-7 w-7 animate-spin text-slate-400"/></div>:view==='jobs'?<div className="space-y-3">
+      <div className="flex flex-wrap gap-2">{[['all','الكل'],['published','منشورة'],['draft','مسودات'],['closed','مغلقة']].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={'rounded-full px-3 py-1.5 text-xs font-bold '+(filter===v?'bg-slate-900 text-white':'bg-slate-100 text-slate-600')}>{l}</button>)}</div>
+      {!filteredJobs.length?<div className="rounded-2xl border border-dashed p-10 text-center"><UserCog className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 font-bold">لا توجد وظائف في هذا التصنيف</p><p className="mt-1 text-sm text-slate-500">اضغط إضافة وظيفة لإنشاء أول إعلان وظيفي.</p></div>:filteredJobs.map(job=><article key={job.id} className="flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{job.title}</h3><span className={'rounded-full px-2.5 py-1 text-[10px] font-bold '+(job.status==='published'?'bg-emerald-50 text-emerald-700':job.status==='closed'?'bg-slate-200 text-slate-600':'bg-amber-50 text-amber-700')}>{statusLabels[job.status]}</span></div><p className="mt-1 text-xs text-slate-500">{job.department||'بدون قسم'} · {job.location||'الموقع غير محدد'} · {fmtDate(job.created_at)}</p><p className="mt-2 line-clamp-2 text-sm text-slate-600">{job.summary||job.description}</p></div>
+        <div className="flex shrink-0 flex-wrap gap-2">{job.status==='published'&&<a href={'/careers/'+encodeURIComponent(job.slug)} target="_blank" rel="noreferrer" className="rounded-lg border px-3 py-2 text-xs font-bold">عرض الصفحة</a>}<button onClick={()=>startEdit(job)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-bold"><Pencil className="h-3.5 w-3.5"/> تعديل</button>{job.status!=='published'&&<button onClick={()=>changeStatus(job.id,'published')} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">نشر</button>}{job.status==='published'&&<button onClick={()=>changeStatus(job.id,'closed')} className="rounded-lg border px-3 py-2 text-xs font-bold">إغلاق</button>}<button onClick={()=>removeJob(job)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600"><Trash2 className="h-3.5 w-3.5"/></button></div>
+      </article>)}
+    </div>:<div className="space-y-3">{!filteredApps.length?<div className="rounded-2xl border border-dashed p-10 text-center"><Users className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 font-bold">لا توجد طلبات تقديم حتى الآن</p></div>:filteredApps.map(app=><article key={app.id} className="rounded-2xl border p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{app.full_name}</h3><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px]">{appLabels[app.status]||app.status}</span></div><p className="mt-1 text-sm text-slate-600">{app.job_posts?.title||'وظيفة محذوفة'} · {fmtDate(app.created_at)}</p><p className="mt-1 break-all text-xs text-slate-500">{app.email} {app.phone?'· '+app.phone:''} {app.location?'· '+app.location:''}</p><p className="mt-2 text-xs text-slate-500">{app.university||'—'} · {app.major||'—'} · {app.experience_years??0} سنوات خبرة</p>{(app.languages?.length>0||app.skills?.length>0)&&<p className="mt-2 text-xs text-slate-600">اللغات: {(app.languages||[]).join('، ')} · المهارات: {(app.skills||[]).join('، ')}</p>}</div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2"><select value={app.status} onChange={e=>changeApplicationStatus(app.id,e.target.value)} className="h-10 rounded-lg border px-3 text-xs font-bold">{Object.entries(appLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>{app.resume_path&&<button onClick={()=>openResume(app.id)} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-bold text-white"><FileText className="h-4 w-4"/> السيرة الذاتية</button>}</div>
+    </div></article>)}</div>}
+  </div>;
+}
+function PlatformWebsiteTab() { return <div className="space-y-3"><h2 className="text-xl font-black">الموقع والمحتوى</h2><p className="text-sm text-slate-500">إدارة نصوص الموقع التسويقي والأسعار والصفحات. التعديل المباشر للصفحات غير مربوط بالكامل بلوحة المالك حتى الآن.</p><a className="inline-flex rounded-xl border px-4 py-2 text-sm font-bold" href="https://felsy.org" target="_blank" rel="noreferrer">فتح الموقع التسويقي</a></div>; }
+function PlatformSeoTab() { return <div className="space-y-3"><h2 className="text-xl font-black">SEO وظهور Google</h2><p className="text-sm text-slate-500">إدارة Sitemap وبيانات Schema ومتابعة الفهرسة. لا توجد حاليًا وصلة Search Console موثقة داخل لوحة المالك، لذلك لا تعرض هذه الشاشة حالة فهرسة غير متحققة.</p><a className="inline-flex rounded-xl border px-4 py-2 text-sm font-bold" href="https://search.google.com/search-console" target="_blank" rel="noreferrer">فتح Google Search Console</a></div>; }
+function PlatformSettingsTab() { return <div className="space-y-3"><h2 className="text-xl font-black">إعدادات المنصة العامة</h2><p className="text-sm text-slate-500">إعدادات المساعد الذكي والمحتوى متاحة حاليًا ضمن تبويباتها. إعدادات البريد والتنبيهات والتكاملات العامة تحتاج واجهات ربط مستقلة.</p></div>; }
