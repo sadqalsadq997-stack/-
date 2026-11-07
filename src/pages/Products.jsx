@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, Plus, Search, Trash2, Edit3, Loader2, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Search, Trash2, Edit3, Loader2, ToggleLeft, ToggleRight, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import ProductForm from '@/components/products/ProductForm';
+import ProductImport from '@/components/products/ProductImport';
 
 export default function Products() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState(null);
   const qc = useQueryClient();
 
@@ -37,11 +39,20 @@ export default function Products() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
   });
 
+  const q = search.trim().toLowerCase();
   const filtered = products.filter(p =>
-    !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.name_ar?.includes(search) || p.barcode?.includes(search)
+    !q ||
+    p.name?.toLowerCase().includes(q) ||
+    p.name_ar?.includes(search.trim()) ||
+    p.barcode?.toLowerCase().includes(q) ||
+    p.sku?.toLowerCase().includes(q)
   );
 
   const formatSAR = n => `${Number(n || 0).toLocaleString('ar')} ⃁`;
+
+  if (showImport) {
+    return <ProductImport onClose={() => { setShowImport(false); qc.invalidateQueries({ queryKey: ['products'] }); }} />;
+  }
 
   if (showForm || editing) {
     return <ProductForm product={editing} onClose={() => { setShowForm(false); setEditing(null); qc.invalidateQueries({ queryKey: ['products'] }); }} />;
@@ -49,20 +60,26 @@ export default function Products() {
 
   return (
     <div dir="rtl" className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
           <Package className="w-6 h-6 text-primary" />
           المنتجات
         </h1>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
-          <Plus className="w-4 h-4" /> إضافة منتج
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 border border-border px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors">
+            <FileSpreadsheet className="w-4 h-4" /> استيراد من إكسل
+          </button>
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Plus className="w-4 h-4" /> إضافة منتج
+          </button>
+        </div>
       </div>
 
       <div className="relative max-w-xs">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم المنتج أو الباركود..."
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="الاسم أو الباركود أو رمز المنتج..."
           className="w-full h-10 bg-card border border-border rounded-xl pr-9 pl-3 text-sm focus:outline-none focus:border-primary" />
       </div>
 
@@ -87,8 +104,9 @@ export default function Products() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-foreground truncate">{p.name_ar || p.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {p.categories && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{p.categories.name_ar || p.categories.name}</span>}
+                    {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
                     {p.barcode && <span className="text-xs text-muted-foreground">{p.barcode}</span>}
                     {p.track_inventory && p.min_stock_alert != null && (
                       <span className="flex items-center gap-1 text-xs text-amber-600">
