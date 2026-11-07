@@ -6,13 +6,23 @@ import { uploadImage } from '@/lib/images';
 import { VAT_CATEGORIES, VAT_EXEMPTIONS, vatCategoryOf } from '@/lib/vat';
 import { toast } from 'sonner';
 
+// نص فاضي ⇒ null (حتى لا يتعارض الباركود/الرمز الفاضي مع قيود الفرادة)
+const textOrNull = (v) => {
+  const t = typeof v === 'string' ? v.trim() : v;
+  return t === '' || t == null ? null : String(t);
+};
+// رقم فاضي ⇒ null، لكن الصفر قيمة صحيحة ولا يُعامل كفاضي
+const numOrNull = (v) => (v === '' || v == null ? null : Number(v));
+
 export default function ProductForm({ product, onClose }) {
   const isEdit = !!product?.id;
+  // نستبعد categories: هذا كائن مرتبط جاء من الـ join في قائمة المنتجات وليس عموداً في الجدول
+  const { categories: _joined, ...productFields } = product || {};
   const [form, setForm] = useState({
     name: '', name_ar: '', base_price: '', cost_price: '', barcode: '', sku: '',
     category_id: '', unit_type: 'piece', is_active: true, show_in_menu: true,
     show_in_store: false, track_inventory: false, min_stock_alert: 5, tax_rate: 15,
-    tax_inclusive: false, ...product,
+    tax_inclusive: false, ...productFields,
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -25,17 +35,41 @@ export default function ProductForm({ product, onClose }) {
     mutationFn: async () => {
       const cat = vatCategoryOf(form);
       if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
+
+      // نرسل فقط الحقول اللي يديرها هذا النموذج.
+      // قبل: كان كل شيء في form يُرسل (id, created_at, tenant_id, categories...) ⇒
+      //   • الحفظ يفشل أو يكتب فوق حقول أخرى بقيم قديمة
+      //   • السعر 0 كان يتحول لفاضي، والباركود الفاضي '' يُحفظ كنص
       const payload = {
-        ...form,
-        base_price: form.base_price ? Number(form.base_price) : null,
-        cost_price: form.cost_price ? Number(form.cost_price) : null,
-        min_stock_alert: Number(form.min_stock_alert),
+        name: textOrNull(form.name) || textOrNull(form.name_ar),
+        name_ar: textOrNull(form.name_ar),
+        barcode: textOrNull(form.barcode),
+        sku: textOrNull(form.sku),
+        base_price: numOrNull(form.base_price),
+        cost_price: numOrNull(form.cost_price),
+        category_id: form.category_id || null,
+        unit_type: form.unit_type || 'piece',
+        image_url: form.image_url || null,
+        is_active: !!form.is_active,
+        show_in_menu: !!form.show_in_menu,
+        show_in_store: !!form.show_in_store,
+        track_inventory: !!form.track_inventory,
+        tax_inclusive: !!form.tax_inclusive,
+        min_stock_alert: form.min_stock_alert === '' || form.min_stock_alert == null ? 5 : Number(form.min_stock_alert),
         vat_category: cat,
         vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
         tax_rate: cat === 'S' ? 15 : 0,
       };
-      if (isEdit) { const { error } = await supabase.from('products').update(payload).eq('id', product.id); if (error) throw error; }
-      else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; }
+
+      if (isEdit) {
+        // .select() يرجّع الصف بعد الحفظ؛ لو رجع فاضي معناه ما انحفظ شيء (صلاحيات/RLS)
+        const { data, error } = await supabase.from('products').update(payload).eq('id', product.id).select('id');
+        if (error) throw error;
+        if (!data?.length) throw new Error('لم يتم حفظ التعديل (تحقق من الصلاحيات)');
+      } else {
+        const { error } = await supabase.from('products').insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => { toast.success(isEdit ? 'تم تحديث المنتج' : 'تم إضافة المنتج'); onClose(); },
     onError: (e) => toast.error('فشل الحفظ: ' + e.message),
@@ -55,18 +89,18 @@ export default function ProductForm({ product, onClose }) {
           {[['name_ar','الاسم بالعربي',true],['name','الاسم بالإنجليزي',false],['barcode','الباركود',false],['sku','رمز المنتج SKU',false]].map(([k,l,req]) => (
             <div key={k}>
               <label className="text-xs text-muted-foreground mb-1 block">{l}{req && <span className="text-red-500">*</span>}</label>
-              <input value={form[k]||''} onChange={e => set(k, e.target.value)}
+              <input value={form[k] ?? ''} onChange={e => set(k, e.target.value)}
                 className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
             </div>
           ))}
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">سعر البيع (⃁)</label>
-            <input type="number" step="0.01" value={form.base_price||''} onChange={e => set('base_price', e.target.value)}
+            <input type="number" step="0.01" min="0" value={form.base_price ?? ''} onChange={e => set('base_price', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">سعر التكلفة (⃁)</label>
-            <input type="number" step="0.01" value={form.cost_price||''} onChange={e => set('cost_price', e.target.value)}
+            <input type="number" step="0.01" min="0" value={form.cost_price ?? ''} onChange={e => set('cost_price', e.target.value)}
               className="w-full h-10 bg-background border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-primary" />
           </div>
           <div>
