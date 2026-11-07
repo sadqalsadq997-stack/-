@@ -6,6 +6,12 @@ import { uploadImage } from '@/lib/images';
 import { VAT_CATEGORIES, VAT_EXEMPTIONS, vatCategoryOf } from '@/lib/vat';
 import { toast } from 'sonner';
 
+const EDITABLE_FIELDS = [
+  'name', 'name_ar', 'sku', 'barcode', 'category_id', 'image_url', 'base_price', 'cost_price',
+  'unit_type', 'is_active', 'show_in_menu', 'show_in_store', 'track_inventory', 'min_stock_alert',
+  'tax_inclusive',
+];
+
 export default function ProductForm({ product, onClose }) {
   const isEdit = !!product?.id;
   const [form, setForm] = useState({
@@ -25,15 +31,19 @@ export default function ProductForm({ product, onClose }) {
     mutationFn: async () => {
       const cat = vatCategoryOf(form);
       if (cat !== 'S' && !form.vat_exemption_code) throw new Error('اختر سبب الإعفاء أو النسبة الصفرية');
-      const payload = {
-        ...form,
-        base_price: form.base_price ? Number(form.base_price) : null,
-        cost_price: form.cost_price ? Number(form.cost_price) : null,
-        min_stock_alert: Number(form.min_stock_alert),
+      // نرسل فقط الأعمدة القابلة للتعديل. إرسال كامل الصف (مع categories المضمّنة وstock_quantity
+      // وid وtenant_id...) كان يرفضه السيرفر فيفشل زر التعديل، وقد يكتب فوق كمية المخزون بقيمة قديمة.
+      const payload = {};
+      for (const k of EDITABLE_FIELDS) if (k in form) payload[k] = form[k];
+      Object.assign(payload, {
+        category_id: form.category_id || null,
+        base_price: form.base_price !== '' && form.base_price != null ? Number(form.base_price) : null,
+        cost_price: form.cost_price !== '' && form.cost_price != null ? Number(form.cost_price) : null,
+        min_stock_alert: form.min_stock_alert === '' || form.min_stock_alert == null ? 5 : Number(form.min_stock_alert),
         vat_category: cat,
         vat_exemption_code: cat === 'S' ? null : form.vat_exemption_code,
         tax_rate: cat === 'S' ? 15 : 0,
-      };
+      });
       if (isEdit) { const { error } = await supabase.from('products').update(payload).eq('id', product.id); if (error) throw error; }
       else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; }
     },
